@@ -557,7 +557,7 @@ export type Database = {
           created_at: string
           id: string
           license_number: string | null
-          location: unknown | null
+          location: unknown
           rating: number | null
           total_orders: number | null
           updated_at: string
@@ -569,7 +569,7 @@ export type Database = {
           created_at?: string
           id?: string
           license_number?: string | null
-          location?: unknown | null
+          location?: unknown
           rating?: number | null
           total_orders?: number | null
           updated_at?: string
@@ -581,7 +581,7 @@ export type Database = {
           created_at?: string
           id?: string
           license_number?: string | null
-          location?: unknown | null
+          location?: unknown
           rating?: number | null
           total_orders?: number | null
           updated_at?: string
@@ -756,7 +756,7 @@ export type Database = {
     }
     Functions: {
       get_current_user_role: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
     }
