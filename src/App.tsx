@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,11 +11,43 @@ import DoctorDashboard from "./pages/dashboards/DoctorDashboard";
 import PharmacistDashboard from "./pages/dashboards/PharmacistDashboard";
 import AdminDashboard from "./pages/dashboards/AdminDashboard";
 import NotFound from "./pages/NotFound";
+import { DevRoleSwitcher } from "@/components/dev/DevRoleSwitcher";
 
 const queryClient = new QueryClient();
 
+// DEV MODE: Set to true to bypass authentication
+const DEV_MODE = true;
+
+type DevRole = 'patient' | 'doctor' | 'pharmacist' | 'admin';
+
+function DevModeRoute() {
+  const [devRole, setDevRole] = useState<DevRole | null>(null);
+
+  if (!devRole) {
+    return <DevRoleSwitcher onSelectRole={setDevRole} />;
+  }
+
+  switch (devRole) {
+    case 'patient':
+      return <PatientDashboard />;
+    case 'doctor':
+      return <DoctorDashboard />;
+    case 'pharmacist':
+      return <PharmacistDashboard />;
+    case 'admin':
+      return <AdminDashboard />;
+    default:
+      return <DevRoleSwitcher onSelectRole={setDevRole} />;
+  }
+}
+
 function ProtectedRoute() {
   const { user, profile, loading } = useAuth();
+
+  // Use dev mode bypass
+  if (DEV_MODE) {
+    return <DevModeRoute />;
+  }
 
   if (loading) {
     return (
