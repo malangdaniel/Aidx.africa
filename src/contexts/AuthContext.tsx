@@ -5,12 +5,12 @@ import { supabase } from '@/integrations/supabase/client';
 interface Profile {
   id: string;
   user_id: string;
-  role: 'patient' | 'doctor' | 'pharmacist' | 'admin';
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
   verification_status: 'pending' | 'verified' | 'rejected';
   metadata: any;
+  role?: 'patient' | 'doctor' | 'pharmacist' | 'admin';
 }
 
 interface AuthContextType {
@@ -42,17 +42,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Fetch profile data
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
         .single();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
         return null;
       }
-      return data;
+
+      // Fetch role from user_roles table
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (roleError) {
+        console.error('Error fetching role:', roleError);
+      }
+
+      return {
+        ...profileData,
+        role: roleData?.role || 'patient'
+      };
     } catch (error) {
       console.error('Error in fetchProfile:', error);
       return null;
