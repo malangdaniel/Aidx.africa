@@ -1,101 +1,62 @@
 import { useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Pill, Package, ShoppingCart, TrendingUp, AlertTriangle, Star, Plus } from 'lucide-react';
 import OrderManagement from '@/components/pharmacist/OrderManagement';
+import BottomNav from '@/components/layout/BottomNav';
 
 export default function PharmacistDashboard() {
   const [activeTab, setActiveTab] = useState('orders');
 
   const tabs = [
     { id: 'orders', label: 'Orders', icon: ShoppingCart },
-    { id: 'inventory', label: 'Inventory', icon: Package },
+    { id: 'inventory', label: 'Stocks', icon: Package },
     { id: 'alerts', label: 'Alerts', icon: AlertTriangle },
-    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+    { id: 'analytics', label: 'Stats', icon: TrendingUp },
     { id: 'reviews', label: 'Reviews', icon: Star },
   ];
 
   return (
     <DashboardLayout title="Pharmacy Dashboard">
       <div className="space-y-6">
-        {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-primary to-secondary rounded-lg p-6 text-primary-foreground">
-          <h1 className="text-2xl font-bold mb-2">Welcome to Your Pharmacy!</h1>
-          <p className="opacity-90">Manage orders and inventory efficiently</p>
-        </div>
-
         {/* Quick Stats */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0</div>
-              <p className="text-xs text-muted-foreground">All time</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="bg-gradient-to-br from-primary to-teal-700 text-primary-foreground border-none">
+            <CardContent className="p-4 flex flex-col justify-between h-full">
+              <p className="text-xs opacity-80 uppercase">Active Orders</p>
+              <div className="text-2xl font-bold mt-1">5</div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">₦0.00</div>
-              <p className="text-xs text-muted-foreground">This month</p>
+          <Card className="bg-white border-l-4 border-l-green-500 shadow-sm">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground uppercase">Revenue</p>
+              <div className="text-2xl font-bold mt-1 text-green-700">₦250k</div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Products</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0</div>
-              <p className="text-xs text-muted-foreground">In inventory</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Rating</CardTitle>
-              <Star className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">5.0</div>
-              <p className="text-xs text-muted-foreground">Average rating</p>
+          <Card className="bg-white border-l-4 border-l-orange-500 shadow-sm">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground uppercase">Low Stock</p>
+              <div className="text-2xl font-bold mt-1 text-orange-600">2</div>
             </CardContent>
           </Card>
         </div>
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <TabsTrigger key={tab.id} value={tab.id} className="flex items-center gap-2">
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-
           <TabsContent value="orders" className="space-y-4">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">Order Management</h2>
+              <h2 className="text-xl font-bold text-foreground/80">Order Management</h2>
             </div>
             <OrderManagement />
           </TabsContent>
 
           <TabsContent value="inventory" className="space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Inventory Management</h2>
-              <Button>
+              <h2 className="text-xl font-bold text-foreground/80">Inventory</h2>
+              <Button size="sm">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Product
               </Button>
@@ -106,17 +67,13 @@ export default function PharmacistDashboard() {
                   <Package className="w-12 h-12 mx-auto mb-4" />
                   <h3 className="text-lg font-medium mb-2">No Products Added</h3>
                   <p>Start adding medications to your inventory to begin selling</p>
-                  <Button className="mt-4">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Your First Product
-                  </Button>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="alerts" className="space-y-4">
-            <h2 className="text-2xl font-bold">Alerts & Notifications</h2>
+            <h2 className="text-xl font-bold text-foreground/80">Alerts</h2>
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
                 <CardHeader>
@@ -130,63 +87,22 @@ export default function PharmacistDashboard() {
                   <p className="text-sm text-muted-foreground">Products need restocking</p>
                 </CardContent>
               </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-red-700">
-                    <AlertTriangle className="w-5 h-5" />
-                    Expiring Soon
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">0</div>
-                  <p className="text-sm text-muted-foreground">Products expiring in 30 days</p>
-                </CardContent>
-              </Card>
             </div>
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-4">
-            <h2 className="text-2xl font-bold">Sales Analytics</h2>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Top Selling Products</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center text-muted-foreground">
-                    <TrendingUp className="w-8 h-8 mx-auto mb-2" />
-                    <p>No sales data yet</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Revenue Trends</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center text-muted-foreground">
-                    <TrendingUp className="w-8 h-8 mx-auto mb-2" />
-                    <p>No revenue data yet</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <h2 className="text-xl font-bold text-foreground/80">Analytics</h2>
+            <Card><CardContent className="p-6 text-center text-muted-foreground">No data available</CardContent></Card>
           </TabsContent>
 
           <TabsContent value="reviews" className="space-y-4">
-            <h2 className="text-2xl font-bold">Customer Reviews</h2>
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground">
-                  <Star className="w-12 h-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Reviews Yet</h3>
-                  <p>Complete your first orders to start receiving customer reviews</p>
-                </div>
-              </CardContent>
-            </Card>
+            <h2 className="text-xl font-bold text-foreground/80">Reviews</h2>
+            <Card><CardContent className="p-6 text-center text-muted-foreground">No reviews available</CardContent></Card>
           </TabsContent>
         </Tabs>
       </div>
+
+      <BottomNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
     </DashboardLayout>
   );
 }
