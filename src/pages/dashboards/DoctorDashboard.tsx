@@ -3,10 +3,28 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Stethoscope, DollarSign, Calendar, Star, Users, TrendingUp } from 'lucide-react';
+import ConsultationView from '@/components/doctor/ConsultationView';
 
 export default function DoctorDashboard() {
   const [activeTab, setActiveTab] = useState('consultations');
+  const [activeConsultation, setActiveConsultation] = useState<{ id: string, name: string } | null>(null);
+
+  if (activeConsultation) {
+    return (
+      <div className="container mx-auto p-4 min-h-screen">
+        <div className="mb-4">
+          <Button variant="ghost" onClick={() => setActiveConsultation(null)}>← Back to Dashboard</Button>
+        </div>
+        <ConsultationView
+          consultationId={activeConsultation.id}
+          patientName={activeConsultation.name}
+          onEndConsultation={() => setActiveConsultation(null)}
+        />
+      </div>
+    );
+  }
 
   const tabs = [
     { id: 'consultations', label: 'Consultations', icon: Calendar },
@@ -85,12 +103,47 @@ export default function DoctorDashboard() {
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Consultations</h2>
               <div className="flex gap-2">
-                <Badge variant="secondary">Scheduled: 0</Badge>
+                <Badge variant="secondary">Scheduled: 1</Badge>
                 <Badge variant="default">Ongoing: 0</Badge>
-                <Badge variant="outline">Completed: 0</Badge>
+                <Badge variant="outline">Completed: 12</Badge>
               </div>
             </div>
-            
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Upcoming Appointments</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                        JD
+                      </div>
+                      <div>
+                        <h4 className="font-semibold">John Doe</h4>
+                        <p className="text-sm text-muted-foreground">General Checkup • 2:00 PM Today</p>
+                      </div>
+                    </div>
+                    <Button onClick={() => setActiveConsultation({ id: '1', name: 'John Doe' })}>Start Data Review</Button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 border rounded-lg opacity-60">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-bold">
+                        AS
+                      </div>
+                      <div>
+                        <h4 className="font-semibold">Amara Smith</h4>
+                        <p className="text-sm text-muted-foreground">Follow-up • 4:00 PM Today</p>
+                      </div>
+                    </div>
+                    <Button variant="outline" disabled>Upcoming</Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="grid gap-4 md:grid-cols-4">
               <Card className="border-blue-200 bg-blue-50">
                 <CardHeader className="pb-2">

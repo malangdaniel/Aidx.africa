@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Pill, Package, ShoppingCart, TrendingUp, AlertTriangle, Star, Plus } from 'lucide-react';
+import OrderManagement from '@/components/pharmacist/OrderManagement';
 
 export default function PharmacistDashboard() {
   const [activeTab, setActiveTab] = useState('orders');
@@ -85,64 +86,10 @@ export default function PharmacistDashboard() {
           </TabsList>
 
           <TabsContent value="orders" className="space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Order Management</h2>
-              <div className="flex gap-2">
-                <Badge variant="secondary">New: 0</Badge>
-                <Badge variant="default">Processing: 0</Badge>
-                <Badge variant="outline">Delivered: 0</Badge>
-              </div>
             </div>
-            
-            {/* Kanban Board */}
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card className="border-blue-200 bg-blue-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-blue-800">New Orders</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-900 mb-2">0</div>
-                  <p className="text-xs text-blue-700">Awaiting processing</p>
-                </CardContent>
-              </Card>
-              <Card className="border-yellow-200 bg-yellow-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-yellow-800">Processing</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-yellow-900 mb-2">0</div>
-                  <p className="text-xs text-yellow-700">Being prepared</p>
-                </CardContent>
-              </Card>
-              <Card className="border-purple-200 bg-purple-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-purple-800">Out for Delivery</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-purple-900 mb-2">0</div>
-                  <p className="text-xs text-purple-700">In transit</p>
-                </CardContent>
-              </Card>
-              <Card className="border-green-200 bg-green-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-green-800">Delivered</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-900 mb-2">0</div>
-                  <p className="text-xs text-green-700">Completed</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground">
-                  <ShoppingCart className="w-12 h-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Orders Yet</h3>
-                  <p>Start by adding products to your inventory to receive orders</p>
-                </div>
-              </CardContent>
-            </Card>
+            <OrderManagement />
           </TabsContent>
 
           <TabsContent value="inventory" className="space-y-4">

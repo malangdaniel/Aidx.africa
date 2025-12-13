@@ -4,9 +4,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, Calendar, Pill, Clock, Wallet, Bot, Video, Plus } from 'lucide-react';
+import AIChatInterface from '@/components/patient/AIChatInterface';
+
+import DoctorSearch from '@/components/patient/DoctorSearch';
+import MedicationMarketplace from '@/components/patient/MedicationMarketplace';
 
 export default function PatientDashboard() {
   const [activeTab, setActiveTab] = useState('ai-chat');
+  const [preselectedSpecialty, setPreselectedSpecialty] = useState<string | undefined>(undefined);
 
   const tabs = [
     { id: 'ai-chat', label: 'AI Assistant', icon: Bot },
@@ -74,68 +79,33 @@ export default function PatientDashboard() {
           </TabsList>
 
           <TabsContent value="ai-chat" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bot className="w-5 h-5" />
-                  AI Health Assistant
-                </CardTitle>
-                <CardDescription>
-                  Describe your symptoms and get instant AI-powered health guidance
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-muted rounded-lg p-6 text-center">
-                  <MessageSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-medium mb-2">Start a Conversation</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Tell me about your symptoms and I'll help you understand what might be going on.
-                  </p>
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Chat
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="max-w-4xl mx-auto">
+              <AIChatInterface
+                onBookConsult={(specialist) => {
+                  setPreselectedSpecialty(specialist);
+                  setActiveTab('consultations');
+                }}
+                onPharmacyRedirect={() => setActiveTab('pharmacy')}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="consultations" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Consultations</h2>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Book Consultation
-              </Button>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Find a Doctor</h2>
             </div>
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground">
-                  <Calendar className="w-12 h-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Consultations Yet</h3>
-                  <p>Book your first consultation with a qualified doctor</p>
-                </div>
-              </CardContent>
-            </Card>
+            <DoctorSearch initialSpecialty={preselectedSpecialty} />
           </TabsContent>
 
+          import MedicationMarketplace from '@/components/patient/MedicationMarketplace';
+
+          // ... (in the render function)
+
           <TabsContent value="pharmacy" className="space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Pharmacy</h2>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Browse Medications
-              </Button>
             </div>
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground">
-                  <Pill className="w-12 h-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Find Medications</h3>
-                  <p>Browse and order medications from verified pharmacies</p>
-                </div>
-              </CardContent>
-            </Card>
+            <MedicationMarketplace />
           </TabsContent>
 
           <TabsContent value="timeline" className="space-y-4">
