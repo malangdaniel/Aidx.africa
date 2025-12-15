@@ -18,12 +18,16 @@ export interface Doctor {
 interface DoctorCardProps {
     doctor: Doctor;
     onBook: (doctor: Doctor) => void;
+    onViewProfile: (doctor: Doctor) => void;
 }
 
-export default function DoctorCard({ doctor, onBook }: DoctorCardProps) {
+export default function DoctorCard({ doctor, onBook, onViewProfile }: DoctorCardProps) {
     return (
-        <Card className="overflow-hidden flex flex-col md:flex-row">
-            <div className="p-6 md:w-1/4 flex flex-col items-center justify-center bg-muted/30">
+        <Card
+            className="overflow-hidden flex flex-col md:flex-row cursor-pointer transition-colors hover:border-primary/50 group"
+            onClick={() => onViewProfile(doctor)}
+        >
+            <div className="p-6 md:w-1/4 flex flex-col items-center justify-center bg-muted/30 group-hover:bg-muted/50 transition-colors">
                 <Avatar className="w-24 h-24 mb-3">
                     <AvatarImage src={doctor.imageUrl} alt={doctor.name} />
                     <AvatarFallback className="text-xl">{doctor.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
@@ -40,7 +44,7 @@ export default function DoctorCard({ doctor, onBook }: DoctorCardProps) {
 
             <div className="p-6 md:w-3/4 flex flex-col justify-between">
                 <div>
-                    <h3 className="text-xl font-bold mb-1">{doctor.name}</h3>
+                    <h3 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors">{doctor.name}</h3>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
                         <div className="flex items-center gap-1">
                             <MapPin className="w-4 h-4" />
@@ -69,7 +73,14 @@ export default function DoctorCard({ doctor, onBook }: DoctorCardProps) {
                             <div className="text-lg font-bold">₦{doctor.price.toLocaleString()}</div>
                             <span className="text-xs text-muted-foreground">per session</span>
                         </div>
-                        <Button onClick={() => onBook(doctor)}>Book Consult</Button>
+                        <Button
+                            onClick={(e) => {
+                                e.stopPropagation(); // Prevent opening profile
+                                onBook(doctor);
+                            }}
+                        >
+                            Book Consult
+                        </Button>
                     </div>
                 </div>
             </div>

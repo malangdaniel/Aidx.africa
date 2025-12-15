@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar } from '@/components/ui/avatar';
 import { Bot, User, Send, RefreshCw } from 'lucide-react';
 import DiagnosisResult, { Diagnosis } from './DiagnosisResult';
+import { sendMessageToAI, generateDiagnosis as getAIDiagnosis, ChatMessage } from '@/services/ai';
 
 interface Message {
     id: string;
@@ -53,7 +54,7 @@ export default function AIChatInterface({
         }
     }, [messages, isAssessmentComplete]);
 
-    import { sendMessageToAI, generateDiagnosis as getAIDiagnosis, ChatMessage } from '@/services/ai';
+
 
     const handleSendMessage = async () => {
         if (!inputText.trim()) return;
@@ -74,7 +75,7 @@ export default function AIChatInterface({
             // We skip the first welcome message if it's from the assistant and strictly not part of the 'context' 
             // but usually it's fine to include or exclude. 
             // The service expects { role: 'user' | 'model', parts: [{ text }] }
-            const apiHistory: ChatMessage[] = newMessages
+            const apiHistory: ChatMessage[] = messages
                 .filter(m => m.id !== '1') // Skip the initial hardcoded greeting to avoid confusion or format processing
                 .map(m => ({
                     role: m.role === 'user' ? 'user' : 'model',

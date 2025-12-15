@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Search, Filter } from 'lucide-react';
 import DoctorCard, { Doctor } from './DoctorCard';
 import BookingModal from './BookingModal';
+import DoctorProfileOverlay from './DoctorProfileOverlay';
 import { toast } from 'sonner';
 
 interface DoctorSearchProps {
@@ -69,7 +70,9 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [specialtyFilter, setSpecialtyFilter] = useState(initialSpecialty || 'all');
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+    const [selectedProfileDoctor, setSelectedProfileDoctor] = useState<Doctor | null>(null);
     const [isBookingOpen, setIsBookingOpen] = useState(false);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     useEffect(() => {
         if (initialSpecialty) {
@@ -137,6 +140,10 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
                             key={doctor.id}
                             doctor={doctor}
                             onBook={handleBookClick}
+                            onViewProfile={(doc) => {
+                                setSelectedProfileDoctor(doc);
+                                setIsProfileOpen(true);
+                            }}
                         />
                     ))
                 ) : (
@@ -152,6 +159,16 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
                 isOpen={isBookingOpen}
                 onClose={() => setIsBookingOpen(false)}
                 onConfirm={handleBookingConfirm}
+            />
+
+            <DoctorProfileOverlay
+                doctor={selectedProfileDoctor}
+                open={isProfileOpen}
+                onOpenChange={setIsProfileOpen}
+                onBook={(doc) => {
+                    setIsProfileOpen(false);
+                    handleBookClick(doc);
+                }}
             />
         </div>
     );
