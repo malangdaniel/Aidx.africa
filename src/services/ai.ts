@@ -9,7 +9,9 @@ if (!API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+// Changed to gemini-1.5-flash-001 which is a pinned version, might be more stable
+// If this fails, try "gemini-pro"
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
 
 export interface ChatMessage {
     role: "user" | "model";
