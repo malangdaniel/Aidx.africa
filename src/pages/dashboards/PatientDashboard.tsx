@@ -3,11 +3,11 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Calendar, Pill, Clock, Wallet, Bot, Video, Plus } from 'lucide-react';
+import { MessageSquare, Calendar, Pill, Clock, Wallet, Bot, Video, Plus, Activity } from 'lucide-react';
 import AIChatInterface from '@/components/patient/AIChatInterface';
-
 import DoctorSearch from '@/components/patient/DoctorSearch';
 import MedicationMarketplace from '@/components/patient/MedicationMarketplace';
+import HealthTracker from '@/components/patient/HealthTracker';
 
 export default function PatientDashboard() {
   const [activeTab, setActiveTab] = useState('ai-chat');
@@ -17,6 +17,7 @@ export default function PatientDashboard() {
     { id: 'ai-chat', label: 'AI Assistant', icon: Bot },
     { id: 'consultations', label: 'Consultations', icon: Video },
     { id: 'pharmacy', label: 'Pharmacy', icon: Pill },
+    { id: 'health', label: 'Tracker', icon: Activity },
     { id: 'timeline', label: 'Timeline', icon: Clock },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
   ];
@@ -66,7 +67,7 @@ export default function PatientDashboard() {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -97,13 +98,15 @@ export default function PatientDashboard() {
             <DoctorSearch initialSpecialty={preselectedSpecialty} />
           </TabsContent>
 
-
-
           <TabsContent value="pharmacy" className="space-y-4">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Pharmacy</h2>
             </div>
             <MedicationMarketplace />
+          </TabsContent>
+
+          <TabsContent value="health" className="space-y-4">
+            <HealthTracker />
           </TabsContent>
 
           <TabsContent value="timeline" className="space-y-4">

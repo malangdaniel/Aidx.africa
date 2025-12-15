@@ -6,10 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Stethoscope, DollarSign, Calendar, Star, Users, TrendingUp } from 'lucide-react';
 import ConsultationView from '@/components/doctor/ConsultationView';
+import PatientList from '@/components/doctor/PatientList';
+import PatientDetail from '@/components/doctor/PatientDetail';
 
 export default function DoctorDashboard() {
   const [activeTab, setActiveTab] = useState('consultations');
   const [activeConsultation, setActiveConsultation] = useState<{ id: string, name: string } | null>(null);
+  const [activePatient, setActivePatient] = useState<{ id: string } | null>(null);
 
   if (activeConsultation) {
     return (
@@ -26,8 +29,20 @@ export default function DoctorDashboard() {
     );
   }
 
+  if (activePatient) {
+    return (
+      <div className="container mx-auto p-4 min-h-screen">
+        <PatientDetail
+          patientId={activePatient.id}
+          onBack={() => setActivePatient(null)}
+        />
+      </div>
+    );
+  }
+
   const tabs = [
     { id: 'consultations', label: 'Consultations', icon: Calendar },
+    { id: 'patients', label: 'Patients', icon: Users },
     { id: 'earnings', label: 'Earnings', icon: DollarSign },
     { id: 'reviews', label: 'Reviews', icon: Star },
   ];
@@ -49,7 +64,7 @@ export default function DoctorDashboard() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">12</div>
               <p className="text-xs text-muted-foreground">All time</p>
             </CardContent>
           </Card>
@@ -59,7 +74,7 @@ export default function DoctorDashboard() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">3</div>
               <p className="text-xs text-muted-foreground">Consultations</p>
             </CardContent>
           </Card>
@@ -87,13 +102,13 @@ export default function DoctorDashboard() {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <TabsTrigger key={tab.id} value={tab.id} className="flex items-center gap-2">
                   <Icon className="w-4 h-4" />
-                  {tab.label}
+                  <span className="hidden sm:inline">{tab.label}</span>
                 </TabsTrigger>
               );
             })}
@@ -188,6 +203,13 @@ export default function DoctorDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="patients" className="space-y-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">My Patients</h2>
+            </div>
+            <PatientList onSelectPatient={(id) => setActivePatient({ id })} />
           </TabsContent>
 
           <TabsContent value="earnings" className="space-y-4">
