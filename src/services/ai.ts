@@ -9,9 +9,8 @@ if (!API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(API_KEY || "");
-// Changed to gemini-1.5-flash-001 which is a pinned version, might be more stable
-// If this fails, try "gemini-pro"
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
+// Fallback to gemini-pro which is the most stable GA model
+const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
 export interface ChatMessage {
     role: "user" | "model";
