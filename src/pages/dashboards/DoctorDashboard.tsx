@@ -23,6 +23,34 @@ export default function DoctorDashboard() {
         <ConsultationView
           consultationId={activeConsultation.id}
           patientName={activeConsultation.name}
+          clinicalSummary={`PATIENT CLINICAL SUMMARY
+Patient Name: ${activeConsultation.name}
+Hospital Number: GSH/001234
+Age: 32 years
+Sex: Male
+
+Presenting Complaints:
+- Severe chest pain radiating to left arm (7/10)
+
+History of Present Illness:
+Patient reports sudden onset of sharp, crushing chest pain starting 1 hour ago while at rest. Pain radiates to the left arm. Associated with nausea. No shortness of breath.
+
+Past Medical History:
+- Chronic Diseases: Hypertension (diag. 2020)
+- Allergies: Penicillin, Peanuts
+
+Social History:
+- Smoker: 1 pack/day for 10 years
+- Alcohol: Social drinker
+
+Family History:
+- Father: Myocardial Infarction at age 55
+
+Review of Systems:
+- CVS: Chest pain, no palpitations
+- Resp: Clear
+- GI: Nausea, no vomiting
+`}
           onEndConsultation={() => setActiveConsultation(null)}
         />
       </div>

@@ -8,24 +8,49 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { User, FileText, MessageSquare, Pill, Plus, X, Check, Video, MicOff, CameraOff } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { User, FileText, MessageSquare, Pill, Plus, X, Check, Video, MicOff, CameraOff, Clock, CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface PrescriptionItem {
+    name: string;
+    dosage: string;
+    frequency: string;
+    duration: string;
+}
 
 interface ConsultationViewProps {
     consultationId: string;
     patientName: string;
-    onEndConsultation: () => void;
+    clinicalSummary?: string; // Added prop for AI summary
+    onEndConsultation: (data?: any) => void;
 }
 
-export default function ConsultationView({ consultationId, patientName, onEndConsultation }: ConsultationViewProps) {
+export default function ConsultationView({ consultationId, patientName, clinicalSummary, onEndConsultation }: ConsultationViewProps) {
     const [note, setNote] = useState('');
-    const [medicationSearch, setMedicationSearch] = useState('');
-    const [prescribedMeds, setPrescribedMeds] = useState<string[]>([]);
+
+    // Prescription State
+    const [rxName, setRxName] = useState('');
+    const [rxDosage, setRxDosage] = useState('');
+    const [rxFrequency, setRxFrequency] = useState('');
+    const [rxDuration, setRxDuration] = useState('');
+    const [prescribedMeds, setPrescribedMeds] = useState<PrescriptionItem[]>([]);
 
     const handleAddMedication = () => {
-        if (medicationSearch.trim()) {
-            setPrescribedMeds([...prescribedMeds, medicationSearch.trim()]);
-            setMedicationSearch('');
+        if (rxName.trim() && rxDosage.trim() && rxFrequency.trim()) {
+            setPrescribedMeds([...prescribedMeds, {
+                name: rxName.trim(),
+                dosage: rxDosage.trim(),
+                frequency: rxFrequency.trim(),
+                duration: rxDuration.trim()
+            }]);
+            // Reset fields
+            setRxName('');
+            setRxDosage('');
+            setRxFrequency('');
+            setRxDuration('');
+        } else {
+            toast.error("Please fill in medication name, dosage and frequency");
         }
     };
 
@@ -36,17 +61,26 @@ export default function ConsultationView({ consultationId, patientName, onEndCon
     };
 
     const handleFinish = () => {
+        const consultationData = {
+            id: consultationId,
+            patientName,
+            soapNotes: note,
+            prescriptions: prescribedMeds,
+            completedAt: new Date().toISOString(),
+            doctor: "Dr. Current User" // In real app, get from auth
+        };
+
         toast.success("Consultation Completed", {
             description: `Notes saved and ${prescribedMeds.length} prescriptions sent to pharmacy.`
         });
-        onEndConsultation();
+        onEndConsultation(consultationData);
     };
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-100px)]">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-100px)] animate-in fade-in">
             {/* Left Panel: Patient Info & Context */}
-            <div className="md:col-span-1 space-y-4 flex flex-col">
-                <Card>
+            <div className="md:col-span-1 space-y-4 flex flex-col h-full overflow-hidden">
+                <Card className="shrink-0">
                     <CardHeader className="flex flex-row items-center gap-4">
                         <Avatar className="h-12 w-12">
                             <AvatarFallback><User /></AvatarFallback>
@@ -73,68 +107,67 @@ export default function ConsultationView({ consultationId, patientName, onEndCon
                     </CardContent>
                 </Card>
 
-                <Card className="flex-1 flex flex-col overflow-hidden">
-                    <CardHeader className="py-3 bg-muted/30">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                            <MessageSquare className="w-4 h-4" />
-                            AI Pre-Consultation Summary
+                {/* AI Clinical Summary Section */}
+                <Card className="flex-1 flex flex-col overflow-hidden border-primary/20">
+                    <CardHeader className="py-3 bg-primary/5">
+                        <CardTitle className="text-sm flex items-center gap-2 text-primary">
+                            <FileText className="w-4 h-4" />
+                            AI Clinical Summary
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="flex-1 overflow-auto p-4">
-                        <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-900 space-y-2 mb-4">
-                            <p className="font-bold">AI Assessment: Angina Pectoris (75%)</p>
-                            <p>Patient reported sudden onset chest pain (7/10 severity). Denies shortness of breath. No history of cardiac issues in family.</p>
-                        </div>
-                        <div className="space-y-4 text-sm">
-                            <div className="border-l-2 border-primary pl-3">
-                                <p className="text-xs text-muted-foreground mb-1">Patient</p>
-                                <p>I have this sharp pain in my chest, it started about an hour ago.</p>
+                        {clinicalSummary ? (
+                            <div className="text-sm font-mono whitespace-pre-wrap bg-muted/30 p-3 rounded-md border text-foreground/80">
+                                {clinicalSummary}
                             </div>
-                            <div className="border-l-2 border-muted pl-3">
-                                <p className="text-xs text-muted-foreground mb-1">AI Assistant</p>
-                                <p>Is the pain localized or does it radiate?</p>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center p-4">
+                                <MessageSquare className="w-8 h-8 mb-2 opacity-50" />
+                                <p>No AI summary available for this patient.</p>
                             </div>
-                            <div className="border-l-2 border-primary pl-3">
-                                <p className="text-xs text-muted-foreground mb-1">Patient</p>
-                                <p>It goes down my left arm a bit.</p>
-                            </div>
-                        </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
 
             {/* Center/Right Panel: Workspace */}
-            <div className="md:col-span-2 flex flex-col gap-4">
+            <div className="md:col-span-2 flex flex-col gap-4 h-full overflow-hidden">
                 {/* Active Call UI Mockup */}
-                <div className="bg-black/90 rounded-lg h-64 flex items-center justify-center relative overflow-hidden group">
+                <div className="bg-black/90 rounded-lg h-48 shrink-0 flex items-center justify-center relative overflow-hidden group shadow-lg">
                     <div className="text-white text-center">
-                        <Video className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                        <p>Video Connected</p>
+                        <Video className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                        <p className="font-medium">Video Connected</p>
                         <p className="text-xs opacity-60">04:23</p>
                     </div>
                     <div className="absolute bottom-4 flex gap-4">
-                        <Button variant="secondary" size="icon" className="rounded-full"><MicOff className="w-4 h-4" /></Button>
-                        <Button variant="destructive" size="icon" className="rounded-full" onClick={onEndConsultation}><Video className="w-4 h-4" /></Button>
-                        <Button variant="secondary" size="icon" className="rounded-full"><CameraOff className="w-4 h-4" /></Button>
+                        <Button variant="secondary" size="icon" className="rounded-full h-10 w-10"><MicOff className="w-4 h-4" /></Button>
+                        <Button variant="destructive" size="icon" className="rounded-full h-10 w-10" onClick={handleFinish}><Video className="w-4 h-4" /></Button>
+                        <Button variant="secondary" size="icon" className="rounded-full h-10 w-10"><CameraOff className="w-4 h-4" /></Button>
                     </div>
                 </div>
 
-                <Tabs defaultValue="notes" className="flex-1 flex flex-col">
-                    <TabsList>
-                        <TabsTrigger value="notes">Clinical Notes</TabsTrigger>
-                        <TabsTrigger value="rx">Prescription</TabsTrigger>
-                        <TabsTrigger value="orders">Lab Orders</TabsTrigger>
+                <Tabs defaultValue="notes" className="flex-1 flex flex-col min-h-0">
+                    <TabsList className="w-full justify-start border-b rounded-none p-0 h-auto bg-transparent">
+                        <TabsTrigger value="notes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2">
+                            Clinical Notes
+                        </TabsTrigger>
+                        <TabsTrigger value="rx" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2">
+                            Prescription
+                        </TabsTrigger>
+                        <TabsTrigger value="orders" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2">
+                            Lab Orders
+                        </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="notes" className="flex-1 mt-4">
-                        <Card className="h-full">
-                            <CardHeader>
+                    <TabsContent value="notes" className="flex-1 mt-0 pt-4 overflow-hidden">
+                        <Card className="h-full flex flex-col">
+                            <CardHeader className="py-3">
                                 <CardTitle className="text-sm">SOAP Notes</CardTitle>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="flex-1 p-0">
                                 <Textarea
                                     placeholder="Subjective, Objective, Assessment, Plan..."
-                                    className="h-[300px] resize-none font-mono"
+                                    className="h-full resize-none font-mono border-0 focus-visible:ring-0 rounded-none p-4"
                                     value={note}
                                     onChange={(e) => setNote(e.target.value)}
                                 />
@@ -142,53 +175,111 @@ export default function ConsultationView({ consultationId, patientName, onEndCon
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="rx" className="flex-1 mt-4">
-                        <Card className="h-full">
-                            <CardHeader>
+                    <TabsContent value="rx" className="flex-1 mt-0 pt-4 overflow-hidden">
+                        <Card className="h-full flex flex-col">
+                            <CardHeader className="py-3">
                                 <CardTitle className="text-sm">E-Prescription</CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="flex gap-2">
-                                    <Input
-                                        placeholder="Search medication..."
-                                        value={medicationSearch}
-                                        onChange={(e) => setMedicationSearch(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleAddMedication()}
-                                    />
-                                    <Button onClick={handleAddMedication}><Plus className="w-4 h-4" /></Button>
+                            <CardContent className="flex-1 overflow-auto p-4 space-y-6">
+                                {/* Add Medication Form */}
+                                <div className="space-y-4 bg-muted/30 p-4 rounded-lg border">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="med-name">Medication Name</Label>
+                                            <Input
+                                                id="med-name"
+                                                placeholder="e.g. Amoxicillin"
+                                                value={rxName}
+                                                onChange={(e) => setRxName(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="med-dose">Dose</Label>
+                                            <Input
+                                                id="med-dose"
+                                                placeholder="e.g. 500mg"
+                                                value={rxDosage}
+                                                onChange={(e) => setRxDosage(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="med-freq">Frequency</Label>
+                                            <Select value={rxFrequency} onValueChange={setRxFrequency}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select frequency" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="QD">Once daily (QD)</SelectItem>
+                                                    <SelectItem value="BID">Twice daily (BID)</SelectItem>
+                                                    <SelectItem value="TID">Three times daily (TID)</SelectItem>
+                                                    <SelectItem value="QID">Four times daily (QID)</SelectItem>
+                                                    <SelectItem value="PRN">As needed (PRN)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="med-dur">Duration</Label>
+                                            <Input
+                                                id="med-dur"
+                                                placeholder="e.g. 7 days"
+                                                value={rxDuration}
+                                                onChange={(e) => setRxDuration(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <Button onClick={handleAddMedication} className="w-full">
+                                        <Plus className="w-4 h-4 mr-2" /> Add to Prescription
+                                    </Button>
                                 </div>
 
+                                {/* List of Added Meds */}
                                 <div className="space-y-2">
-                                    {prescribedMeds.map((med, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-3 bg-muted rounded-md">
-                                            <div className="flex items-center gap-2">
-                                                <Pill className="w-4 h-4 text-primary" />
-                                                <span className="font-medium">{med}</span>
-                                            </div>
-                                            <Button variant="ghost" size="sm" onClick={() => handleRemoveMedication(idx)}>
-                                                <X className="w-4 h-4" />
-                                            </Button>
+                                    <Label className="text-muted-foreground">Prescribed List</Label>
+                                    {prescribedMeds.length === 0 ? (
+                                        <div className="text-center py-8 border-2 border-dashed rounded-lg text-muted-foreground text-sm">
+                                            No medications added yet.
                                         </div>
-                                    ))}
-                                    {prescribedMeds.length === 0 && (
-                                        <p className="text-sm text-muted-foreground text-center py-8">No medications added yet.</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {prescribedMeds.map((med, idx) => (
+                                                <div key={idx} className="flex items-center justify-between p-3 bg-background border rounded-md shadow-sm">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="bg-primary/10 p-2 rounded-full mt-1">
+                                                            <Pill className="w-4 h-4 text-primary" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-semibold text-sm">{med.name} <span className="text-muted-foreground font-normal">({med.dosage})</span></p>
+                                                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                                                                <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {med.frequency}</span>
+                                                                <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" /> {med.duration}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveMedication(idx)} className="text-muted-foreground hover:text-destructive">
+                                                        <X className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
                             </CardContent>
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="orders" className="flex-1 mt-4">
-                        <div className="flex items-center justify-center h-full text-muted-foreground bg-muted/20 rounded-lg border border-dashed text-sm">
+                    <TabsContent value="orders" className="flex-1 mt-0 pt-4">
+                        <div className="flex items-center justify-center h-full text-muted-foreground bg-muted/20 rounded-lg border border-dashed text-sm p-8">
                             Lab ordering module would go here.
                         </div>
                     </TabsContent>
                 </Tabs>
 
-                <div className="flex justify-end pt-2">
-                    <Button size="lg" className="w-full md:w-auto bg-green-600 hover:bg-green-700" onClick={handleFinish}>
+                <div className="flex justify-end pt-2 shrink-0">
+                    <Button size="lg" className="w-full md:w-auto bg-green-600 hover:bg-green-700 shadow-md" onClick={handleFinish}>
                         <Check className="w-4 h-4 mr-2" />
-                        Finalize Consultation
+                        Finalize Consultation & Save Record
                     </Button>
                 </div>
             </div>
