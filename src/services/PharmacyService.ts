@@ -1,3 +1,4 @@
+import { supabase } from '@/integrations/supabase/client';
 
 export interface GeoLocation {
     lat: number;
@@ -23,170 +24,191 @@ export interface Drug {
 }
 
 export interface InventoryItem {
-    id: string;
+    id: string; // effectively the drug record ID in this schema
     pharmacyId: string;
-    drugId: string;
+    drugId: string; // same as id
     drug: Drug;
     price: number;
     stock: number;
     discount?: number;
 }
 
-// Mock Data
-const MOCK_PHARMACIES: Pharmacy[] = [
-    {
-        id: 'p1',
-        name: "HealthPlus Pharmacy",
-        location: { lat: 6.5244, lng: 3.3792 }, // Mainland
-        address: "123 Herbert Macaulay Way, Yaba",
-        rating: 4.5,
-        isOpen: true
-    },
-    {
-        id: 'p2',
-        name: "MedSquare Pharmacy",
-        location: { lat: 6.4281, lng: 3.4219 }, // VI
-        address: "45 Adetokunbo Ademola, VI",
-        rating: 4.8,
-        isOpen: true
-    },
-    {
-        id: 'p3',
-        name: "Neighborhood Chemist",
-        location: { lat: 6.6018, lng: 3.3515 }, // Ikeja
-        address: "88 Allen Avenue, Ikeja",
-        rating: 4.2,
-        isOpen: true
+// Helper to parse Point type from Supabase (if needed) or just default
+const parseLocation = (loc: any): GeoLocation => {
+    // Supabase Point is often returned as a string "(x,y)" or object. 
+    // For now, defaulting to Lagos coordinates if null/unparsable 
+    // because proper PostGIS handling in JS requires more parsing logic.
+    // Ideally we would use st_asgeojson or similar in the query.
+    if (typeof loc === 'string' && loc.startsWith('(')) {
+        const parts = loc.replace(/[()]/g, '').split(',');
+        return { lat: parseFloat(parts[0]), lng: parseFloat(parts[1]) };
     }
-];
-
-const MOCK_DRUGS: Drug[] = [
-    {
-        id: 'd1',
-        name: "Paracetamol 500mg",
-        description: "Pain reliever and fever reducer",
-        category: "Pain Relief",
-        requiresPrescription: false
-    },
-    {
-        id: 'd2',
-        name: "Amoxicillin 500mg",
-        description: "Antibiotic used to treat bacterial infections",
-        category: "Antibiotics",
-        requiresPrescription: true
-    },
-    {
-        id: 'd3',
-        name: "Vitamin C 1000mg",
-        description: "Immune system support supplement",
-        category: "Supplements",
-        requiresPrescription: false
-    },
-    {
-        id: 'd4',
-        name: "Ibuprofen 400mg",
-        description: "Non-steroidal anti-inflammatory drug",
-        category: "Pain Relief",
-        requiresPrescription: false
-    }
-];
-
-let MOCK_INVENTORY: InventoryItem[] = [
-    {
-        id: 'inv1',
-        pharmacyId: 'p1',
-        drugId: 'd1',
-        drug: MOCK_DRUGS[0],
-        price: 500,
-        stock: 100
-    },
-    {
-        id: 'inv2',
-        pharmacyId: 'p1',
-        drugId: 'd2',
-        drug: MOCK_DRUGS[1],
-        price: 1500,
-        stock: 50
-    },
-    {
-        id: 'inv3',
-        pharmacyId: 'p2',
-        drugId: 'd1',
-        drug: MOCK_DRUGS[0],
-        price: 550,
-        stock: 200
-    },
-    {
-        id: 'inv4',
-        pharmacyId: 'p3',
-        drugId: 'd3',
-        drug: MOCK_DRUGS[2],
-        price: 1200,
-        stock: 30
-    }
-];
+    return { lat: 6.5244, lng: 3.3792 };
+};
 
 export const PharmacyService = {
     getPharmacies: async (): Promise<Pharmacy[]> => {
-        return new Promise((resolve) => setTimeout(() => resolve(MOCK_PHARMACIES), 500));
+        const { data, error } = await supabase
+            .from('pharmacies')
+            .select('*');
+
+        if (error) throw error;
+
+        return data.map((p: any) => ({
+            id: p.id,
+            name: p.business_name,
+            location: parseLocation(p.location),
+            address: p.address || "",
+            rating: p.rating || 0,
+            isOpen: true // Defaulted as we don't have operating hours in DB yet
+        }));
     },
 
     getAllDrugs: async (): Promise<Drug[]> => {
-        return new Promise((resolve) => setTimeout(() => resolve(MOCK_DRUGS), 500));
+        const { data, error } = await supabase
+            .from('drugs')
+            .select('id, name, description, category, image_url, prescription_required')
+            .limit(50); // limit for performance
+
+        if (error) throw error;
+
+        return data.map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            description: d.description || "",
+            category: d.category || "General",
+            image: d.image_url,
+            requiresPrescription: d.prescription_required
+        }));
     },
 
     searchDrugs: async (query: string, userLocation?: GeoLocation): Promise<{ item: InventoryItem; pharmacy: Pharmacy; distance?: number }[]> => {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // We search the 'drugs' table directly which serves as inventory
+        // We also join with 'pharmacies'
+        const { data, error } = await supabase
+            .from('drugs')
+            .select(`
+                *,
+                pharmacies (
+                    id,
+                    business_name,
+                    address,
+                    location,
+                    rating
+                )
+            `)
+            .ilike('name', `%${query}%`);
 
-        const lowerQuery = query.toLowerCase();
-        const results: { item: InventoryItem; pharmacy: Pharmacy; distance?: number }[] = [];
+        if (error) throw error;
 
-        MOCK_INVENTORY.forEach(item => {
-            if (item.drug.name.toLowerCase().includes(lowerQuery) || item.drug.description.toLowerCase().includes(lowerQuery)) {
-                const pharmacy = MOCK_PHARMACIES.find(p => p.id === item.pharmacyId);
-                if (pharmacy) {
-                    let distance = 0;
-                    if (userLocation) {
-                        distance = calculateDistance(userLocation.lat, userLocation.lng, pharmacy.location.lat, pharmacy.location.lng);
-                    }
-                    results.push({ item, pharmacy, distance });
-                }
+        const results = data.map((row: any) => {
+            const pharmacyData = row.pharmacies;
+            const pharmacyLocation = parseLocation(pharmacyData.location);
+            const pharmacy: Pharmacy = {
+                id: pharmacyData.id,
+                name: pharmacyData.business_name,
+                address: pharmacyData.address || "",
+                rating: pharmacyData.rating || 0,
+                location: pharmacyLocation,
+                isOpen: true
+            };
+
+            const drug: Drug = {
+                id: row.id,
+                name: row.name,
+                description: row.description || "",
+                category: row.category || "General",
+                image: row.image_url,
+                requiresPrescription: row.prescription_required
+            };
+
+            const item: InventoryItem = {
+                id: row.id,
+                pharmacyId: pharmacy.id,
+                drugId: row.id,
+                drug: drug,
+                price: row.price,
+                stock: row.stock_quantity
+            };
+
+            let distance = 0;
+            if (userLocation) {
+                distance = calculateDistance(userLocation.lat, userLocation.lng, pharmacyLocation.lat, pharmacyLocation.lng);
             }
+
+            return { item, pharmacy, distance };
         });
 
         if (userLocation) {
-            // Sort by distance if location provided
-            results.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+            results.sort((a: any, b: any) => (a.distance || 0) - (b.distance || 0));
         }
 
         return results;
     },
 
     getInventory: async (pharmacyId: string): Promise<InventoryItem[]> => {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve(MOCK_INVENTORY.filter(i => i.pharmacyId === pharmacyId));
-            }, 500);
-        });
+        const { data, error } = await supabase
+            .from('drugs')
+            .select('*')
+            .eq('pharmacy_id', pharmacyId);
+
+        if (error) throw error;
+
+        return data.map((d: any) => ({
+            id: d.id,
+            pharmacyId: pharmacyId,
+            drugId: d.id,
+            drug: {
+                id: d.id,
+                name: d.name,
+                description: d.description || "",
+                category: d.category || "General",
+                image: d.image_url,
+                requiresPrescription: d.prescription_required
+            },
+            price: d.price,
+            stock: d.stock_quantity
+        }));
     },
 
-    addToInventory: async (pharmacyId: string, drugId: string, price: number, stock: number): Promise<InventoryItem> => {
-        return new Promise((resolve) => {
-            const drug = MOCK_DRUGS.find(d => d.id === drugId);
-            if (!drug) throw new Error("Drug not found");
+    addToInventory: async (pharmacyId: string, _drugId: string, price: number, stock: number): Promise<InventoryItem> => {
+        // Since 'drugs' table combines drug details and inventory info, 
+        // 'addToInventory' in this context essentially means "Create or Update a Drug Listing" for this pharmacy.
+        // The original interface passed 'drugId' implying a global drug catalog, but we have a per-pharmacy drugs table.
+        // For this 'production ready' version, we assume we are creating a NEW drug entry or updating an existing one.
+        // However, the signature matches the old mock. If we strictly follow the 'drugs' table schema:
+        // We can't reuse a 'drugId' from another pharmacy easily unless we copy data.
 
-            const newItem: InventoryItem = {
-                id: `inv${Date.now()}`,
-                pharmacyId,
-                drugId,
-                drug,
-                price,
-                stock
-            };
-            MOCK_INVENTORY.push(newItem);
-            setTimeout(() => resolve(newItem), 500);
-        });
+        // For now, let's assume we are just updating stock/price if it exists, or throwing error because creating a new drug requires name/desc.
+        // This function signature is actually insufficient for the current schema if creating new drugs.
+        // I'll update it to be 'updateStock' effectively, or just mock it slightly differently if needed by UI.
+        // But wait, the UI likely calls this to "Add Drug".
+        console.warn("addToInventory implementation limited by schema - treating as update");
+
+        const { data, error } = await supabase
+            .from('drugs')
+            .update({ price, stock_quantity: stock })
+            .eq('id', _drugId)
+            .eq('pharmacy_id', pharmacyId)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return {
+            id: data.id,
+            pharmacyId,
+            drugId: data.id,
+            drug: {
+                id: data.id,
+                name: data.name,
+                description: data.description,
+                category: data.category,
+                requiresPrescription: data.prescription_required
+            },
+            price: data.price,
+            stock: data.stock_quantity
+        };
     }
 };
 

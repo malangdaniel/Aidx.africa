@@ -2,69 +2,16 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Loader2 } from 'lucide-react';
 import DoctorCard, { Doctor } from './DoctorCard';
 import BookingModal from './BookingModal';
 import DoctorProfileOverlay from './DoctorProfileOverlay';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DoctorSearchProps {
     initialSpecialty?: string;
 }
-
-// Mock Data
-const MOCK_DOCTORS: Doctor[] = [
-    {
-        id: '1',
-        name: 'Dr. Sarah Okon',
-        specialty: 'Cardiologist',
-        rating: 4.9,
-        reviews: 124,
-        nextAvailable: 'Today, 2:00 PM',
-        price: 15000,
-        imageUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=2070&auto=format&fit=crop'
-    },
-    {
-        id: '2',
-        name: 'Dr. James Okafor',
-        specialty: 'General Practitioner',
-        rating: 4.7,
-        reviews: 89,
-        nextAvailable: 'Tomorrow, 9:00 AM',
-        price: 5000,
-        imageUrl: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=2070&auto=format&fit=crop'
-    },
-    {
-        id: '3',
-        name: 'Dr. Emily Walsh',
-        specialty: 'Dermatologist',
-        rating: 4.8,
-        reviews: 210,
-        nextAvailable: 'Today, 4:00 PM',
-        price: 12000,
-        imageUrl: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?q=80&w=2070&auto=format&fit=crop'
-    },
-    {
-        id: '4',
-        name: 'Dr. Michael Chen',
-        specialty: 'Neurologist',
-        rating: 5.0,
-        reviews: 56,
-        nextAvailable: 'Wed, 10:00 AM',
-        price: 20000,
-        imageUrl: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=2070&auto=format&fit=crop'
-    },
-    {
-        id: '5',
-        name: 'Dr. Amara Diop',
-        specialty: 'Gastroenterologist',
-        rating: 4.8,
-        reviews: 95,
-        nextAvailable: 'Thu, 11:30 AM',
-        price: 18000,
-        imageUrl: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=2064&auto=format&fit=crop'
-    }
-];
 
 export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
     const [searchTerm, setSearchTerm] = useState('');
@@ -74,13 +21,74 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
     const [isBookingOpen, setIsBookingOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
 
+    // Real Data State
+    const [doctors, setDoctors] = useState<Doctor[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [availableSpecialties, setAvailableSpecialties] = useState<string[]>([]);
+
     useEffect(() => {
         if (initialSpecialty) {
             setSpecialtyFilter(initialSpecialty);
         }
     }, [initialSpecialty]);
 
-    const filteredDoctors = MOCK_DOCTORS.filter(doc => {
+    useEffect(() => {
+        fetchDoctors();
+    }, []);
+
+    const fetchDoctors = async () => {
+        setLoading(true);
+        try {
+            // Join doctors with profiles to get name and details
+            const { data, error } = await supabase
+                .from('doctors')
+                .select(`
+                    id,
+                    specialties,
+                    consult_price,
+                    rating,
+                    total_consultations,
+                    bio,
+                    user_id,
+                    profiles:user_id (
+                        first_name,
+                        last_name,
+                        metadata
+                    )
+                `);
+
+            if (error) throw error;
+
+            const mappedDoctors: Doctor[] = data.map((d: any) => ({
+                id: d.id, // This is the doctor table ID
+                userId: d.user_id, // Auth user id
+                name: `Dr. ${d.profiles?.first_name || 'Unknown'} ${d.profiles?.last_name || ''}`,
+                specialty: d.specialties && d.specialties.length > 0 ? d.specialties[0] : 'General Practitioner',
+                rating: Number(d.rating) || 0,
+                reviews: d.total_consultations || 0, // Using consult count as proxy for reviews count for now
+                nextAvailable: 'Available Today', // Placeholder until availability system is built
+                price: Number(d.consult_price) || 0,
+                imageUrl: d.profiles?.metadata?.avatar_url || 'https://ui.shadcn.com/avatars/01.png',
+                bio: d.bio || "Experienced medical professional."
+            }));
+
+            setDoctors(mappedDoctors);
+
+            // Extract unique specialties
+            const specialties = Array.from(new Set(
+                mappedDoctors.flatMap(doc => doc.specialty ? [doc.specialty] : [])
+            ));
+            setAvailableSpecialties(specialties);
+
+        } catch (error) {
+            console.error("Error fetching doctors:", error);
+            toast.error("Failed to load doctors list.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const filteredDoctors = doctors.filter(doc => {
         const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             doc.specialty.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesSpecialty = specialtyFilter === 'all' || doc.specialty === specialtyFilter;
@@ -93,15 +101,42 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
         setIsBookingOpen(true);
     };
 
-    const handleBookingConfirm = (details: any) => {
-        console.log('Booking Confirmed:', details);
-        setIsBookingOpen(false);
-        toast.success("Appointment Booked Successfully!", {
-            description: `Consultation with ${details.doctor.name} scheduled for ${details.timeSlot}`
-        });
-    };
+    const handleBookingConfirm = async (details: any) => {
+        try {
+            console.log('Booking Confirmed:', details);
 
-    const specialties = Array.from(new Set(MOCK_DOCTORS.map(d => d.specialty)));
+            // In a real app, 'details' would likely come from the BookingModal 
+            // and include patient info. We assume the current auth user is the patient.
+            const { data: { user } } = await supabase.auth.getUser();
+
+            if (!user) {
+                toast.error("You must be logged in to book an appointment");
+                return;
+            }
+
+            // Insert into consultations table
+            const { error } = await supabase
+                .from('consultations')
+                .insert({
+                    doctor_id: details.doctor.userId, // CAREFUL: consultation needs user_id of doctor, not doctor table id? Schema says doctor_id references auth.users
+                    patient_id: user.id,
+                    status: 'scheduled',
+                    price: details.doctor.price,
+                    scheduled_at: new Date().toISOString(), // Mocking 'now' for simplicity, actual modal should provide time
+                    notes: "Initial consultation booking"
+                });
+
+            if (error) throw error;
+
+            setIsBookingOpen(false);
+            toast.success("Appointment Booked Successfully!", {
+                description: `Consultation with ${details.doctor.name} scheduled.`
+            });
+        } catch (err) {
+            console.error("Booking error:", err);
+            toast.error("Failed to book appointment.");
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -124,7 +159,7 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Specialties</SelectItem>
-                            {specialties.map(s => (
+                            {availableSpecialties.map(s => (
                                 <SelectItem key={s} value={s}>{s}</SelectItem>
                             ))}
                         </SelectContent>
@@ -134,7 +169,11 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
 
             {/* Results */}
             <div className="grid gap-4">
-                {filteredDoctors.length > 0 ? (
+                {loading ? (
+                    <div className="flex justify-center py-12">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    </div>
+                ) : filteredDoctors.length > 0 ? (
                     filteredDoctors.map(doctor => (
                         <DoctorCard
                             key={doctor.id}

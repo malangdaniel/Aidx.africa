@@ -1,29 +1,104 @@
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Calendar, FileText, Activity, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
+import { ArrowLeft, Calendar, FileText, Activity, AlertTriangle, Loader2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface PatientDetailProps {
-    patientId: string;
+    patientId: string; // This is the auth user id (profile user_id)
     onBack: () => void;
 }
 
-// Mock Data
-const MOCK_VITALS_DATA = [
-    { date: 'Mon', systolic: 120, diastolic: 80, heartRate: 72 },
-    { date: 'Tue', systolic: 122, diastolic: 82, heartRate: 75 },
-    { date: 'Wed', systolic: 118, diastolic: 79, heartRate: 71 },
-    { date: 'Thu', systolic: 124, diastolic: 84, heartRate: 76 },
-    { date: 'Fri', systolic: 121, diastolic: 81, heartRate: 73 },
-    { date: 'Sat', systolic: 119, diastolic: 80, heartRate: 70 },
-    { date: 'Sun', systolic: 120, diastolic: 80, heartRate: 72 },
-];
+interface Consult {
+    id: string;
+    doctor_id: string;
+    created_at: string;
+    notes: string;
+    diagnosis: string;
+    doctorName?: string;
+}
 
 export default function PatientDetail({ patientId, onBack }: PatientDetailProps) {
-    // In a real app, fetch patient data by ID here. 
-    // For now, we use placeholder data matching the ID logic if we wanted, 
-    // but just static structure is fine for the UI.
+    const [patient, setPatient] = useState<any>(null);
+    const [consultations, setConsultations] = useState<Consult[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (patientId) {
+            fetchPatientData();
+        }
+    }, [patientId]);
+
+    const fetchPatientData = async () => {
+        setLoading(true);
+        try {
+            // Fetch Profile
+            const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('user_id', patientId)
+                .single();
+
+            if (profileError) throw profileError;
+            setPatient(profile);
+
+            // Fetch Consultations
+            const { data: consults, error: consultsError } = await supabase
+                .from('consultations')
+                .select(`
+                    id,
+                    doctor_id,
+                    created_at,
+                    notes,
+                    diagnosis,
+                    doctor:doctor_id (
+                        id,
+                        specialties
+                        -- we'd usually join profile on doctor->user_id to get name, but structure is tricky 
+                        -- simple join might fail if foreign keys aren't set up for deep nesting
+                    )
+                `)
+                .eq('patient_id', patientId)
+                .order('created_at', { ascending: false });
+
+            if (consultsError) throw consultsError;
+
+            // map consults if needed
+            setConsultations(consults || []);
+
+        } catch (error) {
+            console.error("Error fetching patient details:", error);
+            toast.error("Could not load patient details");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-96">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (!patient) return <div>Patient not found</div>;
+
+    // Helper to get initials
+    const initials = `${patient.first_name?.[0] || ''}${patient.last_name?.[0] || ''}`;
+    const name = `${patient.first_name || 'Unknown'} ${patient.last_name || ''}`;
+    const age = patient.metadata?.age || 'N/A';
+    const sex = patient.metadata?.sex || 'N/A';
+    const address = patient.metadata?.address || 'N/A';
+
+    // Mock vitals for now as there is no DB table
+    const MOCK_VITALS_DATA = [
+        { date: 'Mon', systolic: 120, diastolic: 80, heartRate: 72 },
+        { date: 'Tue', systolic: 122, diastolic: 82, heartRate: 75 },
+    ];
 
     return (
         <div className="space-y-6 animate-in fade-in zoom-in duration-300">
@@ -33,7 +108,7 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                 </Button>
                 <div>
                     <h2 className="text-2xl font-bold">Patient Details</h2>
-                    <p className="text-muted-foreground text-sm">ID: {patientId}</p>
+                    <p className="text-muted-foreground text-sm">ID: {patientId.slice(0, 8)}...</p>
                 </div>
             </div>
 
@@ -46,34 +121,30 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                     <CardContent>
                         <div className="flex flex-col items-center mb-6">
                             <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary mb-4">
-                                JD
+                                {initials}
                             </div>
-                            <h3 className="text-xl font-bold">John Doe</h3>
-                            <p className="text-muted-foreground">45 years old • Male</p>
+                            <h3 className="text-xl font-bold">{name}</h3>
+                            <p className="text-muted-foreground">{age} years • {sex}</p>
                         </div>
 
                         <div className="space-y-4">
                             <div>
-                                <span className="text-sm text-muted-foreground block">Condition</span>
-                                <span className="font-medium">Hypertension</span>
-                            </div>
-                            <div>
                                 <span className="text-sm text-muted-foreground block">Phone</span>
-                                <span className="font-medium">+1 (555) 123-4567</span>
-                            </div>
-                            <div>
-                                <span className="text-sm text-muted-foreground block">Email</span>
-                                <span className="font-medium">john.doe@example.com</span>
+                                <span className="font-medium">{patient.phone || 'N/A'}</span>
                             </div>
                             <div>
                                 <span className="text-sm text-muted-foreground block">Address</span>
-                                <span className="font-medium">123 Health St, Medical City</span>
+                                <span className="font-medium">{address}</span>
+                            </div>
+                            <div>
+                                <span className="text-sm text-muted-foreground block">Verification</span>
+                                <span className="font-medium capitalize">{patient.verification_status}</span>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* content Area */}
+                {/* Content Area */}
                 <div className="md:col-span-2">
                     <Tabs defaultValue="overview">
                         <TabsList className="w-full justify-start">
@@ -87,7 +158,7 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <Activity className="w-5 h-5 text-primary" />
-                                        Vitals Trends
+                                        Vitals Trends (Simulated)
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="h-[300px]">
@@ -99,7 +170,6 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                                             <Tooltip />
                                             <Line type="monotone" dataKey="systolic" stroke="#ef4444" name="Systolic BP" />
                                             <Line type="monotone" dataKey="diastolic" stroke="#f97316" name="Diastolic BP" />
-                                            <Line type="monotone" dataKey="heartRate" stroke="#3b82f6" name="Heart Rate" />
                                         </LineChart>
                                     </ResponsiveContainer>
                                 </CardContent>
@@ -111,104 +181,68 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                                         <CardTitle className="text-sm font-medium">Last Visit</CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        <div className="text-2xl font-bold">Mar 10</div>
-                                        <p className="text-xs text-muted-foreground">Routine Checkup</p>
+                                        <div className="text-2xl font-bold">
+                                            {consultations.length > 0
+                                                ? new Date(consultations[0].created_at).toLocaleDateString()
+                                                : "None"}
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            {consultations.length > 0 ? "General Checkup" : "No visits recorded"}
+                                        </p>
                                     </CardContent>
                                 </Card>
                                 <Card>
                                     <CardHeader className="pb-2">
-                                        <CardTitle className="text-sm font-medium">Next Appointment</CardTitle>
+                                        <CardTitle className="text-sm font-medium">Total Consults</CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        <div className="text-2xl font-bold">Apr 12</div>
-                                        <p className="text-xs text-muted-foreground">Follow-up</p>
+                                        <div className="text-2xl font-bold">{consultations.length}</div>
+                                        <p className="text-xs text-muted-foreground">Lifetime</p>
                                     </CardContent>
                                 </Card>
                             </div>
                         </TabsContent>
 
-                        {/* Medical History Tab - NOW HAS AI SUMMARY */}
                         <TabsContent value="history" className="mt-4">
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <FileText className="w-5 h-5 text-primary" />
-                                        AI Clinical Summary
+                                        Clinical History
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-sm font-mono whitespace-pre-wrap bg-muted/30 p-4 rounded-md border text-foreground/80">
-                                        {`PATIENT CLINICAL SUMMARY
-Patient Name: John Doe
-Hospital Number: GSH/001234
-Age: 45 years
-Sex: Male
-
-Presenting Complaints:
-- Severe chest pain radiating to left arm (7/10)
-
-History of Present Illness:
-Patient reports sudden onset of sharp, crushing chest pain starting 1 hour ago while at rest. Pain radiates to the left arm. Associated with nausea. No shortness of breath.
-
-Past Medical History:
-- Chronic Diseases: Hypertension (diag. 2020)
-- Allergies: Penicillin, Peanuts
-
-Social History:
-- Smoker: 1 pack/day for 10 years
-- Alcohol: Social drinker
-
-Family History:
-- Father: Myocardial Infarction at age 55
-
-Review of Systems:
-- CVS: Chest pain, no palpitations
-- Resp: Clear
-- GI: Nausea, no vomiting`}
+                                    {/* Placeholder for AI Summary if not stored in DB yet */}
+                                    <div className="text-sm text-muted-foreground">
+                                        No recent clinical summary available for this patient.
                                     </div>
                                 </CardContent>
                             </Card>
                         </TabsContent>
 
-                        {/* Clinical Notes Tab - NOW HAS PAST CONSULTATIONS */}
                         <TabsContent value="notes" className="mt-4 space-y-6">
                             <Card>
                                 <CardHeader>
                                     <CardTitle>Past Consultations</CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-0">
-                                    {[1, 2, 3].map((_, i) => (
-                                        <div key={i} className="flex items-start gap-4 p-4 border-b last:border-0 hover:bg-muted/50 transition-colors">
-                                            <div className="mt-1 bg-primary/10 p-2 rounded-full">
-                                                <Calendar className="w-4 h-4 text-primary" />
+                                    {consultations.length === 0 ? (
+                                        <div className="p-4 text-sm text-muted-foreground">No past consultations found.</div>
+                                    ) : (
+                                        consultations.map((consult) => (
+                                            <div key={consult.id} className="flex items-start gap-4 p-4 border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                                <div className="mt-1 bg-primary/10 p-2 rounded-full">
+                                                    <Calendar className="w-4 h-4 text-primary" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-semibold">Consultation</h4>
+                                                    <p className="text-sm text-muted-foreground">{new Date(consult.created_at).toLocaleDateString()}</p>
+                                                    {consult.notes && <p className="mt-2 text-sm">{consult.notes}</p>}
+                                                    {consult.diagnosis && <p className="mt-1 text-sm font-medium">Dx: {consult.diagnosis}</p>}
+                                                </div>
                                             </div>
-                                            <div>
-                                                <h4 className="font-semibold">General Consultation</h4>
-                                                <p className="text-sm text-muted-foreground">March {10 - i * 5}, 2024</p>
-                                                <p className="mt-2 text-sm">Patient reported mild headaches. Prescribed Paracetamol and advised rest.</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Private Notes / Alerts</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                                            <h4 className="font-semibold text-yellow-900 mb-1 flex items-center gap-2">
-                                                <AlertTriangle className="w-4 h-4" /> Allergies
-                                            </h4>
-                                            <p className="text-sm text-yellow-800">Penicillin (Severe)</p>
-                                        </div>
-                                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-                                            <h4 className="font-semibold text-blue-900 mb-1">Observation</h4>
-                                            <p className="text-sm text-blue-800">Monitor blood pressure closely over next 3 months.</p>
-                                        </div>
-                                    </div>
+                                        ))
+                                    )}
                                 </CardContent>
                             </Card>
                         </TabsContent>
