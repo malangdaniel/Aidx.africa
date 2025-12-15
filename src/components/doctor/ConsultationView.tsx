@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import VideoCall from '@/components/common/VideoCall';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, FileText, MessageSquare, Pill, Plus, X, Check, Video, MicOff, CameraOff, Clock, CalendarDays, Activity } from 'lucide-react'; // Added Activity
+import { User, FileText, MessageSquare, Pill, Plus, X, Check, Video, MicOff, CameraOff, Clock, CalendarDays, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface PrescriptionItem {
@@ -48,7 +50,9 @@ const MOCK_LAB_TESTS = [
 ];
 
 export default function ConsultationView({ consultationId, patientName, clinicalSummary, onEndConsultation }: ConsultationViewProps) {
+    const { user } = useAuth();
     const [note, setNote] = useState('');
+    const [isCallActive, setIsCallActive] = useState(false);
 
     // Prescription State
     const [rxName, setRxName] = useState('');
@@ -116,7 +120,7 @@ export default function ConsultationView({ consultationId, patientName, clinical
             prescriptions: prescribedMeds,
             labOrders: labOrders,
             completedAt: new Date().toISOString(),
-            doctor: "Dr. Current User" // In real app, get from auth
+            doctor: user?.email || "Dr. Current User"
         };
 
         toast.success("Consultation Completed", {
@@ -186,19 +190,32 @@ export default function ConsultationView({ consultationId, patientName, clinical
 
             {/* Center/Right Panel: Workspace */}
             <div className="md:col-span-2 flex flex-col gap-4 h-full overflow-hidden">
-                {/* Active Call UI Mockup */}
-                <div className="bg-black/90 rounded-lg h-48 shrink-0 flex items-center justify-center relative overflow-hidden group shadow-lg">
-                    <div className="text-white text-center">
-                        <Video className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                        <p className="font-medium">Video Connected</p>
-                        <p className="text-xs opacity-60">04:23</p>
+                {/* Active Call UI */}
+                {isCallActive ? (
+                    <div className="h-64 shrink-0 shadow-lg rounded-lg overflow-hidden border">
+                        <VideoCall
+                            roomId={consultationId}
+                            userId={user?.id || 'doc-anon'}
+                            userName="Dr. User"
+                            isDoctor={true}
+                            onEndCall={() => setIsCallActive(false)}
+                        />
                     </div>
-                    <div className="absolute bottom-4 flex gap-4">
-                        <Button variant="secondary" size="icon" className="rounded-full h-10 w-10"><MicOff className="w-4 h-4" /></Button>
-                        <Button variant="destructive" size="icon" className="rounded-full h-10 w-10" onClick={handleFinish}><Video className="w-4 h-4" /></Button>
-                        <Button variant="secondary" size="icon" className="rounded-full h-10 w-10"><CameraOff className="w-4 h-4" /></Button>
+                ) : (
+                    <div className="bg-muted/10 border-2 border-dashed rounded-lg h-32 shrink-0 flex items-center justify-center gap-4 hover:bg-muted/20 transition-colors">
+                        <div className="text-center">
+                            <Button
+                                size="lg"
+                                className="gap-2 rounded-full shadow-md"
+                                onClick={() => setIsCallActive(true)}
+                            >
+                                <Video className="w-5 h-5" />
+                                Start Video Consultation
+                            </Button>
+                            <p className="text-xs text-muted-foreground mt-2">Connect with {patientName}</p>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 <Tabs defaultValue="notes" className="flex-1 flex flex-col min-h-0">
                     <TabsList className="w-full justify-start border-b rounded-none p-0 h-auto bg-transparent">
