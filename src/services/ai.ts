@@ -26,7 +26,7 @@ export const sendMessageToAI = async (history: ChatMessage[], messageAttributes:
                 },
                 {
                     role: "model",
-                    parts: [{ text: "Understood. I am Doc Pharm AI, ready to assist patients with their symptoms safely and professionally." }]
+                    parts: [{ text: "Understood. I am sophie AI, ready to assist patients with their symptoms safely and professionally." }]
                 },
                 ...history
             ],
@@ -39,7 +39,7 @@ export const sendMessageToAI = async (history: ChatMessage[], messageAttributes:
         const response = await result.response;
         return response.text();
     } catch (error) {
-        console.error("Error sending message to Gemini:", error);
+        console.error("Gemini API Error details:", error);
         return "I apologize, but I'm having trouble connecting to my medical database right now. Please try again in a moment.";
     }
 };
