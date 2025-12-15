@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, FileText, MessageSquare, Pill, Plus, X, Check, Video, MicOff, CameraOff, Clock, CalendarDays } from 'lucide-react';
+import { User, FileText, MessageSquare, Pill, Plus, X, Check, Video, MicOff, CameraOff, Clock, CalendarDays, Activity } from 'lucide-react'; // Added Activity
 import { toast } from 'sonner';
 
 interface PrescriptionItem {
@@ -19,12 +19,33 @@ interface PrescriptionItem {
     duration: string;
 }
 
+interface LabOrder {
+    testName: string;
+    urgency: 'routine' | 'urgent' | 'stat';
+    reason: string;
+}
+
 interface ConsultationViewProps {
     consultationId: string;
     patientName: string;
-    clinicalSummary?: string; // Added prop for AI summary
+    clinicalSummary?: string;
     onEndConsultation: (data?: any) => void;
 }
+
+const MOCK_LAB_TESTS = [
+    "Complete Blood Count (CBC)",
+    "Basic Metabolic Panel (BMP)",
+    "Comprehensive Metabolic Panel (CMP)",
+    "Lipid Panel",
+    "Liver Function Tests (LFTs)",
+    "Thyroid Function Tests (TSH, T4)",
+    "Hemoglobin A1C",
+    "Urinalysis",
+    "X-Ray Chest",
+    "MRI Brain",
+    "CT Scan Abdomen",
+    "ECG"
+];
 
 export default function ConsultationView({ consultationId, patientName, clinicalSummary, onEndConsultation }: ConsultationViewProps) {
     const [note, setNote] = useState('');
@@ -35,6 +56,12 @@ export default function ConsultationView({ consultationId, patientName, clinical
     const [rxFrequency, setRxFrequency] = useState('');
     const [rxDuration, setRxDuration] = useState('');
     const [prescribedMeds, setPrescribedMeds] = useState<PrescriptionItem[]>([]);
+
+    // Lab Order State
+    const [labSearch, setLabSearch] = useState('');
+    const [labUrgency, setLabUrgency] = useState<'routine' | 'urgent' | 'stat'>('routine');
+    const [labReason, setLabReason] = useState('');
+    const [labOrders, setLabOrders] = useState<LabOrder[]>([]);
 
     const handleAddMedication = () => {
         if (rxName.trim() && rxDosage.trim() && rxFrequency.trim()) {
@@ -60,21 +87,48 @@ export default function ConsultationView({ consultationId, patientName, clinical
         setPrescribedMeds(newMeds);
     };
 
+    const handleAddLab = () => {
+        if (labSearch.trim()) {
+            setLabOrders([...labOrders, {
+                testName: labSearch.trim(),
+                urgency: labUrgency,
+                reason: labReason.trim() || 'Routine check'
+            }]);
+            setLabSearch('');
+            setLabReason('');
+            setLabUrgency('routine');
+        } else {
+            toast.error("Please select or type a lab test name");
+        }
+    };
+
+    const handleRemoveLab = (index: number) => {
+        const newLabs = [...labOrders];
+        newLabs.splice(index, 1);
+        setLabOrders(newLabs);
+    };
+
     const handleFinish = () => {
         const consultationData = {
             id: consultationId,
             patientName,
             soapNotes: note,
             prescriptions: prescribedMeds,
+            labOrders: labOrders,
             completedAt: new Date().toISOString(),
             doctor: "Dr. Current User" // In real app, get from auth
         };
 
         toast.success("Consultation Completed", {
-            description: `Notes saved and ${prescribedMeds.length} prescriptions sent to pharmacy.`
+            description: `Saved: ${prescribedMeds.length} Rx, ${labOrders.length} Labs.`
         });
         onEndConsultation(consultationData);
     };
+
+    const filteredLabs = MOCK_LAB_TESTS.filter(test =>
+        test.toLowerCase().includes(labSearch.toLowerCase()) &&
+        test !== labSearch
+    );
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-100px)] animate-in fade-in">
@@ -269,10 +323,106 @@ export default function ConsultationView({ consultationId, patientName, clinical
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="orders" className="flex-1 mt-0 pt-4">
-                        <div className="flex items-center justify-center h-full text-muted-foreground bg-muted/20 rounded-lg border border-dashed text-sm p-8">
-                            Lab ordering module would go here.
-                        </div>
+                    <TabsContent value="orders" className="flex-1 mt-0 pt-4 overflow-hidden">
+                        <Card className="h-full flex flex-col">
+                            <CardHeader className="py-3">
+                                <CardTitle className="text-sm">Lab Orders</CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex-1 overflow-auto p-4 space-y-6">
+                                {/* Add Lab Form */}
+                                <div className="space-y-4 bg-muted/30 p-4 rounded-lg border">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="lab-search">Test Name</Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="lab-search"
+                                                placeholder="Search e.g. CBC, MRI, Lipid Panel"
+                                                value={labSearch}
+                                                onChange={(e) => setLabSearch(e.target.value)}
+                                            />
+                                            {labSearch.length > 0 && filteredLabs.length > 0 && (
+                                                <div className="absolute z-10 w-full bg-popover border rounded-md shadow-md mt-1 max-h-40 overflow-auto">
+                                                    {filteredLabs.map((lab) => (
+                                                        <div
+                                                            key={lab}
+                                                            className="p-2 hover:bg-muted cursor-pointer text-sm"
+                                                            onClick={() => setLabSearch(lab)}
+                                                        >
+                                                            {lab}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="lab-urgency">Urgency</Label>
+                                            <Select value={labUrgency} onValueChange={(v: any) => setLabUrgency(v)}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="routine">Routine</SelectItem>
+                                                    <SelectItem value="urgent">Urgent (24h)</SelectItem>
+                                                    <SelectItem value="stat">STAT (Immediate)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="lab-reason">Details / Indication</Label>
+                                            <Input
+                                                id="lab-reason"
+                                                placeholder="e.g. Rule out anemia"
+                                                value={labReason}
+                                                onChange={(e) => setLabReason(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <Button onClick={handleAddLab} className="w-full">
+                                        <Plus className="w-4 h-4 mr-2" /> Add Lab Order
+                                    </Button>
+                                </div>
+
+                                {/* List of Added Labs */}
+                                <div className="space-y-2">
+                                    <Label className="text-muted-foreground">Ordered Tests</Label>
+                                    {labOrders.length === 0 ? (
+                                        <div className="text-center py-8 border-2 border-dashed rounded-lg text-muted-foreground text-sm">
+                                            No lab tests ordered.
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {labOrders.map((order, idx) => (
+                                                <div key={idx} className="flex items-center justify-between p-3 bg-background border rounded-md shadow-sm">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className={`p-2 rounded-full mt-1 ${order.urgency === 'stat' ? 'bg-red-100 text-red-600' :
+                                                                order.urgency === 'urgent' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'
+                                                            }`}>
+                                                            <Activity className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="font-semibold text-sm">{order.testName}</p>
+                                                                {order.urgency !== 'routine' && (
+                                                                    <Badge variant={order.urgency === 'stat' ? 'destructive' : 'secondary'} className="text-[10px] h-5 px-1 uppercase">
+                                                                        {order.urgency}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground mt-1">Indication: {order.reason}</p>
+                                                        </div>
+                                                    </div>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveLab(idx)} className="text-muted-foreground hover:text-destructive">
+                                                        <X className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
                     </TabsContent>
                 </Tabs>
 

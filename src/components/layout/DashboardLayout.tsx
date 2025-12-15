@@ -1,8 +1,8 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { LogOut, Heart } from 'lucide-react';
+import { Settings, Heart } from 'lucide-react';
+import { SettingsDialog } from './SettingsDialog';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -10,14 +10,8 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children, title }: DashboardLayoutProps) {
-  const { profile, signOut } = useAuth();
-
-  const getInitials = () => {
-    if (profile?.first_name && profile?.last_name) {
-      return `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase();
-    }
-    return profile?.role?.[0]?.toUpperCase() || 'U';
-  };
+  const { profile } = useAuth();
+  const [showSettings, setShowSettings] = useState(false);
 
   const getDisplayName = () => {
     if (profile?.first_name && profile?.last_name) {
@@ -44,15 +38,22 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
             )}
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={signOut}
-            title="Sign Out"
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <LogOut className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-4">
+            <div className="hidden md:block text-right">
+              <p className="text-sm font-medium leading-none">{getDisplayName()}</p>
+              <p className="text-xs text-muted-foreground capitalize">{profile?.role}</p>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowSettings(true)}
+              title="Settings"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -60,6 +61,8 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
       <main className="container py-6 pb-24 max-w-lg mx-auto md:max-w-4xl">
         {children}
       </main>
+
+      <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Calendar, FileText, Activity } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, Activity, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface PatientDetailProps {
@@ -127,8 +127,55 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                             </div>
                         </TabsContent>
 
+                        {/* Medical History Tab - NOW HAS AI SUMMARY */}
                         <TabsContent value="history" className="mt-4">
                             <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <FileText className="w-5 h-5 text-primary" />
+                                        AI Clinical Summary
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-sm font-mono whitespace-pre-wrap bg-muted/30 p-4 rounded-md border text-foreground/80">
+                                        {`PATIENT CLINICAL SUMMARY
+Patient Name: John Doe
+Hospital Number: GSH/001234
+Age: 45 years
+Sex: Male
+
+Presenting Complaints:
+- Severe chest pain radiating to left arm (7/10)
+
+History of Present Illness:
+Patient reports sudden onset of sharp, crushing chest pain starting 1 hour ago while at rest. Pain radiates to the left arm. Associated with nausea. No shortness of breath.
+
+Past Medical History:
+- Chronic Diseases: Hypertension (diag. 2020)
+- Allergies: Penicillin, Peanuts
+
+Social History:
+- Smoker: 1 pack/day for 10 years
+- Alcohol: Social drinker
+
+Family History:
+- Father: Myocardial Infarction at age 55
+
+Review of Systems:
+- CVS: Chest pain, no palpitations
+- Resp: Clear
+- GI: Nausea, no vomiting`}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        {/* Clinical Notes Tab - NOW HAS PAST CONSULTATIONS */}
+                        <TabsContent value="notes" className="mt-4 space-y-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Past Consultations</CardTitle>
+                                </CardHeader>
                                 <CardContent className="p-0">
                                     {[1, 2, 3].map((_, i) => (
                                         <div key={i} className="flex items-start gap-4 p-4 border-b last:border-0 hover:bg-muted/50 transition-colors">
@@ -144,17 +191,17 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                                     ))}
                                 </CardContent>
                             </Card>
-                        </TabsContent>
 
-                        <TabsContent value="notes" className="mt-4">
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Private Notes</CardTitle>
+                                    <CardTitle>Private Notes / Alerts</CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
                                         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                                            <h4 className="font-semibold text-yellow-900 mb-1">Allergies</h4>
+                                            <h4 className="font-semibold text-yellow-900 mb-1 flex items-center gap-2">
+                                                <AlertTriangle className="w-4 h-4" /> Allergies
+                                            </h4>
                                             <p className="text-sm text-yellow-800">Penicillin (Severe)</p>
                                         </div>
                                         <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
