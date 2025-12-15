@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Pill, Package, ShoppingCart, TrendingUp, AlertTriangle, Star, Plus } from 'lucide-react';
 import OrderManagement from '@/components/pharmacist/OrderManagement';
+import InventoryManagement from '@/components/pharmacist/InventoryManagement';
 import BottomNav from '@/components/layout/BottomNav';
 
 export default function PharmacistDashboard() {
@@ -54,22 +55,7 @@ export default function PharmacistDashboard() {
           </TabsContent>
 
           <TabsContent value="inventory" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-foreground/80">Inventory</h2>
-              <Button size="sm">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Product
-              </Button>
-            </div>
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground">
-                  <Package className="w-12 h-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Products Added</h3>
-                  <p>Start adding medications to your inventory to begin selling</p>
-                </div>
-              </CardContent>
-            </Card>
+            <InventoryManagement />
           </TabsContent>
 
           <TabsContent value="alerts" className="space-y-4">

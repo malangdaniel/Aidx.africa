@@ -97,9 +97,7 @@ export default function PatientDashboard() {
             <DoctorSearch initialSpecialty={preselectedSpecialty} />
           </TabsContent>
 
-          import MedicationMarketplace from '@/components/patient/MedicationMarketplace';
 
-          // ... (in the render function)
 
           <TabsContent value="pharmacy" className="space-y-4">
             <div className="flex justify-between items-center mb-4">
