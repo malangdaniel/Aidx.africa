@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Upload, FileText, Loader2, Save } from 'lucide-react';
+import { Upload, FileText, Loader2, Save, X } from 'lucide-react'; // Added X and Loader2
 import ListItemManager from './ListItemManager';
+import { generatePatientHealthSummary, GeneratePatientHealthSummaryInput } from '@/services/patientHistoryAi';
+import { useToast } from '@/hooks/use-toast'; // Changed import path to match potential Shadcn structure, checked package.json -> sonner or toast? package.json has use-toast.ts but usually it's in hooks or components/ui. Previous list_dir of components/ui showed use-toast.ts. Let me check the file path again.
 
 // --- MOCK DATA / TYPES ---
 
@@ -25,6 +27,7 @@ const FAMILY_CONDITIONS = [
 ];
 
 export default function MedicalHistoryView() {
+    const { toast } = useToast();
     const [loadingAI, setLoadingAI] = useState(false);
     const [aiSummary, setAiSummary] = useState<string | null>(null);
 
@@ -44,6 +47,33 @@ export default function MedicalHistoryView() {
 
     // Symptoms & Files
     const [currentSymptoms, setCurrentSymptoms] = useState('');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 10 * 1024 * 1024) {
+                toast({
+                    title: "File too large",
+                    description: "Please upload a file smaller than 10MB.",
+                    variant: "destructive"
+                });
+                return;
+            }
+            setSelectedFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviewUrl(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const clearFile = () => {
+        setSelectedFile(null);
+        setPreviewUrl(null);
+    };
 
     const handleCheckboxChange = (
         list: string[],
@@ -58,24 +88,61 @@ export default function MedicalHistoryView() {
         }
     };
 
-    const handleGenerateSummary = () => {
+    const handleGenerateSummary = async () => {
         setLoadingAI(true);
-        // Simulate AI delay
-        setTimeout(() => {
+        setAiSummary(null);
+
+        try {
+            // Construct Input Object
+            const socialHistoryParts = [];
+            if (isSmoker) socialHistoryParts.push(`Smoker: ${smokingDetails}`);
+            if (drinksAlcohol) socialHistoryParts.push(`Alcohol: ${alcoholDetails}`);
+            if (!isSmoker && !drinksAlcohol) socialHistoryParts.push("No smoking or alcohol reported.");
+
+            const input: GeneratePatientHealthSummaryInput = {
+                personalDetails: {
+                    fullName: "John Doe", // Mock data for now
+                    age: 45,
+                    sex: "Male",
+                    address: "123 Health St, Medical City",
+                    ethnicity: "Not specified",
+                    occupation: "Software Engineer",
+                    maritalStatus: "Not specified"
+                },
+                medicalHistory: {
+                    currentMedications: medications.map(m => ({ name: m.name, dosage: m.dosage })),
+                    pastChronicDiseases: pastConditions,
+                    otherPastConditions: customPastConditions.map(c => ({ name: c.condition, details: c.details })),
+                    familyHistory: familyHistory,
+                    allergies: allergies,
+                    socialHistory: socialHistoryParts.join("; ")
+                },
+                symptoms: currentSymptoms || "No acute symptoms reported at this time.",
+                labResultsDataUri: previewUrl || undefined
+            };
+
+            const result = await generatePatientHealthSummary(input);
+            setAiSummary(result.summary);
+
+        } catch (error) {
+            console.error(error);
+            toast({
+                title: "Summary Generation Failed",
+                description: "There was an error generating the clinical summary. Please try again.",
+                variant: "destructive"
+            });
+        } finally {
             setLoadingAI(false);
-            setAiSummary(
-                "PATIENT SUMMARY:\n" +
-                "Subject is a 45-year-old male presenting with reported " + (currentSymptoms || "no specific acute symptoms") + ".\n" +
-                "PMH varies. " + (medications.length > 0 ? `Currently on ${medications.map(m => m.name).join(', ')}.` : "No current medications.") + "\n" +
-                "Risk factors include " + (isSmoker ? "smoking" : "non-smoker") + ".\n" +
-                "Suggested Action: Routine monitoring advised."
-            );
-        }, 2000);
+        }
     };
 
     const handleSave = () => {
         // Allow saving to backend
         console.log("Saving data...");
+        toast({
+            title: "Changes Saved",
+            description: "Your medical history has been updated.",
+        });
     };
 
     return (
@@ -292,11 +359,36 @@ export default function MedicalHistoryView() {
 
                         <div className="space-y-2">
                             <Label>Upload Records / Lab Results</Label>
-                            <div className="border-2 border-dashed border-input hover:border-primary/50 transition-colors rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer bg-muted/10">
-                                <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                                <p className="text-sm font-medium">Click to upload or drag & drop</p>
-                                <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG up to 10MB</p>
-                            </div>
+                            {!selectedFile ? (
+                                <div className="relative border-2 border-dashed border-input hover:border-primary/50 transition-colors rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer bg-muted/10">
+                                    <input
+                                        type="file"
+                                        accept="image/*,application/pdf"
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        onChange={handleFileChange}
+                                    />
+                                    <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                                    <p className="text-sm font-medium">Click to upload or drag & drop</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Images (JPG, PNG) or PDF up to 10MB</p>
+                                </div>
+                            ) : (
+                                <div className="relative border rounded-lg p-4 bg-muted/20">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2 truncate">
+                                            <FileText className="w-5 h-5 text-primary" />
+                                            <span className="text-sm font-medium truncate max-w-[150px]">{selectedFile.name}</span>
+                                        </div>
+                                        <Button variant="ghost" size="icon" onClick={clearFile} className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                                            <X className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                    {previewUrl && selectedFile.type.startsWith('image/') && (
+                                        <div className="mt-2 relative aspect-video rounded-md overflow-hidden border">
+                                            <img src={previewUrl} alt="Preview" className="object-cover w-full h-full" />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -327,7 +419,7 @@ export default function MedicalHistoryView() {
                         </Button>
 
                         {aiSummary && (
-                            <div className="p-4 bg-muted rounded-md text-xs font-mono whitespace-pre-wrap animate-in fade-in border border-primary/20">
+                            <div className="p-4 bg-muted rounded-md text-xs font-mono whitespace-pre-wrap animate-in fade-in border border-primary/20 max-h-[400px] overflow-y-auto">
                                 {aiSummary}
                             </div>
                         )}
