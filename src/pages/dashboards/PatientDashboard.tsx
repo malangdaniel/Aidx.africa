@@ -3,11 +3,12 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Calendar, Pill, Clock, Wallet, Bot, Video, Plus, Activity } from 'lucide-react';
+import { MessageSquare, Calendar, Pill, Clock, Wallet, Bot, Video, Plus, FileText } from 'lucide-react';
 import AIChatInterface from '@/components/patient/AIChatInterface';
 import DoctorSearch from '@/components/patient/DoctorSearch';
 import MedicationMarketplace from '@/components/patient/MedicationMarketplace';
 import HealthTracker from '@/components/patient/HealthTracker';
+import MedicalHistoryView from '@/components/patient/medical-history/MedicalHistoryView';
 
 export default function PatientDashboard() {
   const [activeTab, setActiveTab] = useState('ai-chat');
@@ -17,8 +18,7 @@ export default function PatientDashboard() {
     { id: 'ai-chat', label: 'AI Assistant', icon: Bot },
     { id: 'consultations', label: 'Consultations', icon: Video },
     { id: 'pharmacy', label: 'Pharmacy', icon: Pill },
-    { id: 'health', label: 'Tracker', icon: Activity },
-    { id: 'timeline', label: 'Timeline', icon: Clock },
+    { id: 'history', label: 'Medical History', icon: FileText },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
   ];
 
@@ -65,9 +65,14 @@ export default function PatientDashboard() {
           </Card>
         </div>
 
+        {/* Health Tracker Section */}
+        <div className="space-y-4">
+          <HealthTracker />
+        </div>
+
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -105,21 +110,11 @@ export default function PatientDashboard() {
             <MedicationMarketplace />
           </TabsContent>
 
-          <TabsContent value="health" className="space-y-4">
-            <HealthTracker />
-          </TabsContent>
-
-          <TabsContent value="timeline" className="space-y-4">
-            <h2 className="text-2xl font-bold">Health Timeline</h2>
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground">
-                  <Clock className="w-12 h-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Your Health Journey</h3>
-                  <p>Track your AI consultations, doctor visits, and medication orders</p>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="history" className="space-y-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Medical History & Records</h2>
+            </div>
+            <MedicalHistoryView />
           </TabsContent>
 
           <TabsContent value="wallet" className="space-y-4">
