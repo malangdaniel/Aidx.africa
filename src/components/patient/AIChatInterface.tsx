@@ -53,6 +53,8 @@ export default function AIChatInterface({
         }
     }, [messages, isAssessmentComplete]);
 
+    import { sendMessageToAI, generateDiagnosis as getAIDiagnosis, ChatMessage } from '@/services/ai';
+
     const handleSendMessage = async () => {
         if (!inputText.trim()) return;
 
@@ -62,94 +64,68 @@ export default function AIChatInterface({
             content: inputText
         };
 
-        setMessages(prev => [...prev, userMessage]);
+        const newMessages = [...messages, userMessage];
+        setMessages(newMessages);
         setInputText('');
         setIsLoading(true);
 
-        // Simulate AI processing and decision making
-        setTimeout(() => {
-            let aiResponse: Message;
-            const lowerInput = userMessage.content.toLowerCase();
+        try {
+            // Convert UI messages to API format
+            // We skip the first welcome message if it's from the assistant and strictly not part of the 'context' 
+            // but usually it's fine to include or exclude. 
+            // The service expects { role: 'user' | 'model', parts: [{ text }] }
+            const apiHistory: ChatMessage[] = newMessages
+                .filter(m => m.id !== '1') // Skip the initial hardcoded greeting to avoid confusion or format processing
+                .map(m => ({
+                    role: m.role === 'user' ? 'user' : 'model',
+                    parts: [{ text: m.content }]
+                }));
 
-            // Simple mock logic flow
-            if (messages.length < 3) {
-                // Still gathering info
-                if (lowerInput.includes('headache')) {
-                    aiResponse = {
-                        id: (Date.now() + 1).toString(),
-                        role: 'assistant',
-                        content: "I understand you have a headache. Is it localized to one side, or is it all over? How long has it been persisting?"
-                    };
-                } else if (lowerInput.includes('chest') || lowerInput.includes('heart')) {
-                    aiResponse = {
-                        id: (Date.now() + 1).toString(),
-                        role: 'assistant',
-                        content: "Chest pain can be serious. Are you experiencing any shortness of breath or radiating pain to your arm or jaw?"
-                    };
-                } else if (lowerInput.includes('stomach') || lowerInput.includes('belly')) {
-                    aiResponse = {
-                        id: (Date.now() + 1).toString(),
-                        role: 'assistant',
-                        content: "Stomach issues can vary. Do you have any nausea, vomiting, or fever accompanying the pain?"
-                    };
-                } else {
-                    aiResponse = {
-                        id: (Date.now() + 1).toString(),
-                        role: 'assistant',
-                        content: "Could you tell me more about the severity of your symptoms on a scale of 1 to 10? And do you have any pre-existing conditions?"
-                    };
-                }
-                setMessages(prev => [...prev, aiResponse]);
-            } else {
-                // End of mock assessment
-                const finalMessage: Message = {
-                    id: (Date.now() + 1).toString(),
-                    role: 'assistant',
-                    content: "Thank you for providing those details. I've analyzed your symptoms and generated a preliminary assessment. Please review the results below."
-                };
-                setMessages(prev => [...prev, finalMessage]);
+            const responseText = await sendMessageToAI(apiHistory, userMessage.content);
+
+            const aiMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                role: 'assistant',
+                content: responseText
+            };
+
+            setMessages(prev => [...prev, aiMessage]);
+
+            // Simple heuristic: If conversation is long enough, or if AI indicates readiness
+            // For now, let's trigger diagnosis after 5 user messages or if the AI says "ready to provide an assessment"
+            const userMsgCount = newMessages.filter(m => m.role === 'user').length;
+            const isReady = responseText.toLowerCase().includes("ready to provide an assessment") || userMsgCount >= 5;
+
+            if (isReady) {
                 setIsAssessmentComplete(true);
-                generateDiagnosis(lowerInput);
-                if (onConsultationComplete) onConsultationComplete();
+                generateDiagnosis(newMessages.map(m => `${m.role}: ${m.content}`).join('\n') + `\nassistant: ${responseText}`);
             }
+
+        } catch (error) {
+            console.error("Failed to get AI response", error);
+            const errorMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                role: 'assistant',
+                content: "I'm sorry, I'm having trouble connecting right now. Please try again."
+            };
+            setMessages(prev => [...prev, errorMessage]);
+        } finally {
             setIsLoading(false);
-        }, 1500);
+        }
     };
 
-    const generateDiagnosis = (lastInput: string) => {
-        // Mock diagnosis generation based on conversation context (simplified)
-        const history = messages.map(m => m.content.toLowerCase()).join(' ');
-
-        if (history.includes('chest') || history.includes('heart')) {
-            setDiagnosisData({
-                diagnoses: [
-                    { condition: 'Angina Pectoris', probability: 75, rationale: 'Symptoms match typical presentation of stable angina including chest discomfort.' },
-                    { condition: 'Gastroesophageal Reflux Disease (GERD)', probability: 15, rationale: 'Burning sensation could mimic heart pain.' },
-                    { condition: 'Costochondritis', probability: 10, rationale: 'Possible inflammation of chest cartilage.' }
-                ],
-                specialist: 'Cardiologist',
-                meds: [{ name: 'Aspirin (Low Dose)', type: 'OTC' }, { name: 'Nitroglycerin', type: 'Prescription' }]
-            });
-        } else if (history.includes('headache')) {
-            setDiagnosisData({
-                diagnoses: [
-                    { condition: 'Migraine', probability: 60, rationale: 'Unilateral throbbing pain with sensitivity.' },
-                    { condition: 'Tension Headache', probability: 30, rationale: 'Stress-related muscle tightness.' },
-                    { condition: 'Sinusitis', probability: 10, rationale: 'Possible congestion related pressure.' }
-                ],
-                specialist: 'Neurologist',
-                meds: [{ name: 'Ibuprofen', type: 'OTC' }, { name: 'Sumatriptan', type: 'Prescription' }]
-            });
-        } else {
-            setDiagnosisData({
-                diagnoses: [
-                    { condition: 'Viral Gastroenteritis', probability: 45, rationale: 'Common stomach bug symptoms.' },
-                    { condition: 'Food Poisoning', probability: 35, rationale: 'Acute onset after eating.' },
-                    { condition: 'Gastritis', probability: 20, rationale: 'Inflammation of stomach lining.' }
-                ],
-                specialist: 'Gastroenterologist',
-                meds: [{ name: 'Antacids', type: 'OTC' }, { name: 'Probiotics', type: 'OTC' }]
-            });
+    const generateDiagnosis = async (conversationHistory: string) => {
+        setIsLoading(true);
+        try {
+            const result = await getAIDiagnosis(conversationHistory);
+            if (result) {
+                setDiagnosisData(result);
+                if (onConsultationComplete) onConsultationComplete();
+            }
+        } catch (error) {
+            console.error("Error parsing diagnosis", error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -199,8 +175,8 @@ export default function AIChatInterface({
                                         </Avatar>
                                         <div
                                             className={`rounded-lg p-3 text-sm ${msg.role === 'user'
-                                                    ? 'bg-primary text-primary-foreground'
-                                                    : 'bg-muted'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-muted'
                                                 }`}
                                         >
                                             {msg.content}
