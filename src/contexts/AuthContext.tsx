@@ -18,7 +18,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, userData: any) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, userData: any) => Promise<{ data?: any; error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refetchProfile: () => Promise<void>;
@@ -88,7 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
           setTimeout(async () => {
             const profileData = await fetchProfile(session.user.id);
@@ -106,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         setTimeout(async () => {
           const profileData = await fetchProfile(session.user.id);
@@ -123,8 +123,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, userData: any) => {
     const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
+
+    // Return the full response so we can check for immediate session
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -132,8 +133,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         data: userData
       }
     });
-    
-    return { error };
+
+    return { data, error };
   };
 
   const signIn = async (email: string, password: string) => {
@@ -141,7 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email,
       password
     });
-    
+
     return { error };
   };
 

@@ -21,7 +21,7 @@ export default function AuthPage() {
     role: 'patient' as 'patient' | 'doctor' | 'pharmacist',
     business_name: ''
   });
-  
+
   const { signUp, signIn } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -36,7 +36,7 @@ export default function AuthPage() {
 
     try {
       const { error } = await signIn(formData.email, formData.password);
-      
+
       if (error) {
         toast({
           title: "Sign In Error",
@@ -52,7 +52,7 @@ export default function AuthPage() {
       }
     } catch (error) {
       toast({
-        title: "Sign In Error", 
+        title: "Sign In Error",
         description: "An unexpected error occurred",
         variant: "destructive"
       });
@@ -74,15 +74,23 @@ export default function AuthPage() {
         ...(formData.role === 'pharmacist' && { business_name: formData.business_name })
       };
 
-      const { error } = await signUp(formData.email, formData.password, userData);
-      
+      const { data, error } = await signUp(formData.email, formData.password, userData);
+
       if (error) {
         toast({
           title: "Sign Up Error",
           description: error.message,
           variant: "destructive"
         });
+      } else if (data && data.session) {
+        // If session exists, user is signed in immediately (email confirm disabled)
+        toast({
+          title: "Account Created!",
+          description: "Signing you in..."
+        });
+        navigate('/');
       } else {
+        // No session means check email
         toast({
           title: "Account Created!",
           description: "Please check your email to verify your account"
@@ -133,7 +141,7 @@ export default function AuthPage() {
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="signin" className="space-y-4 mt-4">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
@@ -162,7 +170,7 @@ export default function AuthPage() {
                   </Button>
                 </form>
               </TabsContent>
-              
+
               <TabsContent value="signup" className="space-y-4 mt-4">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -187,7 +195,7 @@ export default function AuthPage() {
                       />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="role">I am a</Label>
                     <Select value={formData.role} onValueChange={(value) => handleInputChange('role', value)}>
@@ -236,7 +244,7 @@ export default function AuthPage() {
                       />
                     </div>
                   )}
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number</Label>
                     <Input
@@ -247,7 +255,7 @@ export default function AuthPage() {
                       onChange={(e) => handleInputChange('phone', e.target.value)}
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
                     <Input
@@ -259,7 +267,7 @@ export default function AuthPage() {
                       required
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
                     <Input
@@ -271,7 +279,7 @@ export default function AuthPage() {
                       required
                     />
                   </div>
-                  
+
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Creating Account..." : "Create Account"}
                   </Button>
