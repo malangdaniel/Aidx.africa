@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
@@ -7,12 +7,14 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Upload, FileText, Loader2, Save, X } from 'lucide-react'; // Added X and Loader2
+import { Upload, FileText, Loader2, Save, X } from 'lucide-react';
 import ListItemManager from './ListItemManager';
 import { generatePatientHealthSummary, GeneratePatientHealthSummaryInput } from '@/services/patientHistoryAi';
-import { useToast } from '@/hooks/use-toast'; // Changed import path to match potential Shadcn structure, checked package.json -> sonner or toast? package.json has use-toast.ts but usually it's in hooks or components/ui. Previous list_dir of components/ui showed use-toast.ts. Let me check the file path again.
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
-// --- MOCK DATA / TYPES ---
+// --- CONSTANTS ---
 
 const COMMON_DISEASES = [
     "Hypertension", "Asthma", "Diabetes Type 1", "Diabetes Type 2", "Heart Disease"
@@ -28,7 +30,9 @@ const FAMILY_CONDITIONS = [
 
 export default function MedicalHistoryView() {
     const { toast } = useToast();
+    const { user, profile } = useAuth();
     const [loadingAI, setLoadingAI] = useState(false);
+    const [loadingData, setLoadingData] = useState(true);
     const [aiSummary, setAiSummary] = useState<string | null>(null);
 
     // Form States
@@ -36,7 +40,6 @@ export default function MedicalHistoryView() {
     const [pastConditions, setPastConditions] = useState<string[]>([]);
     const [customPastConditions, setCustomPastConditions] = useState<any[]>([]);
     const [allergies, setAllergies] = useState<string[]>([]);
-
     const [familyHistory, setFamilyHistory] = useState<string[]>([]);
 
     // Social History
@@ -49,6 +52,48 @@ export default function MedicalHistoryView() {
     const [currentSymptoms, setCurrentSymptoms] = useState('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+    // Initial Data Fetch
+    useEffect(() => {
+        const fetchRecords = async () => {
+            if (!user) return;
+            setLoadingData(true);
+            try {
+                const { data, error } = await supabase
+                    .from('patient_records')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+
+                if (error) throw error;
+
+                if (data) {
+                    setAllergies(data.allergies || []);
+                    setPastConditions(data.chronic_conditions || []);
+                    setFamilyHistory(data.family_history || []);
+
+                    // Complex JSON Parsing
+                    if (data.current_medications) setMedications(data.current_medications);
+                    if (data.past_surgeries) setCustomPastConditions(data.past_surgeries);
+                    if (data.social_history) {
+                        const sh = data.social_history as any;
+                        setIsSmoker(sh.smoker || false);
+                        setSmokingDetails(sh.smoker_details || '');
+                        setDrinksAlcohol(sh.alcohol || false);
+                        setAlcoholDetails(sh.alcohol_details || '');
+                    }
+                    if (data.clinical_summary) setAiSummary(data.clinical_summary);
+                }
+            } catch (err) {
+                console.error("Error fetching medical records:", err);
+                // Silent fail or toast
+            } finally {
+                setLoadingData(false);
+            }
+        };
+
+        fetchRecords();
+    }, [user]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -88,6 +133,34 @@ export default function MedicalHistoryView() {
         }
     };
 
+    const saveDataToBackend = async (summaryOverride?: string) => {
+        if (!user) return;
+
+        const socialHistory = {
+            smoker: isSmoker,
+            smoker_details: smokingDetails,
+            alcohol: drinksAlcohol,
+            alcohol_details: alcoholDetails
+        };
+
+        const payload = {
+            user_id: user.id,
+            allergies,
+            chronic_conditions: pastConditions,
+            family_history: familyHistory,
+            current_medications: medications,
+            past_surgeries: customPastConditions,
+            social_history: socialHistory,
+            ...(summaryOverride !== undefined && { clinical_summary: summaryOverride })
+        };
+
+        const { error } = await supabase
+            .from('patient_records')
+            .upsert(payload, { onConflict: 'user_id' });
+
+        if (error) throw error;
+    };
+
     const handleGenerateSummary = async () => {
         setLoadingAI(true);
         setAiSummary(null);
@@ -101,12 +174,12 @@ export default function MedicalHistoryView() {
 
             const input: GeneratePatientHealthSummaryInput = {
                 personalDetails: {
-                    fullName: "John Doe", // Mock data for now
-                    age: 45,
-                    sex: "Male",
-                    address: "123 Health St, Medical City",
+                    fullName: profile ? `${profile.first_name || ''} ${profile.last_name || ''}` : "Patient",
+                    age: profile?.metadata?.age || 0,
+                    sex: profile?.metadata?.sex || "Not specified",
+                    address: profile?.metadata?.address || "Not specified",
                     ethnicity: "Not specified",
-                    occupation: "Software Engineer",
+                    occupation: "Not specified",
                     maritalStatus: "Not specified"
                 },
                 medicalHistory: {
@@ -124,6 +197,14 @@ export default function MedicalHistoryView() {
             const result = await generatePatientHealthSummary(input);
             setAiSummary(result.summary);
 
+            // Save to DB immediately
+            await saveDataToBackend(result.summary);
+
+            toast({
+                title: "Summary Generated & Saved",
+                description: "The clinical summary has been updated in your records.",
+            });
+
         } catch (error) {
             console.error(error);
             toast({
@@ -136,14 +217,30 @@ export default function MedicalHistoryView() {
         }
     };
 
-    const handleSave = () => {
-        // Allow saving to backend
-        console.log("Saving data...");
-        toast({
-            title: "Changes Saved",
-            description: "Your medical history has been updated.",
-        });
+    const handleSave = async () => {
+        try {
+            await saveDataToBackend();
+            toast({
+                title: "Changes Saved",
+                description: "Your medical history has been updated.",
+            });
+        } catch (error) {
+            console.error("Save error:", error);
+            toast({
+                title: "Error Saving",
+                description: "Could not save changes. Please try again.",
+                variant: "destructive"
+            });
+        }
     };
+
+    if (loadingData) {
+        return (
+            <div className="flex items-center justify-center p-12">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in">
@@ -157,19 +254,19 @@ export default function MedicalHistoryView() {
                     <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
                             <Label className="text-muted-foreground">Full Name</Label>
-                            <p className="font-medium">John Doe</p>
+                            <p className="font-medium">{profile?.first_name} {profile?.last_name}</p>
+                        </div>
+                        <div>
+                            <Label className="text-muted-foreground">Phone</Label>
+                            <p className="font-medium">{profile?.phone || 'N/A'}</p>
                         </div>
                         <div>
                             <Label className="text-muted-foreground">Age / Sex</Label>
-                            <p className="font-medium">45 / Male</p>
+                            <p className="font-medium">{profile?.metadata?.age || 'N/A'} / {profile?.metadata?.sex || 'N/A'}</p>
                         </div>
                         <div>
                             <Label className="text-muted-foreground">Address</Label>
-                            <p className="font-medium">123 Health St, Medical City</p>
-                        </div>
-                        <div>
-                            <Label className="text-muted-foreground">Occupation</Label>
-                            <p className="font-medium">Software Engineer</p>
+                            <p className="font-medium">{profile?.metadata?.address || 'N/A'}</p>
                         </div>
                     </CardContent>
                 </Card>
