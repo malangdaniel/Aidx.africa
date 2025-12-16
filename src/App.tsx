@@ -15,8 +15,8 @@ import { DevRoleSwitcher } from "@/components/dev/DevRoleSwitcher";
 
 const queryClient = new QueryClient();
 
-// DEV MODE: Set to true to bypass authentication
-const DEV_MODE = true;
+// DEV MODE: Set to false to enable authentication
+const DEV_MODE = false;
 
 type DevRole = 'patient' | 'doctor' | 'pharmacist' | 'admin';
 
@@ -57,8 +57,17 @@ function ProtectedRoute() {
     );
   }
 
-  if (!user || !profile) {
-    return <AuthPage />;
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // Handle case where profile is still loading or null but user is set (rare but possible during registration)
+  if (!profile) {
+    // If user exists but no profile, they might need to complete setup or it's a loading glitch.
+    // For now, let's allow them to auth page or show a loading/error state.
+    // But typically AuthContext handles this. Let's assume if user exists, profile fetch is attempted.
+    // If it failed, maybe we stay on auth.
+    return <div className="min-h-screen flex items-center justify-center">Loading Profile...</div>;
   }
 
   // Route based on user role

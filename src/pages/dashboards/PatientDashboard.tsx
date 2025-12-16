@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +12,8 @@ import HealthTracker from '@/components/patient/HealthTracker';
 import MedicalHistoryView from '@/components/patient/medical-history/MedicalHistoryView';
 
 export default function PatientDashboard() {
+  const { profile } = useAuth();
+  const firstName = profile?.first_name || 'Patient';
   const [activeTab, setActiveTab] = useState('ai-chat');
   const [preselectedSpecialty, setPreselectedSpecialty] = useState<string | undefined>(undefined);
 
@@ -27,7 +30,7 @@ export default function PatientDashboard() {
       <div className="space-y-6">
         {/* Welcome Section */}
         <div className="bg-gradient-to-r from-primary to-secondary rounded-lg p-6 text-primary-foreground">
-          <h1 className="text-2xl font-bold mb-2">Welcome back!</h1>
+          <h1 className="text-2xl font-bold mb-2">Welcome back, {firstName}!</h1>
           <p className="opacity-90">How can I help you with your health today?</p>
         </div>
 

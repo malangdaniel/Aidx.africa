@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,9 @@ import PatientList from '@/components/doctor/PatientList';
 import PatientDetail from '@/components/doctor/PatientDetail';
 
 export default function DoctorDashboard() {
+  const { profile } = useAuth();
+  const doctorName = profile ? `Dr. ${profile.first_name || ''} ${profile.last_name || ''}` : 'Doctor';
+
   const [activeTab, setActiveTab] = useState('consultations');
   const [activeConsultation, setActiveConsultation] = useState<{ id: string, name: string } | null>(null);
   const [activePatient, setActivePatient] = useState<{ id: string } | null>(null);
@@ -80,7 +84,7 @@ Review of Systems:
       <div className="space-y-6">
         {/* Welcome Section */}
         <div className="bg-gradient-to-r from-primary to-secondary rounded-lg p-6 text-primary-foreground">
-          <h1 className="text-2xl font-bold mb-2">Welcome, Dr. User!</h1>
+          <h1 className="text-2xl font-bold mb-2">Welcome, {doctorName}!</h1>
           <p className="opacity-90">Ready to help patients today?</p>
         </div>
 
