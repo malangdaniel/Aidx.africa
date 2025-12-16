@@ -224,11 +224,11 @@ export default function MedicalHistoryView() {
                 title: "Changes Saved",
                 description: "Your medical history has been updated.",
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Save error:", error);
             toast({
                 title: "Error Saving",
-                description: "Could not save changes. Please try again.",
+                description: error.message || "Could not save changes. Please try again.",
                 variant: "destructive"
             });
         }

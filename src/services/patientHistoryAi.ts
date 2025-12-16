@@ -26,7 +26,7 @@ const PastConditionSchema = z.object({
 const MedicalHistorySchema = z.object({
     currentMedications: z.array(MedicationSchema).optional(),
     pastChronicDiseases: z.array(z.string()).optional(),
-    otherPastConditions: z.array(PastConditionSchema).optional(),
+    otherPastConditifons: z.array(PastConditionSchema).optional(),
     familyHistory: z.array(z.string()).optional(),
     socialHistory: z.string().optional().describe("A summary of social history, e.g., smoking, alcohol use."),
     allergies: z.array(z.string()).optional(),
