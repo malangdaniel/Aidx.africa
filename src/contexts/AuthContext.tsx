@@ -65,9 +65,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error fetching role:', roleError);
       }
 
+      const role = roleData?.role || profileData?.role || 'patient';
+
       return {
         ...profileData,
-        role: roleData?.role || 'patient'
+        role
       };
     } catch (error) {
       console.error('Error in fetchProfile:', error);

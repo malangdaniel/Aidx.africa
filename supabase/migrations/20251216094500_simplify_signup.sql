@@ -7,35 +7,40 @@ DROP FUNCTION IF EXISTS public.handle_new_user();
 -- 2. DEFINE FUNCTION: Straightforward inserts, no dynamic checks
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
+DECLARE
+  v_role public.app_role;
+  v_role_str text;
 BEGIN
-  -- Insert into profiles is the most critical
-  -- We default to 'patient' if the role is missing or invalid to avoid cast errors
-  BEGIN
-    INSERT INTO public.profiles (user_id, role, first_name, last_name)
-    VALUES (
-      NEW.id,
-      COALESCE(NEW.raw_user_meta_data->>'role', 'patient')::public.app_role,
-      NEW.raw_user_meta_data->>'first_name',
-      NEW.raw_user_meta_data->>'last_name'
-    );
-  EXCEPTION WHEN OTHERS THEN
-    -- Fallback: If enum cast fails, force patient
-    INSERT INTO public.profiles (user_id, role, first_name, last_name)
-    VALUES (
-      NEW.id,
-      'patient'::public.app_role,
-      NEW.raw_user_meta_data->>'first_name',
-      NEW.raw_user_meta_data->>'last_name'
-    );
-  END;
+  -- Safely extract and normalize role to lowercase
+  v_role_str := LOWER(COALESCE(NEW.raw_user_meta_data->>'role', 'patient'));
+  
+  -- Validation fallback to ensure it matches the enum
+  IF v_role_str NOT IN ('patient', 'doctor', 'pharmacist', 'admin') THEN
+    v_role_str := 'patient';
+  END IF;
+  
+  v_role := v_role_str::public.app_role;
 
-  -- Insert into wallets (We assume table exists as per schema)
+  -- 1. Insert into profiles (most critical)
+  INSERT INTO public.profiles (user_id, role, first_name, last_name)
+  VALUES (
+    NEW.id,
+    v_role,
+    NEW.raw_user_meta_data->>'first_name',
+    NEW.raw_user_meta_data->>'last_name'
+  );
+
+  -- 2. Sync with user_roles table (important for role-based logic)
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (NEW.id, v_role)
+  ON CONFLICT (user_id, role) DO NOTHING;
+
+  -- 3. Rest of the initialization
   INSERT INTO public.wallets (user_id) VALUES (NEW.id);
   
-  -- Role specific inserts
-  IF (NEW.raw_user_meta_data->>'role' = 'doctor') THEN
+  IF (v_role = 'doctor') THEN
     INSERT INTO public.doctors (user_id) VALUES (NEW.id);
-  ELSIF (NEW.raw_user_meta_data->>'role' = 'pharmacist') THEN
+  ELSIF (v_role = 'pharmacist') THEN
     INSERT INTO public.pharmacies (user_id, business_name) 
     VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'business_name', 'Pharmacy'));
   END IF;
