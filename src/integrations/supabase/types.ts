@@ -652,7 +652,7 @@ export type Database = {
           last_name?: string | null
           metadata?: Json | null
           phone?: string | null
-          role: Database["public"]["Enums"]["app_role"]
+          role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id: string
           verification_status?:

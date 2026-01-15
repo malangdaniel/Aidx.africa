@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 import { z } from "zod";
 
 // --- Schemas (Adapted from user template) ---
@@ -69,10 +69,10 @@ const genAI = new GoogleGenerativeAI(API_KEY || "");
 const model = genAI.getGenerativeModel({
     model: "gemini-1.5-flash",
     safetySettings: [
-        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
     ],
 });
 
@@ -102,9 +102,9 @@ Based on the presenting complaints, elaborate on the history.
 
 Past Medical History:
 ${medicalHistory.pastChronicDiseases?.length ? `- Chronic Diseases: ${formatList(medicalHistory.pastChronicDiseases)}.` : ''}
-${medicalHistory.otherPastConditions?.length ? `- Other Conditions: ${medicalHistory.otherPastConditions.map(c => `${c.name} (${c.details})`).join(", ")}.` : ''}
+${medicalHistory.otherPastConditifons?.length ? `- Other Conditions: ${medicalHistory.otherPastConditifons.map(c => `${c.name} (${c.details})`).join(", ")}.` : ''}
 ${medicalHistory.allergies?.length ? `- Allergies: ${formatList(medicalHistory.allergies)}.` : ''}
-${(!medicalHistory.pastChronicDiseases?.length && !medicalHistory.otherPastConditions?.length) ? '- No other significant past medical or surgical history unless provided.' : ''}
+${(!medicalHistory.pastChronicDiseases?.length && !medicalHistory.otherPastConditifons?.length) ? '- No other significant past medical or surgical history unless provided.' : ''}
 
 Drug History:
 ${medicalHistory.currentMedications?.length
