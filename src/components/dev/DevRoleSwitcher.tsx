@@ -1,7 +1,7 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { User, Stethoscope, Pill, Shield } from 'lucide-react';
+import aidxLogo from '@/assets/aidx-logo.png';
 
 type DevRole = 'patient' | 'doctor' | 'pharmacist' | 'admin';
 
@@ -21,6 +21,9 @@ export function DevRoleSwitcher({ onSelectRole }: DevRoleSwitcherProps) {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <img src={aidxLogo} alt="AiDx Logo" className="h-12 w-auto" />
+          </div>
           <div className="mx-auto mb-2 px-3 py-1 bg-destructive/10 text-destructive text-xs font-semibold rounded-full w-fit">
             DEV MODE
           </div>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Calendar, FileText, Activity, AlertTriangle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, Activity, Loader2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -16,9 +16,8 @@ interface Consult {
     id: string;
     doctor_id: string;
     created_at: string;
-    notes: string;
-    diagnosis: string;
-    doctorName?: string;
+    notes: string | null;
+    diagnosis: string | null;
 }
 
 export default function PatientDetail({ patientId, onBack }: PatientDetailProps) {
@@ -45,28 +44,15 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
             if (profileError) throw profileError;
             setPatient(profile);
 
-            // Fetch Consultations
+            // Fetch Consultations - simplified query without problematic nested joins
             const { data: consults, error: consultsError } = await supabase
                 .from('consultations')
-                .select(`
-                    id,
-                    doctor_id,
-                    created_at,
-                    notes,
-                    diagnosis,
-                    doctor:doctor_id (
-                        id,
-                        specialties
-                        -- we'd usually join profile on doctor->user_id to get name, but structure is tricky 
-                        -- simple join might fail if foreign keys aren't set up for deep nesting
-                    )
-                `)
+                .select('id, doctor_id, created_at, notes, diagnosis')
                 .eq('patient_id', patientId)
                 .order('created_at', { ascending: false });
 
             if (consultsError) throw consultsError;
 
-            // map consults if needed
             setConsultations(consults || []);
 
         } catch (error) {

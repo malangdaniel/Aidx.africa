@@ -28,6 +28,22 @@ const FAMILY_CONDITIONS = [
     "Hypertension", "Diabetes", "Cancer", "Heart Disease", "Stroke"
 ];
 
+// Type for the patient_records data structure
+interface PatientRecordData {
+    allergies?: string[];
+    chronic_conditions?: string[];
+    family_history?: string[];
+    current_medications?: Array<{ name: string; dosage: string }>;
+    past_surgeries?: Array<{ condition: string; details: string }>;
+    social_history?: {
+        smoker?: boolean;
+        smoker_details?: string;
+        alcohol?: boolean;
+        alcohol_details?: string;
+    };
+    clinical_summary?: string;
+}
+
 export default function MedicalHistoryView() {
     const { toast } = useToast();
     const { user, profile } = useAuth();
@@ -59,13 +75,16 @@ export default function MedicalHistoryView() {
             if (!user) return;
             setLoadingData(true);
             try {
-                const { data, error } = await supabase
-                    .from('patient_records')
-                    .select('*')
+                // Use profiles.metadata to store patient medical records instead of non-existent table
+                const { data: profileData, error } = await supabase
+                    .from('profiles')
+                    .select('metadata')
                     .eq('user_id', user.id)
-                    .maybeSingle();
+                    .single();
 
                 if (error) throw error;
+
+                const data = (profileData?.metadata as PatientRecordData) || {};
 
                 if (data) {
                     setAllergies(data.allergies || []);
@@ -76,7 +95,7 @@ export default function MedicalHistoryView() {
                     if (data.current_medications) setMedications(data.current_medications);
                     if (data.past_surgeries) setCustomPastConditions(data.past_surgeries);
                     if (data.social_history) {
-                        const sh = data.social_history as any;
+                        const sh = data.social_history;
                         setIsSmoker(sh.smoker || false);
                         setSmokingDetails(sh.smoker_details || '');
                         setDrinksAlcohol(sh.alcohol || false);
@@ -143,8 +162,7 @@ export default function MedicalHistoryView() {
             alcohol_details: alcoholDetails
         };
 
-        const payload = {
-            user_id: user.id,
+        const medicalData: PatientRecordData = {
             allergies,
             chronic_conditions: pastConditions,
             family_history: familyHistory,
@@ -154,9 +172,20 @@ export default function MedicalHistoryView() {
             ...(summaryOverride !== undefined && { clinical_summary: summaryOverride })
         };
 
+        // Get existing metadata and merge with medical data
+        const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('metadata')
+            .eq('user_id', user.id)
+            .single();
+
+        const existingMetadata = (existingProfile?.metadata as Record<string, unknown>) || {};
+        const updatedMetadata = { ...existingMetadata, ...medicalData };
+
         const { error } = await supabase
-            .from('patient_records')
-            .upsert(payload, { onConflict: 'user_id' });
+            .from('profiles')
+            .update({ metadata: updatedMetadata })
+            .eq('user_id', user.id);
 
         if (error) throw error;
     };
@@ -175,9 +204,9 @@ export default function MedicalHistoryView() {
             const input: GeneratePatientHealthSummaryInput = {
                 personalDetails: {
                     fullName: profile ? `${profile.first_name || ''} ${profile.last_name || ''}` : "Patient",
-                    age: profile?.metadata?.age || 0,
-                    sex: profile?.metadata?.sex || "Not specified",
-                    address: profile?.metadata?.address || "Not specified",
+                    age: (profile?.metadata as any)?.age || 0,
+                    sex: (profile?.metadata as any)?.sex || "Not specified",
+                    address: (profile?.metadata as any)?.address || "Not specified",
                     ethnicity: "Not specified",
                     occupation: "Not specified",
                     maritalStatus: "Not specified"
@@ -185,7 +214,7 @@ export default function MedicalHistoryView() {
                 medicalHistory: {
                     currentMedications: medications.map(m => ({ name: m.name, dosage: m.dosage })),
                     pastChronicDiseases: pastConditions,
-                    otherPastConditions: customPastConditions.map(c => ({ name: c.condition, details: c.details })),
+                    otherPastConditifons: customPastConditions.map(c => ({ name: c.condition, details: c.details })),
                     familyHistory: familyHistory,
                     allergies: allergies,
                     socialHistory: socialHistoryParts.join("; ")
@@ -262,11 +291,11 @@ export default function MedicalHistoryView() {
                         </div>
                         <div>
                             <Label className="text-muted-foreground">Age / Sex</Label>
-                            <p className="font-medium">{profile?.metadata?.age || 'N/A'} / {profile?.metadata?.sex || 'N/A'}</p>
+                            <p className="font-medium">{(profile?.metadata as any)?.age || 'N/A'} / {(profile?.metadata as any)?.sex || 'N/A'}</p>
                         </div>
                         <div>
                             <Label className="text-muted-foreground">Address</Label>
-                            <p className="font-medium">{profile?.metadata?.address || 'N/A'}</p>
+                            <p className="font-medium">{(profile?.metadata as any)?.address || 'N/A'}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -380,43 +409,38 @@ export default function MedicalHistoryView() {
                                                 <Checkbox
                                                     id="smoker"
                                                     checked={isSmoker}
-                                                    onCheckedChange={(c) => setIsSmoker(c as boolean)}
+                                                    onCheckedChange={(checked) => setIsSmoker(checked as boolean)}
                                                 />
-                                                <Label htmlFor="smoker">Are you a smoker?</Label>
+                                                <Label htmlFor="smoker">Do you smoke?</Label>
                                             </div>
                                         </div>
                                         {isSmoker && (
-                                            <div className="ml-6 space-y-2 animate-in slide-in-from-top-2">
-                                                <Label htmlFor="smokingDetails">Details (Packs per day, years)</Label>
+                                            <div className="pl-6">
                                                 <Input
-                                                    id="smokingDetails"
+                                                    placeholder="Details (e.g., 10 cigarettes/day for 5 years)"
                                                     value={smokingDetails}
                                                     onChange={(e) => setSmokingDetails(e.target.value)}
-                                                    placeholder="e.g. 1 pack/day for 10 years"
                                                 />
                                             </div>
                                         )}
                                     </div>
-
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center space-x-2">
                                                 <Checkbox
                                                     id="alcohol"
                                                     checked={drinksAlcohol}
-                                                    onCheckedChange={(c) => setDrinksAlcohol(c as boolean)}
+                                                    onCheckedChange={(checked) => setDrinksAlcohol(checked as boolean)}
                                                 />
                                                 <Label htmlFor="alcohol">Do you drink alcohol?</Label>
                                             </div>
                                         </div>
                                         {drinksAlcohol && (
-                                            <div className="ml-6 space-y-2 animate-in slide-in-from-top-2">
-                                                <Label htmlFor="alcoholDetails">Frequency / Amount</Label>
+                                            <div className="pl-6">
                                                 <Input
-                                                    id="alcoholDetails"
+                                                    placeholder="Details (e.g., 2 beers/week)"
                                                     value={alcoholDetails}
                                                     onChange={(e) => setAlcoholDetails(e.target.value)}
-                                                    placeholder="e.g. Socially, 1-2 drinks per weekend"
                                                 />
                                             </div>
                                         )}
@@ -426,7 +450,7 @@ export default function MedicalHistoryView() {
 
                         </Accordion>
                     </CardContent>
-                    <CardFooter className="flex justify-end bg-muted/20 p-4 rounded-b-lg">
+                    <CardFooter className="border-t pt-6">
                         <Button onClick={handleSave} className="w-full sm:w-auto">
                             <Save className="w-4 h-4 mr-2" />
                             Save Changes
@@ -435,93 +459,91 @@ export default function MedicalHistoryView() {
                 </Card>
             </div>
 
-            {/* --- Secondary Column (Right - Sticky) --- */}
+            {/* --- Secondary Column (Right) --- */}
             <div className="lg:col-span-1 space-y-6">
-
-                {/* Current Symptoms & Files */}
-                <Card className="sticky top-6">
+                {/* Symptoms & Lab Upload */}
+                <Card>
                     <CardHeader>
-                        <CardTitle>Current Status</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="space-y-2">
-                            <Label>Current Symptoms</Label>
-                            <Textarea
-                                placeholder="Describe what you are feeling right now..."
-                                className="min-h-[120px]"
-                                value={currentSymptoms}
-                                onChange={(e) => setCurrentSymptoms(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Upload Records / Lab Results</Label>
-                            {!selectedFile ? (
-                                <div className="relative border-2 border-dashed border-input hover:border-primary/50 transition-colors rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer bg-muted/10">
-                                    <input
-                                        type="file"
-                                        accept="image/*,application/pdf"
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                        onChange={handleFileChange}
-                                    />
-                                    <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                                    <p className="text-sm font-medium">Click to upload or drag & drop</p>
-                                    <p className="text-xs text-muted-foreground mt-1">Images (JPG, PNG) or PDF up to 10MB</p>
-                                </div>
-                            ) : (
-                                <div className="relative border rounded-lg p-4 bg-muted/20">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-2 truncate">
-                                            <FileText className="w-5 h-5 text-primary" />
-                                            <span className="text-sm font-medium truncate max-w-[150px]">{selectedFile.name}</span>
-                                        </div>
-                                        <Button variant="ghost" size="icon" onClick={clearFile} className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                                            <X className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                    {previewUrl && selectedFile.type.startsWith('image/') && (
-                                        <div className="mt-2 relative aspect-video rounded-md overflow-hidden border">
-                                            <img src={previewUrl} alt="Preview" className="object-cover w-full h-full" />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* AI Summary */}
-                <Card className="sticky top-[450px]">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-primary" />
-                            Clinical Summary
-                        </CardTitle>
-                        <CardDescription>Generate a summary for your doctor.</CardDescription>
+                        <CardTitle>Generate AI Summary</CardTitle>
+                        <CardDescription>Add current symptoms and lab results to generate a clinical summary.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <Button
-                            onClick={handleGenerateSummary}
-                            className="w-full"
-                            disabled={loadingAI}
-                        >
+                        <div className="space-y-2">
+                            <Label htmlFor="symptoms">Current Symptoms</Label>
+                            <Textarea
+                                id="symptoms"
+                                placeholder="Describe any current symptoms (e.g., headache for 3 days, fever, cough)"
+                                value={currentSymptoms}
+                                onChange={(e) => setCurrentSymptoms(e.target.value)}
+                                rows={4}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Lab Results (Optional)</Label>
+                            <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
+                                {previewUrl ? (
+                                    <div className="relative">
+                                        <img src={previewUrl} alt="Lab result preview" className="max-h-40 mx-auto rounded" />
+                                        <Button
+                                            variant="destructive"
+                                            size="icon"
+                                            className="absolute top-0 right-0 h-6 w-6"
+                                            onClick={clearFile}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <label htmlFor="lab-file" className="cursor-pointer block">
+                                        <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                                        <span className="text-sm text-muted-foreground">Click to upload an image</span>
+                                        <input
+                                            id="lab-file"
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handleFileChange}
+                                        />
+                                    </label>
+                                )}
+                            </div>
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                        <Button onClick={handleGenerateSummary} disabled={loadingAI} className="w-full">
                             {loadingAI ? (
                                 <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Analyzing Records...
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Generating...
                                 </>
                             ) : (
-                                "Generate Summary"
+                                <>
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    Generate Summary
+                                </>
                             )}
                         </Button>
-
-                        {aiSummary && (
-                            <div className="p-4 bg-muted rounded-md text-xs font-mono whitespace-pre-wrap animate-in fade-in border border-primary/20 max-h-[400px] overflow-y-auto">
-                                {aiSummary}
-                            </div>
-                        )}
-                    </CardContent>
+                    </CardFooter>
                 </Card>
+
+                {/* AI Summary Display */}
+                {aiSummary && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <FileText className="w-5 h-5 text-primary" />
+                                Clinical Summary
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ScrollArea className="h-[400px] pr-4">
+                                <pre className="whitespace-pre-wrap text-sm font-mono bg-muted p-4 rounded-lg">
+                                    {aiSummary}
+                                </pre>
+                            </ScrollArea>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </div>
     );
