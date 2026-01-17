@@ -92,11 +92,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
 
         if (session?.user) {
+          // Use longer delay for SIGNED_IN after signup to allow trigger to complete
+          // Check if this is a new user by looking at created_at timestamp
+          const isNewUser = session.user.created_at && 
+            (Date.now() - new Date(session.user.created_at).getTime()) < 10000;
+          const delay = isNewUser ? 1000 : 0;
+          
           setTimeout(async () => {
             const profileData = await fetchProfile(session.user.id);
             setProfile(profileData);
             setLoading(false);
-          }, 0);
+          }, delay);
         } else {
           setProfile(null);
           setLoading(false);
