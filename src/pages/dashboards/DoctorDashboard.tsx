@@ -83,9 +83,9 @@ Review of Systems:
     <DashboardLayout title="Doctor Dashboard">
       <div className="space-y-6">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-primary to-secondary rounded-lg p-6 text-primary-foreground">
+        <div className="bg-gradient-to-br from-primary via-primary/90 to-secondary rounded-xl p-6 text-white shadow-lg">
           <h1 className="text-2xl font-bold mb-2">Welcome, {doctorName}!</h1>
-          <p className="opacity-90">Ready to help patients today?</p>
+          <p className="text-white/85">Ready to help patients today?</p>
         </div>
 
         {/* Quick Stats */}
