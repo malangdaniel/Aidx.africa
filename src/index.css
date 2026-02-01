@@ -4,76 +4,78 @@
 
 @layer base {
   :root {
-    --background: 220 20% 97%; /* Warm off-white with subtle blue */
-    --foreground: 220 30% 18%;
+    --background: 210 25% 97%;
+    --foreground: 220 25% 18%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 30% 18%;
+    --card-foreground: 220 25% 18%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 30% 18%;
+    --popover-foreground: 220 25% 18%;
 
     /* Soft Slate Blue - professional and calming */
-    --primary: 215 50% 35%;
+    --primary: 215 45% 40%;
     --primary-foreground: 0 0% 100%;
 
-    /* Light periwinkle accent */
-    --secondary: 220 25% 94%;
-    --secondary-foreground: 220 30% 25%;
+    /* Warm Teal - complementary accent that blends with primary */
+    --secondary: 175 45% 42%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 220 20% 96%;
-    --muted-foreground: 220 15% 50%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 215 15% 45%;
 
-    --accent: 215 40% 92%;
-    --accent-foreground: 215 50% 30%;
+    /* Subtle teal-tinted accent for backgrounds */
+    --accent: 185 30% 92%;
+    --accent-foreground: 215 45% 30%;
 
-    --destructive: 0 72% 55%;
+    --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 20% 90%;
-    --input: 220 20% 90%;
-    --ring: 215 50% 45%;
+    --border: 210 20% 88%;
+    --input: 210 20% 90%;
+    --ring: 215 45% 50%;
 
     --radius: 0.75rem;
     
     /* Custom semantic colors */
-    --success: 152 60% 42%;
+    --success: 152 55% 40%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 38 90% 50%;
     --warning-foreground: 0 0% 100%;
   }
 
   .dark {
-    --background: 220 25% 8%;
-    --foreground: 220 15% 95%;
+    --background: 220 25% 7%;
+    --foreground: 210 20% 95%;
 
-    --card: 220 25% 11%;
-    --card-foreground: 220 15% 95%;
+    --card: 220 25% 10%;
+    --card-foreground: 210 20% 95%;
 
-    --popover: 220 25% 11%;
-    --popover-foreground: 220 15% 95%;
+    --popover: 220 25% 10%;
+    --popover-foreground: 210 20% 95%;
 
-    /* Softer teal-blue for dark mode */
-    --primary: 200 65% 50%;
-    --primary-foreground: 220 25% 8%;
+    /* Brighter slate-blue for dark mode */
+    --primary: 210 55% 55%;
+    --primary-foreground: 220 25% 7%;
 
-    --secondary: 220 25% 18%;
-    --secondary-foreground: 220 15% 90%;
+    /* Vibrant teal for dark mode */
+    --secondary: 175 50% 45%;
+    --secondary-foreground: 220 25% 7%;
 
-    --muted: 220 25% 15%;
-    --muted-foreground: 220 15% 60%;
+    --muted: 220 20% 14%;
+    --muted-foreground: 210 15% 60%;
 
-    --accent: 220 25% 18%;
-    --accent-foreground: 220 15% 95%;
+    --accent: 185 25% 18%;
+    --accent-foreground: 210 20% 95%;
 
-    --destructive: 0 62% 45%;
+    --destructive: 0 60% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 25% 18%;
-    --input: 220 25% 18%;
-    --ring: 200 65% 55%;
+    --border: 220 20% 16%;
+    --input: 220 20% 16%;
+    --ring: 210 55% 60%;
     
-    --success: 152 55% 45%;
+    --success: 152 50% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 38 85% 55%;
     --warning-foreground: 0 0% 100%;
