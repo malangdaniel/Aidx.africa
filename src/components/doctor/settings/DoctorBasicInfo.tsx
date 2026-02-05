@@ -1,9 +1,10 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
+import { AvatarUpload } from "@/components/shared/AvatarUpload";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DoctorBasicInfoProps {
   data: {
@@ -36,6 +37,8 @@ const LICENSING_AUTHORITIES = [
 ];
 
 export function DoctorBasicInfo({ data, firstName, lastName, onFirstNameChange, onLastNameChange, onChange }: DoctorBasicInfoProps) {
+  const { user } = useAuth();
+  
   const addLanguage = (lang: string) => {
     if (lang && !data.languages.includes(lang)) {
       onChange("languages", [...data.languages, lang]);
@@ -46,25 +49,20 @@ export function DoctorBasicInfo({ data, firstName, lastName, onFirstNameChange, 
     onChange("languages", data.languages.filter(l => l !== lang));
   };
 
+  const initials = `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || 'DR';
+
   return (
-    <div className="space-y-6">
-      {/* Profile Photo Section */}
-      <div className="flex flex-col items-center gap-4 pb-4 border-b">
-        <Avatar className="h-24 w-24 border-2 border-primary/20">
-          <AvatarImage src={data.profilePhoto} />
-          <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-            {firstName?.[0]}{lastName?.[0]}
-          </AvatarFallback>
-        </Avatar>
-        <div className="grid w-full max-w-sm gap-1.5">
-          <Label htmlFor="profilePhoto">Professional Photo URL</Label>
-          <Input
-            id="profilePhoto"
-            placeholder="https://example.com/photo.jpg"
-            value={data.profilePhoto}
-            onChange={(e) => onChange("profilePhoto", e.target.value)}
-          />
-        </div>
+    <div className="space-y-5">
+      {/* Profile Photo */}
+      <div className="flex flex-col items-center gap-2 pb-4 border-b">
+        <AvatarUpload
+          userId={user?.id || ''}
+          currentAvatarUrl={data.profilePhoto}
+          fallbackInitials={initials}
+          onUploadComplete={(url) => onChange("profilePhoto", url)}
+          size="lg"
+        />
+        <p className="text-xs text-muted-foreground">Tap to upload professional photo</p>
       </div>
 
       {/* Name and Title */}

@@ -96,7 +96,26 @@
   .glass-nav {
     @apply bg-white/80 backdrop-blur-md border-t border-white/20 shadow-lg supports-[backdrop-filter]:bg-white/60;
   }
+  .dark .glass-nav {
+    @apply bg-background/80 border-border/40;
+  }
   .glass-card {
     @apply bg-white/70 backdrop-blur-sm border border-white/20 shadow-sm;
   }
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Mobile-first touch targets */
+@layer base {
+  button, a, [role="button"] {
+    @apply touch-manipulation;
+  }
+}
+
+/* Smooth scrolling for mobile */
+html {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }

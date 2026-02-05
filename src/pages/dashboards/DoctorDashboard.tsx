@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import BottomNav from '@/components/layout/BottomNav';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Stethoscope, DollarSign, Calendar, Star, Users, TrendingUp } from 'lucide-react';
@@ -18,11 +18,18 @@ export default function DoctorDashboard() {
   const [activeConsultation, setActiveConsultation] = useState<{ id: string, name: string } | null>(null);
   const [activePatient, setActivePatient] = useState<{ id: string } | null>(null);
 
+  const tabs = [
+    { id: 'consultations', label: 'Consults', icon: Calendar },
+    { id: 'patients', label: 'Patients', icon: Users },
+    { id: 'earnings', label: 'Earnings', icon: DollarSign },
+    { id: 'reviews', label: 'Reviews', icon: Star },
+  ];
+
   if (activeConsultation) {
     return (
-      <div className="container mx-auto p-4 min-h-screen">
+      <div className="min-h-screen bg-background p-4">
         <div className="mb-4">
-          <Button variant="ghost" onClick={() => setActiveConsultation(null)}>← Back to Dashboard</Button>
+          <Button variant="ghost" size="sm" onClick={() => setActiveConsultation(null)}>← Back</Button>
         </div>
         <ConsultationView
           consultationId={activeConsultation.id}
@@ -30,31 +37,23 @@ export default function DoctorDashboard() {
           clinicalSummary={`PATIENT CLINICAL SUMMARY
 Patient Name: ${activeConsultation.name}
 Hospital Number: GSH/001234
-Age: 32 years
-Sex: Male
+Age: 32 years | Sex: Male
 
 Presenting Complaints:
 - Severe chest pain radiating to left arm (7/10)
 
 History of Present Illness:
-Patient reports sudden onset of sharp, crushing chest pain starting 1 hour ago while at rest. Pain radiates to the left arm. Associated with nausea. No shortness of breath.
+Patient reports sudden onset of sharp, crushing chest pain starting 1 hour ago while at rest. Associated with nausea.
 
 Past Medical History:
-- Chronic Diseases: Hypertension (diag. 2020)
+- Hypertension (diag. 2020)
 - Allergies: Penicillin, Peanuts
 
 Social History:
 - Smoker: 1 pack/day for 10 years
-- Alcohol: Social drinker
 
 Family History:
-- Father: Myocardial Infarction at age 55
-
-Review of Systems:
-- CVS: Chest pain, no palpitations
-- Resp: Clear
-- GI: Nausea, no vomiting
-`}
+- Father: MI at age 55`}
           onEndConsultation={() => setActiveConsultation(null)}
         />
       </div>
@@ -63,231 +62,207 @@ Review of Systems:
 
   if (activePatient) {
     return (
-      <div className="container mx-auto p-4 min-h-screen">
-        <PatientDetail
-          patientId={activePatient.id}
-          onBack={() => setActivePatient(null)}
-        />
+      <div className="min-h-screen bg-background p-4">
+        <PatientDetail patientId={activePatient.id} onBack={() => setActivePatient(null)} />
       </div>
     );
   }
 
-  const tabs = [
-    { id: 'consultations', label: 'Consultations', icon: Calendar },
-    { id: 'patients', label: 'Patients', icon: Users },
-    { id: 'earnings', label: 'Earnings', icon: DollarSign },
-    { id: 'reviews', label: 'Reviews', icon: Star },
-  ];
-
-  return (
-    <DashboardLayout title="Doctor Dashboard">
-      <div className="space-y-6">
-        {/* Welcome Section */}
-        <div className="bg-gradient-to-br from-primary via-primary/90 to-secondary rounded-xl p-6 text-white shadow-lg">
-          <h1 className="text-2xl font-bold mb-2">Welcome, {doctorName}!</h1>
-          <p className="text-white/85">Ready to help patients today?</p>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Consultations</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">12</div>
-              <p className="text-xs text-muted-foreground">All time</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">This Month</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">3</div>
-              <p className="text-xs text-muted-foreground">Consultations</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Earnings</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">₦0.00</div>
-              <p className="text-xs text-muted-foreground">This month</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Rating</CardTitle>
-              <Star className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">5.0</div>
-              <p className="text-xs text-muted-foreground">Average rating</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <TabsTrigger key={tab.id} value={tab.id} className="flex items-center gap-2">
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-
-          <TabsContent value="consultations" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Consultations</h2>
-              <div className="flex gap-2">
-                <Badge variant="secondary">Scheduled: 1</Badge>
-                <Badge variant="default">Ongoing: 0</Badge>
-                <Badge variant="outline">Completed: 12</Badge>
-              </div>
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'consultations':
+        return (
+          <div className="space-y-4">
+            {/* Status Badges */}
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              <Badge variant="secondary" className="whitespace-nowrap text-xs">Scheduled: 1</Badge>
+              <Badge variant="default" className="whitespace-nowrap text-xs">Ongoing: 0</Badge>
+              <Badge variant="outline" className="whitespace-nowrap text-xs">Completed: 12</Badge>
             </div>
 
+            {/* Upcoming Appointments */}
             <Card>
-              <CardHeader>
-                <CardTitle>Upcoming Appointments</CardTitle>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Upcoming</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                        JD
-                      </div>
-                      <div>
-                        <h4 className="font-semibold">John Doe</h4>
-                        <p className="text-sm text-muted-foreground">General Checkup • 2:00 PM Today</p>
-                      </div>
-                    </div>
-                    <Button onClick={() => setActiveConsultation({ id: '1', name: 'John Doe' })}>Start Data Review</Button>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-3 p-3 border rounded-lg bg-card hover:bg-muted/50 transition-colors">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm">
+                    JD
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-sm truncate">John Doe</h4>
+                    <p className="text-xs text-muted-foreground">General Checkup • 2:00 PM</p>
+                  </div>
+                  <Button size="sm" onClick={() => setActiveConsultation({ id: '1', name: 'John Doe' })}>
+                    Start
+                  </Button>
+                </div>
 
-                  <div className="flex items-center justify-between p-4 border rounded-lg opacity-60">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-bold">
-                        AS
-                      </div>
-                      <div>
-                        <h4 className="font-semibold">Amara Smith</h4>
-                        <p className="text-sm text-muted-foreground">Follow-up • 4:00 PM Today</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" disabled>Upcoming</Button>
+                <div className="flex items-center gap-3 p-3 border rounded-lg opacity-60">
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-semibold text-sm">
+                    AS
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-sm truncate">Amara Smith</h4>
+                    <p className="text-xs text-muted-foreground">Follow-up • 4:00 PM</p>
+                  </div>
+                  <Button variant="outline" size="sm" disabled>Later</Button>
                 </div>
               </CardContent>
             </Card>
 
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card className="border-blue-200 bg-blue-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-blue-800">Scheduled</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-900">0</div>
+            {/* Status Cards Grid */}
+            <div className="grid grid-cols-2 gap-2">
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground">Scheduled</p>
+                  <p className="text-xl font-bold">0</p>
                 </CardContent>
               </Card>
-              <Card className="border-yellow-200 bg-yellow-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-yellow-800">Ongoing</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-yellow-900">0</div>
+              <Card className="border-secondary/20 bg-secondary/5">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground">Ongoing</p>
+                  <p className="text-xl font-bold">0</p>
                 </CardContent>
               </Card>
-              <Card className="border-green-200 bg-green-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-green-800">Completed</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-900">0</div>
+              <Card className="border-green-500/20 bg-green-500/5">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground">Completed</p>
+                  <p className="text-xl font-bold text-green-700">0</p>
                 </CardContent>
               </Card>
-              <Card className="border-red-200 bg-red-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-red-800">Cancelled</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-red-900">0</div>
+              <Card className="border-destructive/20 bg-destructive/5">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground">Cancelled</p>
+                  <p className="text-xl font-bold text-destructive">0</p>
                 </CardContent>
               </Card>
             </div>
+          </div>
+        );
 
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground">
-                  <Stethoscope className="w-12 h-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Consultations Yet</h3>
-                  <p>Patients will be able to book consultations with you once you complete your profile</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="patients" className="space-y-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">My Patients</h2>
-            </div>
+      case 'patients':
+        return (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">My Patients</h2>
             <PatientList onSelectPatient={(id) => setActivePatient({ id })} />
-          </TabsContent>
+          </div>
+        );
 
-          <TabsContent value="earnings" className="space-y-4">
-            <h2 className="text-2xl font-bold">Earnings Dashboard</h2>
-            <div className="grid gap-4 md:grid-cols-2">
+      case 'earnings':
+        return (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Earnings</h2>
+            <div className="grid gap-3">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="w-5 h-5" />
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
                     Total Earnings
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">₦0.00</div>
-                  <p className="text-sm text-muted-foreground">All time earnings</p>
+                  <div className="text-2xl font-bold">₦0.00</div>
+                  <p className="text-xs text-muted-foreground">All time</p>
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5" />
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
                     Pending Payouts
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">₦0.00</div>
-                  <p className="text-sm text-muted-foreground">Awaiting admin approval</p>
+                  <div className="text-2xl font-bold">₦0.00</div>
+                  <p className="text-xs text-muted-foreground">Awaiting approval</p>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
+          </div>
+        );
 
-          <TabsContent value="reviews" className="space-y-4">
-            <h2 className="text-2xl font-bold">Patient Reviews</h2>
+      case 'reviews':
+        return (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Patient Reviews</h2>
             <Card>
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground">
-                  <Star className="w-12 h-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Reviews Yet</h3>
-                  <p>Complete your first consultations to start receiving patient reviews</p>
-                </div>
+              <CardContent className="p-6 text-center">
+                <Star className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+                <h3 className="font-medium mb-1">No Reviews Yet</h3>
+                <p className="text-sm text-muted-foreground">Complete consultations to receive reviews</p>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <DashboardLayout title="Doctor Dashboard">
+      <div className="space-y-4">
+        {/* Welcome Section */}
+        <div className="bg-gradient-to-br from-primary via-primary/90 to-secondary rounded-xl p-4 text-white shadow-lg">
+          <h1 className="text-lg font-bold">Welcome, {doctorName}!</h1>
+          <p className="text-sm text-white/85">Ready to help patients today?</p>
+        </div>
+
+        {/* Quick Stats - Horizontal scroll on mobile */}
+        <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 md:grid md:grid-cols-4 md:overflow-visible md:mx-0 md:px-0">
+          <Card className="min-w-[120px] flex-shrink-0 md:min-w-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+              <CardTitle className="text-xs font-medium">Total</CardTitle>
+              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">12</div>
+              <p className="text-[10px] text-muted-foreground">Consults</p>
+            </CardContent>
+          </Card>
+          <Card className="min-w-[120px] flex-shrink-0 md:min-w-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+              <CardTitle className="text-xs font-medium">Month</CardTitle>
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">3</div>
+              <p className="text-[10px] text-muted-foreground">This month</p>
+            </CardContent>
+          </Card>
+          <Card className="min-w-[120px] flex-shrink-0 md:min-w-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+              <CardTitle className="text-xs font-medium">Earnings</CardTitle>
+              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">₦0</div>
+              <p className="text-[10px] text-muted-foreground">This month</p>
+            </CardContent>
+          </Card>
+          <Card className="min-w-[120px] flex-shrink-0 md:min-w-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+              <CardTitle className="text-xs font-medium">Rating</CardTitle>
+              <Star className="h-3.5 w-3.5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">5.0</div>
+              <p className="text-[10px] text-muted-foreground">Average</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content */}
+        <div className="min-h-[50vh]">
+          {renderContent()}
+        </div>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <BottomNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
     </DashboardLayout>
   );
 }
