@@ -1,248 +1,188 @@
 import { useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import BottomNav from '@/components/layout/BottomNav';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Users, DollarSign, Shield, MessageSquare, Settings, CheckCircle, XCircle } from 'lucide-react';
+import { BarChart3, Users, DollarSign, Shield, MessageSquare, Settings, CheckCircle } from 'lucide-react';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('analytics');
 
   const tabs = [
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'verification', label: 'Verification', icon: Shield },
+    { id: 'analytics', label: 'Stats', icon: BarChart3 },
+    { id: 'verification', label: 'Verify', icon: Shield },
     { id: 'payouts', label: 'Payouts', icon: DollarSign },
-    { id: 'disputes', label: 'Disputes', icon: MessageSquare },
     { id: 'users', label: 'Users', icon: Users },
-    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
-  return (
-    <DashboardLayout title="Admin Dashboard">
-      <div className="space-y-6">
-        {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-primary to-secondary rounded-lg p-6 text-primary-foreground">
-          <h1 className="text-2xl font-bold mb-2">Admin Dashboard</h1>
-          <p className="opacity-90">Monitor and manage the AiDx platform</p>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0</div>
-              <p className="text-xs text-muted-foreground">All roles</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">₦0.00</div>
-              <p className="text-xs text-muted-foreground">Platform commission</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Verifications</CardTitle>
-              <Shield className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0</div>
-              <p className="text-xs text-muted-foreground">Awaiting review</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Payouts</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0</div>
-              <p className="text-xs text-muted-foreground">Awaiting approval</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <TabsTrigger key={tab.id} value={tab.id} className="flex items-center gap-2">
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-
-          <TabsContent value="analytics" className="space-y-4">
-            <h2 className="text-2xl font-bold">Platform Analytics</h2>
-            <div className="grid gap-4 md:grid-cols-3">
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'analytics':
+        return (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Platform Analytics</h2>
+            <div className="grid gap-3">
               <Card>
-                <CardHeader>
-                  <CardTitle>User Distribution</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">User Distribution</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-sm">
                     <span>Patients</span>
                     <Badge variant="secondary">0</Badge>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-sm">
                     <span>Doctors</span>
                     <Badge variant="secondary">0</Badge>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-sm">
                     <span>Pharmacists</span>
                     <Badge variant="secondary">0</Badge>
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader>
-                  <CardTitle>AI Usage Stats</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">AI Usage</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">0</div>
-                  <p className="text-sm text-muted-foreground">Total AI consultations</p>
+                  <div className="text-2xl font-bold">0</div>
+                  <p className="text-xs text-muted-foreground">Total AI consultations</p>
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader>
-                  <CardTitle>Transaction Volume</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Transaction Volume</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">₦0.00</div>
-                  <p className="text-sm text-muted-foreground">Total platform volume</p>
+                  <div className="text-2xl font-bold">₦0.00</div>
+                  <p className="text-xs text-muted-foreground">Total platform volume</p>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
+          </div>
+        );
 
-          <TabsContent value="verification" className="space-y-4">
+      case 'verification':
+        return (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Verification</h2>
+            <div className="flex gap-2 flex-wrap">
+              <Badge variant="secondary">Pending: 0</Badge>
+              <Badge variant="default">Verified: 0</Badge>
+              <Badge variant="destructive">Rejected: 0</Badge>
+            </div>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <Shield className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+                <h3 className="font-medium mb-1">No Pending</h3>
+                <p className="text-sm text-muted-foreground">All professionals verified</p>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'payouts':
+        return (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Payouts</h2>
+            <div className="flex gap-2 flex-wrap">
+              <Badge variant="secondary">Pending: 0</Badge>
+              <Badge variant="default">Approved: 0</Badge>
+            </div>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <DollarSign className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+                <h3 className="font-medium mb-1">No Pending Payouts</h3>
+                <p className="text-sm text-muted-foreground">All requests processed</p>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'users':
+        return (
+          <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Professional Verification</h2>
-              <div className="flex gap-2">
-                <Badge variant="secondary">Pending: 0</Badge>
-                <Badge variant="default">Verified: 0</Badge>
-                <Badge variant="destructive">Rejected: 0</Badge>
-              </div>
+              <h2 className="text-lg font-semibold">Users</h2>
+              <Button variant="outline" size="sm">Export</Button>
             </div>
             <Card>
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground">
-                  <Shield className="w-12 h-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Pending Verifications</h3>
-                  <p>All professionals are currently verified or no applications are pending</p>
-                </div>
+              <CardContent className="p-6 text-center">
+                <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+                <h3 className="font-medium mb-1">No Users Yet</h3>
+                <p className="text-sm text-muted-foreground">Users will appear here</p>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+        );
 
-          <TabsContent value="payouts" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Payout Management</h2>
-              <div className="flex gap-2">
-                <Badge variant="secondary">Pending: 0</Badge>
-                <Badge variant="default">Approved: 0</Badge>
-                <Badge variant="outline">Paid: 0</Badge>
-              </div>
-            </div>
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground">
-                  <DollarSign className="w-12 h-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Pending Payouts</h3>
-                  <p>All payout requests have been processed</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+      default:
+        return null;
+    }
+  };
 
-          <TabsContent value="disputes" className="space-y-4">
-            <h2 className="text-2xl font-bold">Dispute Resolution</h2>
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground">
-                  <MessageSquare className="w-12 h-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Active Disputes</h3>
-                  <p>All customer issues have been resolved</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+  return (
+    <DashboardLayout title="Admin Dashboard">
+      <div className="space-y-4">
+        {/* Welcome Section */}
+        <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-4 text-primary-foreground">
+          <h1 className="text-lg font-bold">Admin Dashboard</h1>
+          <p className="text-sm opacity-90">Monitor and manage AiDx</p>
+        </div>
 
-          <TabsContent value="users" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">User Management</h2>
-              <Button variant="outline">Export Users</Button>
-            </div>
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground">
-                  <Users className="w-12 h-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Users Registered</h3>
-                  <p>User accounts will appear here as they register on the platform</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+        {/* Quick Stats */}
+        <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 md:grid md:grid-cols-4 md:overflow-visible md:mx-0 md:px-0">
+          <Card className="min-w-[120px] flex-shrink-0 md:min-w-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+              <CardTitle className="text-xs font-medium">Users</CardTitle>
+              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">0</div>
+              <p className="text-[10px] text-muted-foreground">All roles</p>
+            </CardContent>
+          </Card>
+          <Card className="min-w-[120px] flex-shrink-0 md:min-w-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+              <CardTitle className="text-xs font-medium">Revenue</CardTitle>
+              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">₦0</div>
+              <p className="text-[10px] text-muted-foreground">Commission</p>
+            </CardContent>
+          </Card>
+          <Card className="min-w-[120px] flex-shrink-0 md:min-w-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+              <CardTitle className="text-xs font-medium">Pending</CardTitle>
+              <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">0</div>
+              <p className="text-[10px] text-muted-foreground">Verifications</p>
+            </CardContent>
+          </Card>
+          <Card className="min-w-[120px] flex-shrink-0 md:min-w-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+              <CardTitle className="text-xs font-medium">Payouts</CardTitle>
+              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">0</div>
+              <p className="text-[10px] text-muted-foreground">Pending</p>
+            </CardContent>
+          </Card>
+        </div>
 
-          <TabsContent value="settings" className="space-y-4">
-            <h2 className="text-2xl font-bold">Platform Settings</h2>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Commission Settings</CardTitle>
-                  <CardDescription>Platform commission rates</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Default Commission</span>
-                      <Badge>5%</Badge>
-                    </div>
-                    <Button variant="outline" size="sm">Update Rates</Button>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>System Status</CardTitle>
-                  <CardDescription>Platform health monitoring</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span>Database</span>
-                      <Badge variant="outline" className="text-green-600">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Healthy
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>API Services</span>
-                      <Badge variant="outline" className="text-green-600">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Online
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
+        {/* Main Content */}
+        <div className="min-h-[50vh]">
+          {renderContent()}
+        </div>
       </div>
+
+      <BottomNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
     </DashboardLayout>
   );
 }
