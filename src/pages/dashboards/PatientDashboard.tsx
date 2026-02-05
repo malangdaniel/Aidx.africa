@@ -10,11 +10,17 @@ import DoctorSearch from '@/components/patient/DoctorSearch';
 import MedicationMarketplace from '@/components/patient/MedicationMarketplace';
 import HealthTracker from '@/components/patient/HealthTracker';
 import MedicalHistoryView from '@/components/patient/medical-history/MedicalHistoryView';
+import ConsultationsList from '@/components/patient/ConsultationsList';
+import OrderList from '@/components/patient/OrderList';
+import AiChatHistory from '@/components/patient/AiChatHistory';
+import ConsultationRoom from '@/components/patient/ConsultationRoom';
 
 export default function PatientDashboard() {
   const { profile } = useAuth();
   const firstName = profile?.first_name || 'Patient';
   const [activeTab, setActiveTab] = useState('ai-chat');
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [activeConsultation, setActiveConsultation] = useState<any | null>(null);
   const [preselectedSpecialty, setPreselectedSpecialty] = useState<string | undefined>(undefined);
 
   const tabs = [
@@ -30,6 +36,11 @@ export default function PatientDashboard() {
       case 'ai-chat':
         return (
           <AIChatInterface
+            sessionId={selectedSessionId}
+            onBack={() => {
+              setSelectedSessionId(null);
+              setActiveTab('ai-history');
+            }}
             onBookConsult={(specialist) => {
               setPreselectedSpecialty(specialist);
               setActiveTab('consultations');
@@ -37,11 +48,55 @@ export default function PatientDashboard() {
             onPharmacyRedirect={() => setActiveTab('pharmacy')}
           />
         );
+      case 'ai-history':
+        return (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">AI Assistant History</h2>
+            <AiChatHistory
+              onSelectSession={(id) => {
+                setSelectedSessionId(id);
+                setActiveTab('ai-chat');
+              }}
+              onNewChat={() => {
+                setSelectedSessionId(null);
+                setActiveTab('ai-chat');
+              }}
+            />
+          </div>
+        );
       case 'consultations':
         return (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Find a Doctor</h2>
             <DoctorSearch initialSpecialty={preselectedSpecialty} />
+          </div>
+        );
+      case 'consultations-list':
+        return (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Your Consultations</h2>
+            <ConsultationsList onJoinCall={(c) => {
+              setActiveConsultation(c);
+              setActiveTab('video-consultation');
+            }} />
+          </div>
+        );
+      case 'video-consultation':
+        return activeConsultation ? (
+          <ConsultationRoom
+            consultation={activeConsultation}
+            onEnd={() => {
+              setActiveConsultation(null);
+              setActiveTab('consultations-list');
+            }}
+            onPharmacyRedirect={() => setActiveTab('pharmacy')}
+          />
+        ) : null;
+      case 'orders-list':
+        return (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Order History</h2>
+            <OrderList />
           </div>
         );
       case 'pharmacy':
@@ -93,7 +148,12 @@ export default function PatientDashboard() {
   };
 
   return (
-    <DashboardLayout title="Patient Dashboard">
+    <DashboardLayout
+      title="Patient Dashboard"
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+    >
       <div className="space-y-4">
         {/* Welcome Section - Compact for mobile */}
         <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-4 text-primary-foreground">
@@ -103,34 +163,43 @@ export default function PatientDashboard() {
 
         {/* Quick Stats - Horizontal scroll on mobile */}
         <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 md:grid md:grid-cols-3 md:overflow-visible md:mx-0 md:px-0">
-          <Card className="min-w-[140px] flex-shrink-0 md:min-w-0">
+          <Card
+            className="min-w-[140px] flex-shrink-0 md:min-w-0 cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setActiveTab('ai-history')}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
               <CardTitle className="text-xs font-medium">AI Chats</CardTitle>
               <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
             </CardHeader>
             <CardContent className="p-3 pt-0">
-              <div className="text-xl font-bold">12</div>
-              <p className="text-[10px] text-muted-foreground">This month</p>
+              <div className="text-xl font-bold text-primary">3</div>
+              <p className="text-[10px] text-muted-foreground">See history</p>
             </CardContent>
           </Card>
-          <Card className="min-w-[140px] flex-shrink-0 md:min-w-0">
+          <Card
+            className="min-w-[140px] flex-shrink-0 md:min-w-0 cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setActiveTab('consultations-list')}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-              <CardTitle className="text-xs font-medium">Doctor Visits</CardTitle>
+              <CardTitle className="text-xs font-medium">Consults</CardTitle>
               <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
             </CardHeader>
             <CardContent className="p-3 pt-0">
-              <div className="text-xl font-bold">3</div>
-              <p className="text-[10px] text-muted-foreground">Completed</p>
+              <div className="text-xl font-bold text-primary">3</div>
+              <p className="text-[10px] text-muted-foreground">Recent visits</p>
             </CardContent>
           </Card>
-          <Card className="min-w-[140px] flex-shrink-0 md:min-w-0">
+          <Card
+            className="min-w-[140px] flex-shrink-0 md:min-w-0 cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setActiveTab('orders-list')}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
               <CardTitle className="text-xs font-medium">Orders</CardTitle>
               <Pill className="h-3.5 w-3.5 text-muted-foreground" />
             </CardHeader>
             <CardContent className="p-3 pt-0">
-              <div className="text-xl font-bold">8</div>
-              <p className="text-[10px] text-muted-foreground">Total orders</p>
+              <div className="text-xl font-bold text-primary">3</div>
+              <p className="text-[10px] text-muted-foreground">Track drugs</p>
             </CardContent>
           </Card>
         </div>

@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar } from '@/components/ui/avatar';
-import { Bot, User, Send, RefreshCw } from 'lucide-react';
+import { Bot, User, Send, RefreshCw, ArrowLeft } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import DiagnosisResult, { Diagnosis } from './DiagnosisResult';
 import { sendMessageToAI, generateDiagnosis as getAIDiagnosis, ChatMessage } from '@/services/ai';
+import { toast } from 'sonner';
 
 interface Message {
     id: string;
@@ -15,19 +17,23 @@ interface Message {
 }
 
 interface AIChatInterfaceProps {
+    sessionId?: string | null;
+    onBack?: () => void;
     onConsultationComplete?: () => void;
     onBookConsult?: (specialist: string) => void;
     onPharmacyRedirect?: () => void;
 }
 
 export default function AIChatInterface({
+    sessionId: initialSessionId,
+    onBack,
     onConsultationComplete,
     onBookConsult,
     onPharmacyRedirect
 }: AIChatInterfaceProps) {
     const [messages, setMessages] = useState<Message[]>([
         {
-            id: '1',
+            id: 'welcome',
             role: 'assistant',
             content: "Hello! I'm your AI Health Assistant. I can help you understand your symptoms and suggest next steps. Please describe what you're feeling today."
         }
@@ -35,6 +41,8 @@ export default function AIChatInterface({
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isAssessmentComplete, setIsAssessmentComplete] = useState(false);
+    const [sessionId, setSessionId] = useState<string | null>(initialSessionId || null);
+    const [sessionTitle, setSessionTitle] = useState<string>('');
     const scrollAreaRef = useRef<HTMLDivElement>(null);
 
     // Mock Diagnosis State
@@ -43,6 +51,65 @@ export default function AIChatInterface({
         specialist: string;
         meds: Array<{ name: string; type: string }>;
     } | null>(null);
+
+    // Load history if sessionId exists
+    useEffect(() => {
+        if (initialSessionId) {
+            loadChatHistory(initialSessionId);
+        }
+    }, [initialSessionId]);
+
+    const loadChatHistory = async (id: string) => {
+        setIsLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('ai_chats')
+                .select('*')
+                .eq('session_id', id)
+                .order('created_at', { ascending: true });
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                const historyMessages: Message[] = [];
+                // Add initial welcome if not in DB (or just always keep it)
+                historyMessages.push({
+                    id: 'welcome',
+                    role: 'assistant',
+                    content: "Hello! I'm your AI Health Assistant. I can help you understand your symptoms and suggest next steps. Please describe what you're feeling today."
+                });
+
+                data.forEach((row) => {
+                    historyMessages.push({
+                        id: `${row.id}-user`,
+                        role: 'user',
+                        content: row.message
+                    });
+                    if (row.response) {
+                        historyMessages.push({
+                            id: `${row.id}-assistant`,
+                            role: 'assistant',
+                            content: row.response
+                        });
+                    }
+                });
+
+                setMessages(historyMessages);
+                setSessionTitle(data[0].title || '');
+
+                // If there are many messages, check if assessment was done
+                // (This is a simplification, ideally status is in a sessions table)
+                if (data.length >= 5) {
+                    // Logic to see if assessment was finished could go here
+                }
+            }
+        } catch (error) {
+            console.error('Error loading history:', error);
+            toast.error('Failed to load chat history.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
         // Auto-scroll to bottom
@@ -54,10 +121,14 @@ export default function AIChatInterface({
         }
     }, [messages, isAssessmentComplete]);
 
-
-
     const handleSendMessage = async () => {
         if (!inputText.trim()) return;
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            toast.error('You must be logged in to chat.');
+            return;
+        }
 
         const userMessage: Message = {
             id: Date.now().toString(),
@@ -65,18 +136,22 @@ export default function AIChatInterface({
             content: inputText
         };
 
+        const currentSessionId = sessionId || crypto.randomUUID();
+        if (!sessionId) setSessionId(currentSessionId);
+
+        // If it's a new session, use first message as title
+        const currentTitle = sessionTitle || inputText.slice(0, 50) + (inputText.length > 50 ? '...' : '');
+        if (!sessionTitle) setSessionTitle(currentTitle);
+
         const newMessages = [...messages, userMessage];
         setMessages(newMessages);
         setInputText('');
         setIsLoading(true);
 
         try {
-            // Convert UI messages to API format
-            // We skip the first welcome message if it's from the assistant and strictly not part of the 'context' 
-            // but usually it's fine to include or exclude. 
-            // The service expects { role: 'user' | 'model', parts: [{ text }] }
+            // Convert UI messages to API format for context
             const apiHistory: ChatMessage[] = messages
-                .filter(m => m.id !== '1') // Skip the initial hardcoded greeting to avoid confusion or format processing
+                .filter(m => m.id !== 'welcome')
                 .map(m => ({
                     role: m.role === 'user' ? 'user' : 'model',
                     parts: [{ text: m.content }]
@@ -92,8 +167,20 @@ export default function AIChatInterface({
 
             setMessages(prev => [...prev, aiMessage]);
 
-            // Simple heuristic: If conversation is long enough, or if AI indicates readiness
-            // For now, let's trigger diagnosis after 5 user messages or if the AI says "ready to provide an assessment"
+            // Save to Database
+            const { error: saveError } = await supabase
+                .from('ai_chats')
+                .insert({
+                    user_id: user.id,
+                    session_id: currentSessionId,
+                    title: currentTitle,
+                    message: userMessage.content,
+                    response: responseText
+                });
+
+            if (saveError) console.error("Error saving chat turn:", saveError);
+
+            // Trigger diagnosis heuristic
             const userMsgCount = newMessages.filter(m => m.role === 'user').length;
             const isReady = responseText.toLowerCase().includes("ready to provide an assessment") || userMsgCount >= 5;
 
@@ -122,6 +209,17 @@ export default function AIChatInterface({
             if (result) {
                 setDiagnosisData(result);
                 if (onConsultationComplete) onConsultationComplete();
+
+                // Save diagnosis metadata if needed to ai_diagnoses
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    await supabase.from('ai_diagnoses').insert({
+                        user_id: user.id,
+                        condition: result.diagnoses?.[0]?.condition,
+                        diagnosis_data: result,
+                        rationale: result.diagnoses?.[0]?.explanation
+                    });
+                }
             }
         } catch (error) {
             console.error("Error parsing diagnosis", error);
@@ -132,12 +230,14 @@ export default function AIChatInterface({
 
     const handleRestart = () => {
         setMessages([{
-            id: Date.now().toString(),
+            id: 'welcome',
             role: 'assistant',
             content: "Hello! I'm your AI Health Assistant. I can help you understand your symptoms and suggest next steps. Please describe what you're feeling today."
         }]);
         setIsAssessmentComplete(false);
         setDiagnosisData(null);
+        setSessionId(null);
+        setSessionTitle('');
     };
 
     return (
@@ -145,10 +245,17 @@ export default function AIChatInterface({
             {/* Chat Area */}
             <Card className="flex-1 flex flex-col overflow-hidden">
                 <CardHeader className="py-3 px-4 border-b bg-muted/40 flex flex-row items-center justify-between space-y-0">
-                    <CardTitle className="text-md flex items-center gap-2">
-                        <Bot className="w-5 h-5 text-primary" />
-                        AI Diagnostic Chat
-                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                        {onBack && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onBack}>
+                                <ArrowLeft className="w-4 h-4" />
+                            </Button>
+                        )}
+                        <CardTitle className="text-md flex items-center gap-2">
+                            <Bot className="w-5 h-5 text-primary" />
+                            {sessionTitle || "AI Health Chat"}
+                        </CardTitle>
+                    </div>
                     <Button variant="ghost" size="sm" onClick={handleRestart} title="Restart Chat">
                         <RefreshCw className="w-4 h-4" />
                     </Button>
@@ -175,7 +282,7 @@ export default function AIChatInterface({
                                             )}
                                         </Avatar>
                                         <div
-                                            className={`rounded-lg p-3 text-sm ${msg.role === 'user'
+                                            className={`rounded-lg p-3 text-sm whitespace-pre-wrap ${msg.role === 'user'
                                                 ? 'bg-primary text-primary-foreground'
                                                 : 'bg-muted'
                                                 }`}
