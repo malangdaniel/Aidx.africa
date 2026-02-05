@@ -8,18 +8,16 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
-    DialogFooter,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, LogOut, User, Stethoscope } from 'lucide-react';
 import { toast } from 'sonner';
 import { DoctorProfileSettings } from '@/components/doctor/settings/DoctorProfileSettings';
+import { AvatarUpload } from '@/components/shared/AvatarUpload';
 
 interface SettingsDialogProps {
     open: boolean;
@@ -27,10 +25,10 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
-    const { profile, signOut, refetchProfile } = useAuth();
+    const { user, profile, signOut, refetchProfile } = useAuth();
     const [loading, setLoading] = useState(false);
 
-    // Form State for general profile
+    // Form State
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [age, setAge] = useState('');
@@ -41,13 +39,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
     const isDoctor = profile?.role === 'doctor';
 
-    // Load initial data
     useEffect(() => {
         if (profile) {
             setFirstName(profile.first_name || '');
             setLastName(profile.last_name || '');
-
-            // Load user metadata fields
             const meta = profile.metadata || {};
             setAge(meta.age || '');
             setSex(meta.sex || '');
@@ -84,7 +79,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             if (error) throw error;
 
             await refetchProfile();
-            toast.success('Profile updated successfully');
+            toast.success('Profile updated');
             onOpenChange(false);
         } catch (error: any) {
             console.error('Error updating profile:', error);
@@ -103,169 +98,152 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         }
     };
 
-    // General profile content (for patients and non-doctors)
+    const initials = `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || 'U';
+
     const GeneralProfileContent = () => (
-        <ScrollArea className="max-h-[60vh] pr-4">
-            <div className="grid gap-6 py-4">
-                <div className="flex flex-col items-center gap-4">
-                    <Avatar className="h-24 w-24">
-                        <AvatarImage src={avatarUrl} />
-                        <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                            {firstName?.[0]}{lastName?.[0]}
-                        </AvatarFallback>
-                    </Avatar>
-                    <div className="grid w-full max-w-sm items-center gap-1.5">
-                        <Label htmlFor="avatar">Profile Picture URL</Label>
-                        <Input
-                            type="text"
-                            id="avatar"
-                            placeholder="https://example.com/me.jpg"
-                            value={avatarUrl}
-                            onChange={(e) => setAvatarUrl(e.target.value)}
-                        />
-                    </div>
-                </div>
+        <div className="space-y-5 py-2">
+            {/* Avatar Upload */}
+            <div className="flex flex-col items-center gap-3">
+                <AvatarUpload
+                    userId={user?.id || ''}
+                    currentAvatarUrl={avatarUrl}
+                    fallbackInitials={initials}
+                    onUploadComplete={(url) => setAvatarUrl(url)}
+                    size="lg"
+                />
+                <p className="text-xs text-muted-foreground">Tap to change photo</p>
+            </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="firstName">First Name</Label>
-                        <Input
-                            id="firstName"
-                            value={firstName}
-                            onChange={(e) => setFirstName(e.target.value)}
-                        />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="lastName">Last Name</Label>
-                        <Input
-                            id="lastName"
-                            value={lastName}
-                            onChange={(e) => setLastName(e.target.value)}
-                        />
-                    </div>
+            {/* Name Fields */}
+            <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                    <Label htmlFor="firstName" className="text-xs">First Name</Label>
+                    <Input
+                        id="firstName"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        className="h-9"
+                    />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="age">Age</Label>
-                        <Input
-                            id="age"
-                            type="number"
-                            value={age}
-                            onChange={(e) => setAge(e.target.value)}
-                        />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="sex">Sex</Label>
-                        <Select value={sex} onValueChange={setSex}>
-                            <SelectTrigger id="sex">
-                                <SelectValue placeholder="Select sex" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Male">Male</SelectItem>
-                                <SelectItem value="Female">Female</SelectItem>
-                                <SelectItem value="Other">Other</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="genotype">Genotype</Label>
-                        <Select value={genotype} onValueChange={setGenotype}>
-                            <SelectTrigger id="genotype">
-                                <SelectValue placeholder="Select genotype" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="AA">AA</SelectItem>
-                                <SelectItem value="AS">AS</SelectItem>
-                                <SelectItem value="SS">SS</SelectItem>
-                                <SelectItem value="AC">AC</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-
-                <div className="grid gap-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Textarea
-                        id="address"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        placeholder="123 Main St, City, Country"
+                <div className="space-y-1.5">
+                    <Label htmlFor="lastName" className="text-xs">Last Name</Label>
+                    <Input
+                        id="lastName"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        className="h-9"
                     />
                 </div>
             </div>
-        </ScrollArea>
+
+            {/* Age & Sex */}
+            <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                    <Label htmlFor="age" className="text-xs">Age</Label>
+                    <Input
+                        id="age"
+                        type="number"
+                        value={age}
+                        onChange={(e) => setAge(e.target.value)}
+                        className="h-9"
+                    />
+                </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="sex" className="text-xs">Sex</Label>
+                    <Select value={sex} onValueChange={setSex}>
+                        <SelectTrigger id="sex" className="h-9">
+                            <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Male">Male</SelectItem>
+                            <SelectItem value="Female">Female</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            {/* Genotype */}
+            <div className="space-y-1.5">
+                <Label htmlFor="genotype" className="text-xs">Genotype</Label>
+                <Select value={genotype} onValueChange={setGenotype}>
+                    <SelectTrigger id="genotype" className="h-9">
+                        <SelectValue placeholder="Select genotype" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="AA">AA</SelectItem>
+                        <SelectItem value="AS">AS</SelectItem>
+                        <SelectItem value="SS">SS</SelectItem>
+                        <SelectItem value="AC">AC</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+
+            {/* Address */}
+            <div className="space-y-1.5">
+                <Label htmlFor="address" className="text-xs">Address</Label>
+                <Input
+                    id="address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="123 Main St, City"
+                    className="h-9"
+                />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-2 pt-3 border-t">
+                <Button onClick={handleSave} disabled={loading} className="w-full h-9">
+                    {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Save Changes
+                </Button>
+                <Button variant="outline" onClick={handleSignOut} className="w-full h-9 text-destructive hover:text-destructive">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                </Button>
+            </div>
+        </div>
     );
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className={`${isDoctor ? 'sm:max-w-[700px]' : 'sm:max-w-[500px]'} max-h-[90vh] flex flex-col`}>
-                <DialogHeader>
-                    <DialogTitle>Account Settings</DialogTitle>
-                    <DialogDescription>
-                        {isDoctor 
-                            ? 'Manage your professional profile and account preferences.'
-                            : 'Manage your profile information and account preferences.'
-                        }
+            <DialogContent className={`${isDoctor ? 'sm:max-w-[600px]' : 'sm:max-w-[380px]'} max-h-[85vh] p-0 gap-0`}>
+                <DialogHeader className="px-4 pt-4 pb-2">
+                    <DialogTitle className="text-lg">Settings</DialogTitle>
+                    <DialogDescription className="text-xs">
+                        {isDoctor ? 'Manage your professional profile' : 'Manage your profile'}
                     </DialogDescription>
                 </DialogHeader>
 
                 {isDoctor ? (
-                    <Tabs defaultValue="professional" className="flex-1 flex flex-col min-h-0">
-                        <TabsList className="grid grid-cols-2 mb-4">
-                            <TabsTrigger value="professional" className="gap-2">
-                                <Stethoscope className="h-4 w-4" />
-                                Professional Profile
+                    <Tabs defaultValue="professional" className="flex-1">
+                        <TabsList className="grid grid-cols-2 mx-4 mb-2">
+                            <TabsTrigger value="professional" className="gap-1.5 text-xs">
+                                <Stethoscope className="h-3.5 w-3.5" />
+                                Professional
                             </TabsTrigger>
-                            <TabsTrigger value="personal" className="gap-2">
-                                <User className="h-4 w-4" />
-                                Personal Info
+                            <TabsTrigger value="personal" className="gap-1.5 text-xs">
+                                <User className="h-3.5 w-3.5" />
+                                Personal
                             </TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="professional" className="flex-1 min-h-0 mt-0">
-                            <div className="h-[55vh]">
+                        <TabsContent value="professional" className="mt-0 px-4 pb-4">
+                            <ScrollArea className="h-[55vh]">
                                 <DoctorProfileSettings onSaved={() => onOpenChange(false)} />
-                            </div>
+                            </ScrollArea>
                         </TabsContent>
 
-                        <TabsContent value="personal" className="flex-1 min-h-0 mt-0">
-                            <GeneralProfileContent />
-                            <DialogFooter className="gap-2 sm:justify-between mt-4 pt-4 border-t">
-                                <Button variant="destructive" onClick={handleSignOut} className="gap-2">
-                                    <LogOut className="w-4 h-4" />
-                                    Sign Out
-                                </Button>
-                                <div className="flex gap-2">
-                                    <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                                    <Button onClick={handleSave} disabled={loading}>
-                                        {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                        Save Changes
-                                    </Button>
-                                </div>
-                            </DialogFooter>
+                        <TabsContent value="personal" className="mt-0 px-4 pb-4">
+                            <ScrollArea className="h-[55vh] pr-3">
+                                <GeneralProfileContent />
+                            </ScrollArea>
                         </TabsContent>
                     </Tabs>
                 ) : (
-                    <>
+                    <ScrollArea className="h-[60vh] px-4 pb-4">
                         <GeneralProfileContent />
-                        <DialogFooter className="gap-2 sm:justify-between">
-                            <Button variant="destructive" onClick={handleSignOut} className="gap-2">
-                                <LogOut className="w-4 h-4" />
-                                Sign Out
-                            </Button>
-                            <div className="flex gap-2">
-                                <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                                <Button onClick={handleSave} disabled={loading}>
-                                    {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                    Save Changes
-                                </Button>
-                            </div>
-                        </DialogFooter>
-                    </>
+                    </ScrollArea>
                 )}
             </DialogContent>
         </Dialog>
