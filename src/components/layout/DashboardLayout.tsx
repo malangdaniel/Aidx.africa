@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 import { SettingsDialog } from './SettingsDialog';
+import { MobileHeader } from './MobileHeader';
 import aidxLogo from '@/assets/aidx-logo.png';
 
 interface DashboardLayoutProps {
@@ -23,8 +24,13 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      {/* Mobile Header */}
+      <div className="md:hidden">
+        <MobileHeader onSettingsClick={() => setShowSettings(true)} />
+      </div>
+
+      {/* Desktop Header */}
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 hidden md:block">
         <div className="container flex h-14 items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={aidxLogo} alt="AiDx Logo" className="h-8 w-auto" />
@@ -37,7 +43,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden md:block text-right">
+            <div className="text-right">
               <p className="text-sm font-medium leading-none">{getDisplayName()}</p>
               <p className="text-xs text-muted-foreground capitalize">{profile?.role}</p>
             </div>
@@ -55,8 +61,8 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container py-6 pb-24 max-w-lg mx-auto md:max-w-4xl">
+      {/* Main Content - mobile-first padding */}
+      <main className="px-4 py-4 pb-20 md:container md:py-6 md:pb-6">
         {children}
       </main>
 
