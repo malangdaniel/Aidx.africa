@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, Clock, Video, FileText, Loader2, User } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, subDays, addDays } from 'date-fns';
+import { format } from 'date-fns';
 
 interface Consultation {
     id: string;
@@ -22,48 +22,6 @@ interface Consultation {
         }
     };
 }
-
-const MOCK_CONSULTATIONS: Consultation[] = [
-    {
-        id: 'mock-1',
-        scheduled_at: addDays(new Date(), 1).toISOString(),
-        status: 'scheduled',
-        price: 15000,
-        doctor_id: 'doc-1',
-        doctor_profile: {
-            first_name: 'Sarah',
-            last_name: 'Johnson',
-            specialties: ['Cardiologist'],
-            metadata: { avatar_url: 'https://i.pravatar.cc/150?u=doc1' }
-        }
-    },
-    {
-        id: 'mock-2',
-        scheduled_at: new Date().toISOString(),
-        status: 'ongoing',
-        price: 12000,
-        doctor_id: 'doc-2',
-        doctor_profile: {
-            first_name: 'Michael',
-            last_name: 'Chen',
-            specialties: ['General Physician'],
-            metadata: { avatar_url: 'https://i.pravatar.cc/150?u=doc2' }
-        }
-    },
-    {
-        id: 'mock-3',
-        scheduled_at: subDays(new Date(), 3).toISOString(),
-        status: 'completed',
-        price: 10000,
-        doctor_id: 'doc-3',
-        doctor_profile: {
-            first_name: 'Amara',
-            last_name: 'Okonkwo',
-            specialties: ['Pediatrician'],
-            metadata: { avatar_url: 'https://i.pravatar.cc/150?u=doc3' }
-        }
-    }
-];
 
 interface ConsultationsListProps {
     onJoinCall?: (consultation: Consultation) => void;
@@ -82,56 +40,54 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                // For demo purposes if not logged in
-                setConsultations(MOCK_CONSULTATIONS);
+                setLoading(false);
                 return;
-            };
+            }
 
             const { data, error } = await supabase
                 .from('consultations')
                 .select(`
-                    id,
-                    scheduled_at,
-                    status,
-                    price,
-                    doctor_id,
-                    profiles:doctor_id (
-                        first_name,
-                        last_name,
-                        metadata
-                    ),
-                    doctors:doctor_id (
-                        specialties
-                    )
+                    id, scheduled_at, status, price, doctor_id,
+                    profiles:doctor_id (first_name, last_name, metadata)
                 `)
                 .eq('patient_id', user.id)
                 .order('scheduled_at', { ascending: false });
 
             if (error) throw error;
 
-            if (data && data.length > 0) {
-                const mapped: Consultation[] = data.map((c: any) => ({
-                    id: c.id,
-                    scheduled_at: c.scheduled_at,
-                    status: c.status,
-                    price: c.price,
-                    doctor_id: c.doctor_id,
-                    doctor_profile: {
-                        first_name: c.profiles?.first_name || 'Unknown',
-                        last_name: c.profiles?.last_name || 'Doctor',
-                        specialties: c.doctors?.specialties,
-                        metadata: c.profiles?.metadata
-                    }
-                }));
-                setConsultations(mapped);
-            } else {
-                // If no real data, show mock data for demonstration
-                setConsultations(MOCK_CONSULTATIONS);
+            // Fetch doctor specialties separately (no direct FK from consultations to doctors)
+            const doctorIds = [...new Set((data || []).map(c => c.doctor_id))];
+            let specialtiesMap = new Map<string, string[]>();
+
+            if (doctorIds.length > 0) {
+                const { data: doctorsData } = await supabase
+                    .from('doctors')
+                    .select('user_id, specialties')
+                    .in('user_id', doctorIds);
+
+                specialtiesMap = new Map(
+                    (doctorsData || []).map(d => [d.user_id, d.specialties || []])
+                );
             }
+
+            const mapped: Consultation[] = (data || []).map((c: any) => ({
+                id: c.id,
+                scheduled_at: c.scheduled_at,
+                status: c.status,
+                price: c.price,
+                doctor_id: c.doctor_id,
+                doctor_profile: {
+                    first_name: c.profiles?.first_name || 'Unknown',
+                    last_name: c.profiles?.last_name || 'Doctor',
+                    specialties: specialtiesMap.get(c.doctor_id) || undefined,
+                    metadata: c.profiles?.metadata
+                }
+            }));
+
+            setConsultations(mapped);
         } catch (error) {
             console.error('Error fetching consultations:', error);
-            // Fallback to mock data on error too for better demo
-            setConsultations(MOCK_CONSULTATIONS);
+            toast.error('Failed to load consultations.');
         } finally {
             setLoading(false);
         }
@@ -157,6 +113,22 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
             <div className="flex justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
+        );
+    }
+
+    if (consultations.length === 0) {
+        return (
+            <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                        <Video className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                    <h3 className="font-medium text-lg mb-1">No consultations yet</h3>
+                    <p className="text-sm text-muted-foreground max-w-[250px]">
+                        Book a consultation with a doctor to get started.
+                    </p>
+                </CardContent>
+            </Card>
         );
     }
 

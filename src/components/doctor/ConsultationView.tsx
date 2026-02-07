@@ -241,7 +241,7 @@ export default function ConsultationView({ consultationId, patientName, clinical
                         Consent Verified
                     </div>
                     <div className="hidden md:flex items-center gap-2 text-[10px] font-bold text-muted-foreground/60 border-l pl-3">
-                        LICENSE: {profile?.professional_title || 'DOC'} #{profile?.id?.slice(0, 8).toUpperCase() || 'REF-83921'}
+                        LICENSE: MD #{profile?.id?.slice(0, 8).toUpperCase() || 'REF-83921'}
                     </div>
                     <Button
                         variant="destructive"

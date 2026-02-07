@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingCart, Package, AlertTriangle, TrendingUp, Star } from 'lucide-react';
@@ -7,7 +9,49 @@ import InventoryManagement from '@/components/pharmacist/InventoryManagement';
 import BottomNav from '@/components/layout/BottomNav';
 
 export default function PharmacistDashboard() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('orders');
+  const [stats, setStats] = useState({ activeOrders: 0, revenue: 0, lowStock: 0 });
+
+  useEffect(() => {
+    if (user) fetchStats();
+  }, [user]);
+
+  const fetchStats = async () => {
+    if (!user) return;
+    try {
+      const { data: pharmacy } = await supabase
+        .from('pharmacies')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!pharmacy) return;
+
+      const [activeRes, revenueRes, lowStockRes] = await Promise.all([
+        supabase.from('child_orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('pharmacy_id', pharmacy.id)
+          .in('status', ['pending', 'paid', 'processing', 'out_for_delivery']),
+        supabase.from('child_orders')
+          .select('total_amount')
+          .eq('pharmacy_id', pharmacy.id)
+          .eq('status', 'delivered'),
+        supabase.from('drugs')
+          .select('id', { count: 'exact', head: true })
+          .eq('pharmacy_id', pharmacy.id)
+          .lt('stock_quantity', 10),
+      ]);
+
+      setStats({
+        activeOrders: activeRes.count || 0,
+        revenue: (revenueRes.data || []).reduce((sum, o) => sum + (o.total_amount || 0), 0),
+        lowStock: lowStockRes.count || 0,
+      });
+    } catch (error) {
+      console.error('Error fetching pharmacy stats:', error);
+    }
+  };
 
   const tabs = [
     { id: 'orders', label: 'Orders', icon: ShoppingCart },
@@ -16,6 +60,12 @@ export default function PharmacistDashboard() {
     { id: 'analytics', label: 'Stats', icon: TrendingUp },
     { id: 'reviews', label: 'Reviews', icon: Star },
   ];
+
+  const formatRevenue = (amount: number) => {
+    if (amount >= 1000000) return `₦${(amount / 1000000).toFixed(1)}M`;
+    if (amount >= 1000) return `₦${(amount / 1000).toFixed(0)}k`;
+    return `₦${amount}`;
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -40,7 +90,7 @@ export default function PharmacistDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">0</div>
+                <div className="text-2xl font-bold">{stats.lowStock}</div>
                 <p className="text-xs text-muted-foreground">Products need restocking</p>
               </CardContent>
             </Card>
@@ -50,11 +100,26 @@ export default function PharmacistDashboard() {
         return (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Analytics</h2>
-            <Card>
-              <CardContent className="p-6 text-center text-muted-foreground">
-                No data available
-              </CardContent>
-            </Card>
+            <div className="grid gap-3 md:grid-cols-2">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Total Revenue</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">₦{stats.revenue.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">From delivered orders</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Active Orders</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.activeOrders}</div>
+                  <p className="text-xs text-muted-foreground">In progress</p>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         );
       case 'reviews':
@@ -63,7 +128,8 @@ export default function PharmacistDashboard() {
             <h2 className="text-lg font-semibold">Reviews</h2>
             <Card>
               <CardContent className="p-6 text-center text-muted-foreground">
-                No reviews available
+                <Star className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No reviews yet. Complete orders to receive reviews.</p>
               </CardContent>
             </Card>
           </div>
@@ -82,24 +148,24 @@ export default function PharmacistDashboard() {
           <p className="text-sm opacity-90">Manage orders and inventory</p>
         </div>
 
-        {/* Quick Stats - Horizontal scroll on mobile */}
+        {/* Quick Stats */}
         <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 md:grid md:grid-cols-3 md:overflow-visible md:mx-0 md:px-0">
           <Card className="min-w-[130px] flex-shrink-0 md:min-w-0 bg-gradient-to-br from-primary to-secondary text-primary-foreground border-none">
             <CardContent className="p-3">
               <p className="text-[10px] opacity-80 uppercase">Active Orders</p>
-              <div className="text-xl font-bold mt-1">5</div>
+              <div className="text-xl font-bold mt-1">{stats.activeOrders}</div>
             </CardContent>
           </Card>
           <Card className="min-w-[130px] flex-shrink-0 md:min-w-0">
             <CardContent className="p-3">
               <p className="text-[10px] text-muted-foreground uppercase">Revenue</p>
-              <div className="text-xl font-bold mt-1 text-secondary">₦250k</div>
+              <div className="text-xl font-bold mt-1 text-secondary">{formatRevenue(stats.revenue)}</div>
             </CardContent>
           </Card>
           <Card className="min-w-[130px] flex-shrink-0 md:min-w-0">
             <CardContent className="p-3">
               <p className="text-[10px] text-muted-foreground uppercase">Low Stock</p>
-              <div className="text-xl font-bold mt-1 text-destructive">2</div>
+              <div className="text-xl font-bold mt-1 text-destructive">{stats.lowStock}</div>
             </CardContent>
           </Card>
         </div>

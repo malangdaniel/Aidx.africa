@@ -9,8 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface Patient {
-    id: string; // profile id
-    userId: string; // auth user id
+    id: string;
+    userId: string;
     name: string;
     age: number | string;
     gender: string;
@@ -36,27 +36,29 @@ export default function PatientList({ onSelectPatient }: PatientListProps) {
     const fetchPatients = async () => {
         setLoading(true);
         try {
-            // Fetch all profiles with role 'patient'
-            // We also try to fetch their latest consultation time if possible, 
-            // but for list performance we might skip that or do it separately.
-            // For now, simple profile fetch.
+            // Get patients by joining user_roles (role is stored there, not in profiles)
             const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
+                .from('user_roles')
+                .select(`
+                    user_id,
+                    profiles:user_id (
+                        id, user_id, first_name, last_name, metadata
+                    )
+                `)
                 .eq('role', 'patient');
 
             if (error) throw error;
 
-            const mappedPatients: Patient[] = data.map((p: any) => ({
-                id: p.id,
-                userId: p.user_id,
-                name: `${p.first_name || 'Unknown'} ${p.last_name || ''}`,
-                age: p.metadata?.age || 'N/A',
-                gender: p.metadata?.sex || 'N/A',
-                lastVisit: 'Unknown', // Would require joining consultations
-                condition: 'General', // Would require joining medical history
-                status: 'Active',
-                image: p.metadata?.avatar_url
+            const mappedPatients: Patient[] = (data || []).map((item: any) => ({
+                id: item.profiles?.id || item.user_id,
+                userId: item.user_id,
+                name: `${item.profiles?.first_name || 'Unknown'} ${item.profiles?.last_name || ''}`.trim(),
+                age: item.profiles?.metadata?.age || 'N/A',
+                gender: item.profiles?.metadata?.sex || 'N/A',
+                lastVisit: 'Unknown',
+                condition: 'General',
+                status: 'Active' as const,
+                image: item.profiles?.metadata?.avatar_url
             }));
 
             setPatients(mappedPatients);

@@ -64,7 +64,7 @@ export default function AIChatInterface({
         try {
             const { data, error } = await supabase
                 .from('ai_chats')
-                .select('*')
+                .select('id, message, response, session_id, title, created_at')
                 .eq('session_id', id)
                 .order('created_at', { ascending: true });
 
