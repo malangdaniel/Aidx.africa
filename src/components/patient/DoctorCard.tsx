@@ -6,6 +6,7 @@ import { Star, Video, MapPin, Clock } from 'lucide-react';
 
 export interface Doctor {
     id: string;
+    userId?: string;
     name: string;
     specialty: string;
     rating: number;
@@ -13,6 +14,7 @@ export interface Doctor {
     imageUrl?: string;
     nextAvailable: string;
     price: number;
+    bio?: string;
 }
 
 interface DoctorCardProps {
@@ -56,7 +58,7 @@ export default function DoctorCard({ doctor, onBook, onViewProfile }: DoctorCard
                         </div>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                        Experienced {doctor.specialty} with over 10 years of practice. Dedicated to providing patient-centered care and accurate diagnosis.
+                        {doctor.bio || `Experienced ${doctor.specialty} dedicated to providing patient-centered care and accurate diagnosis.`}
                     </p>
                 </div>
 

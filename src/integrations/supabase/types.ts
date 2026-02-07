@@ -21,6 +21,8 @@ export type Database = {
           message: string
           original_language: string | null
           response: string | null
+          session_id: string | null
+          title: string | null
           translated_message: string | null
           translated_response: string | null
           user_id: string
@@ -31,6 +33,8 @@ export type Database = {
           message: string
           original_language?: string | null
           response?: string | null
+          session_id?: string | null
+          title?: string | null
           translated_message?: string | null
           translated_response?: string | null
           user_id: string
@@ -41,11 +45,21 @@ export type Database = {
           message?: string
           original_language?: string | null
           response?: string | null
+          session_id?: string | null
+          title?: string | null
           translated_message?: string | null
           translated_response?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_chats_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       ai_diagnoses: {
         Row: {
@@ -94,6 +108,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ai_chats"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_diagnoses_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -254,7 +275,22 @@ export type Database = {
           transcript?: Json | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "consultations_doctor_id_profiles_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "consultations_patient_id_profiles_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       doctors: {
         Row: {
@@ -293,7 +329,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "doctors_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       drugs: {
         Row: {
@@ -488,7 +532,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orders_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       payout_requests: {
         Row: {
@@ -587,7 +639,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pharmacies_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       prescriptions: {
         Row: {
@@ -627,6 +687,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "consultations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prescriptions_doctor_id_profiles_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "prescriptions_patient_id_profiles_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -742,7 +816,15 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       wallets: {
         Row: {
@@ -769,7 +851,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "wallets_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
     }
     Views: {
