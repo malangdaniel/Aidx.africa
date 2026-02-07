@@ -209,6 +209,47 @@ export const PharmacyService = {
             price: data.price,
             stock: data.stock_quantity
         };
+    },
+
+    checkout: async (userId: string, items: { drugId: string; quantity: number; price: number }[], totalAmount: number, address: string) => {
+        // 1. Create Order
+        const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .insert({
+                user_id: userId,
+                total_amount: totalAmount,
+                status: 'pending',
+                shipping_address: address
+            })
+            .select()
+            .single();
+
+        if (orderError) throw orderError;
+
+        // 2. Create Order Items
+        const orderItems = items.map(item => ({
+            order_id: order.id,
+            drug_id: item.drugId,
+            quantity: item.quantity,
+            price_per_unit: item.price
+        }));
+
+        const { error: itemsError } = await supabase
+            .from('order_items')
+            .insert(orderItems);
+
+        if (itemsError) throw itemsError;
+
+        // 3. Update Stock (Best effort)
+        for (const item of items) {
+            const { data: drug } = await supabase.from('drugs').select('stock_quantity').eq('id', item.drugId).single();
+            if (drug) {
+                const newStock = Math.max(0, (drug.stock_quantity || 0) - item.quantity);
+                await supabase.from('drugs').update({ stock_quantity: newStock }).eq('id', item.drugId);
+            }
+        }
+
+        return order;
     }
 };
 

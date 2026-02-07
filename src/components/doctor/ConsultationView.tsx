@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import VideoCall from '@/components/common/VideoCall';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,7 +18,8 @@ import {
     Stethoscope, Phone, Timer, Play, Pause, RotateCcw, Siren
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useEffect, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { PatientRecordService, PatientRecord } from '@/services/PatientRecordService';
 
 interface PrescriptionItem {
     name: string;
@@ -62,14 +63,13 @@ const MOCK_LAB_TESTS = [
     "ECG"
 ];
 
-const MOCK_CHRONIC_CONDITIONS = ["Type 2 Diabetes", "Hypertension"];
-const MOCK_CURRENT_MEDS = ["Metformin 500mg (QD)", "Lisinopril 10mg (QD)"];
-
 export default function ConsultationView({ consultationId, patientName, clinicalSummary, onEndConsultation }: ConsultationViewProps) {
     const { user, profile } = useAuth();
     const [note, setNote] = useState('');
     const [isCallActive, setIsCallActive] = useState(false);
     const [callMode, setCallMode] = useState<'video' | 'audio'>('video');
+    const [patientId, setPatientId] = useState<string | null>(null);
+    const [patientRecord, setPatientRecord] = useState<PatientRecord | null>(null);
 
     // Timer State
     const [timerSeconds, setTimerSeconds] = useState(0);
@@ -98,6 +98,33 @@ export default function ConsultationView({ consultationId, patientName, clinical
     const [labUrgency, setLabUrgency] = useState<'routine' | 'urgent' | 'stat'>('routine');
     const [labReason, setLabReason] = useState('');
     const [labOrders, setLabOrders] = useState<LabOrder[]>([]);
+
+    // Initialize & Fetch Patient Data
+    useEffect(() => {
+        const init = async () => {
+            if (!consultationId) return;
+            try {
+                // 1. Get Patient ID from Consultation
+                const { data: consult, error } = await supabase
+                    .from('consultations')
+                    .select('patient_id')
+                    .eq('id', consultationId)
+                    .single();
+
+                if (error) throw error;
+                if (consult?.patient_id) {
+                    setPatientId(consult.patient_id);
+
+                    // 2. Fetch Medical Record
+                    const record = await PatientRecordService.getRecord(consult.patient_id);
+                    setPatientRecord(record);
+                }
+            } catch (err) {
+                console.error("Error loading consultation details:", err);
+            }
+        };
+        init();
+    }, [consultationId]);
 
     // Timer Logic
     useEffect(() => {
@@ -289,29 +316,42 @@ export default function ConsultationView({ consultationId, patientName, clinical
                                                 <AlertTriangle className="w-3 h-3 text-red-500" /> Allergies
                                             </Label>
                                             <div className="flex flex-wrap gap-1.5">
-                                                <Badge variant="destructive" className="text-[10px] py-0 px-2 font-bold uppercase">Penicillin</Badge>
-                                                <Badge variant="destructive" className="text-[10px] py-0 px-2 font-bold uppercase">Peanuts</Badge>
+                                                {patientRecord?.allergies?.length ? (
+                                                    patientRecord.allergies.map(allergy => (
+                                                        <Badge key={allergy} variant="destructive" className="text-[10px] py-0 px-2 font-bold uppercase">{allergy}</Badge>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-[10px] text-muted-foreground italic">None known</span>
+                                                )}
                                             </div>
                                         </div>
 
                                         <div>
                                             <Label className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1.5 block">Chronic Conditions</Label>
                                             <div className="flex flex-wrap gap-1.5">
-                                                {MOCK_CHRONIC_CONDITIONS.map(c => (
-                                                    <Badge key={c} variant="outline" className="text-[10px] py-0 px-2 font-bold border-muted-foreground/20 bg-muted/20">{c}</Badge>
-                                                ))}
+                                                {patientRecord?.chronic_conditions?.length ? (
+                                                    patientRecord.chronic_conditions.map(c => (
+                                                        <Badge key={c} variant="outline" className="text-[10px] py-0 px-2 font-bold border-muted-foreground/20 bg-muted/20">{c}</Badge>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-[10px] text-muted-foreground italic">None listed</span>
+                                                )}
                                             </div>
                                         </div>
 
                                         <div>
                                             <Label className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1.5 block">Current Medications</Label>
                                             <ul className="space-y-1.5">
-                                                {MOCK_CURRENT_MEDS.map(m => (
-                                                    <li key={m} className="flex items-center gap-2 text-xs font-medium text-foreground/80">
-                                                        <div className="w-1 h-1 rounded-full bg-primary" />
-                                                        {m}
-                                                    </li>
-                                                ))}
+                                                {patientRecord?.current_medications?.length ? (
+                                                    patientRecord.current_medications.map((m, i) => (
+                                                        <li key={i} className="flex items-center gap-2 text-xs font-medium text-foreground/80">
+                                                            <div className="w-1 h-1 rounded-full bg-primary" />
+                                                            {typeof m === 'string' ? m : `${m.name} ${m.dosage}`}
+                                                        </li>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-[10px] text-muted-foreground italic">No active medications</span>
+                                                )}
                                             </ul>
                                         </div>
                                     </div>

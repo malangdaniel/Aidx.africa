@@ -64,7 +64,7 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
   const { user, profile, refetchProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  
+
   // Form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -77,13 +77,13 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
   useEffect(() => {
     const loadDoctorProfile = async () => {
       if (!user) return;
-      
+
       try {
         // Load profile first/last name
         if (profile) {
           setFirstName(profile.first_name || "");
           setLastName(profile.last_name || "");
-          
+
           // Load from profile metadata if exists
           const meta = profile.metadata || {};
           if (meta.doctorProfile) {
@@ -194,14 +194,14 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
           .from("doctors")
           .update(doctorTableData)
           .eq("id", existingDoctor.id);
-        
+
         if (doctorError) throw doctorError;
       } else {
         // Insert new
         const { error: doctorError } = await supabase
           .from("doctors")
           .insert(doctorTableData);
-        
+
         if (doctorError) throw doctorError;
       }
 
@@ -246,7 +246,7 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
           </TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1 pr-4">
+        <div className="space-y-4">
           <TabsContent value="basic" className="mt-0 space-y-4">
             <div className="space-y-1">
               <h3 className="font-semibold text-lg">Basic Identification</h3>
@@ -294,7 +294,7 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
               onChange={handleAvailabilityChange}
             />
           </TabsContent>
-        </ScrollArea>
+        </div>
       </Tabs>
 
       <div className="pt-4 border-t mt-4">

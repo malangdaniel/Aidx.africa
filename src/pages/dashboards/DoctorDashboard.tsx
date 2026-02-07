@@ -6,10 +6,11 @@ import BottomNav from '@/components/layout/BottomNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Stethoscope, DollarSign, Calendar, Star, Users, TrendingUp, Loader2 } from 'lucide-react';
+import { Stethoscope, DollarSign, Calendar, Star, Users, TrendingUp, Loader2, UserCog } from 'lucide-react';
 import ConsultationView from '@/components/doctor/ConsultationView';
 import PatientList from '@/components/doctor/PatientList';
 import PatientDetail from '@/components/doctor/PatientDetail';
+import { DoctorProfileSettings } from '@/components/doctor/settings/DoctorProfileSettings';
 
 interface UpcomingConsultation {
   id: string;
@@ -94,6 +95,7 @@ export default function DoctorDashboard() {
         cancelled: cancelledRes.count || 0,
         totalEarnings,
         pendingPayouts,
+        pendingPayouts,
         rating: Number(doctorData?.rating) || 0,
         totalConsults: doctorData?.total_consultations || (completedRes.count || 0),
       });
@@ -136,6 +138,7 @@ export default function DoctorDashboard() {
     { id: 'patients', label: 'Patients', icon: Users },
     { id: 'earnings', label: 'Earnings', icon: DollarSign },
     { id: 'reviews', label: 'Reviews', icon: Star },
+    { id: 'profile', label: 'Profile', icon: UserCog },
   ];
 
   const renderContent = () => {
@@ -195,13 +198,11 @@ export default function DoctorDashboard() {
                   upcoming.map((session, idx) => (
                     <div
                       key={session.id}
-                      className={`flex items-center gap-3 p-3 border rounded-xl transition-all group ${
-                        idx === 0 ? 'bg-primary/5 border-primary/10 hover:bg-primary/10' : 'opacity-70 bg-muted/30'
-                      }`}
+                      className={`flex items-center gap-3 p-3 border rounded-xl transition-all group ${idx === 0 ? 'bg-primary/5 border-primary/10 hover:bg-primary/10' : 'opacity-70 bg-muted/30'
+                        }`}
                     >
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm ${
-                        idx === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/20 text-muted-foreground'
-                      }`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm ${idx === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/20 text-muted-foreground'
+                        }`}>
                         {session.patientInitials}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -320,6 +321,20 @@ export default function DoctorDashboard() {
                 </p>
               </CardContent>
             </Card>
+          </div>
+        );
+
+      case 'profile':
+        return (
+          <div className="space-y-4 animate-in fade-in duration-500 h-[calc(100vh-200px)] flex flex-col">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">Profile Settings</h2>
+            </div>
+            <div className="flex-1 overflow-hidden border rounded-xl bg-card">
+              <div className="h-full p-4 overflow-hidden">
+                <DoctorProfileSettings onSaved={fetchDashboardData} />
+              </div>
+            </div>
           </div>
         );
 

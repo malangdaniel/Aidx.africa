@@ -1,27 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Activity, Heart, Scale } from 'lucide-react';
+import { Plus, Activity, Heart, Scale, Loader2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-
-// Mock Data
-const INITIAL_DATA = [
-    { date: 'Mon', systolic: 120, diastolic: 80, heartRate: 72, weight: 70.5 },
-    { date: 'Tue', systolic: 122, diastolic: 82, heartRate: 75, weight: 70.4 },
-    { date: 'Wed', systolic: 118, diastolic: 79, heartRate: 71, weight: 70.6 },
-    { date: 'Thu', systolic: 124, diastolic: 84, heartRate: 76, weight: 70.3 },
-    { date: 'Fri', systolic: 121, diastolic: 75, heartRate: 73, weight: 70.2 },
-    { date: 'Sat', systolic: 119, diastolic: 80, heartRate: 70, weight: 70.1 },
-    { date: 'Sun', systolic: 120, diastolic: 80, heartRate: 72, weight: 70.0 },
-];
+import { VitalsService, VitalRecord } from '@/services/VitalsService';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { format, parseISO } from 'date-fns';
 
 export default function HealthTracker() {
-    const [data, setData] = useState(INITIAL_DATA);
+    const { user } = useAuth();
+    const [data, setData] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    // Stats for cards
+    const [avgBp, setAvgBp] = useState("0/0");
+    const [avgHr, setAvgHr] = useState("0");
+    const [currentWeight, setCurrentWeight] = useState("0");
+
     const [newEntry, setNewEntry] = useState({
         systolic: '',
         diastolic: '',
@@ -29,18 +31,97 @@ export default function HealthTracker() {
         weight: ''
     });
 
-    const handleAddEntry = () => {
-        const today = new Date().toLocaleDateString('en-US', { weekday: 'short' });
-        setData([...data, {
-            date: today,
-            systolic: Number(newEntry.systolic) || 0,
-            diastolic: Number(newEntry.diastolic) || 0,
-            heartRate: Number(newEntry.heartRate) || 0,
-            weight: Number(newEntry.weight) || 0
-        }]);
-        setIsDialogOpen(false);
-        setNewEntry({ systolic: '', diastolic: '', heartRate: '', weight: '' });
+    useEffect(() => {
+        if (user) {
+            loadVitals();
+        }
+    }, [user]);
+
+    const loadVitals = async () => {
+        try {
+            setLoading(true);
+            const records = await VitalsService.getVitals(14); // Last 2 weeks
+
+            // Format for Chart (Recharts expects array of objects)
+            // We reverse because API returns desc (latest first), but chart needs asc (oldest left to right)
+            const chartData = [...records].reverse().map(r => ({
+                date: format(parseISO(r.recorded_at), 'dd MMM'), // e.g. "05 Feb"
+                systolic: r.systolic,
+                diastolic: r.diastolic,
+                heartRate: r.heart_rate,
+                weight: Number(r.weight)
+            }));
+
+            setData(chartData);
+            calculateStats(records);
+        } catch (error) {
+            console.error("Failed to load vitals", error);
+            toast.error("Could not load health history");
+        } finally {
+            setLoading(false);
+        }
     };
+
+    const calculateStats = (records: VitalRecord[]) => {
+        if (records.length === 0) return;
+
+        // Latest Weight
+        const latestWeightRecord = records.find(r => r.weight);
+        if (latestWeightRecord) setCurrentWeight(String(latestWeightRecord.weight));
+
+        // Avg BP (last 7 entries)
+        const bpRecords = records.filter(r => r.systolic && r.diastolic).slice(0, 7);
+        if (bpRecords.length > 0) {
+            const totalSys = bpRecords.reduce((sum, r) => sum + (r.systolic || 0), 0);
+            const totalDia = bpRecords.reduce((sum, r) => sum + (r.diastolic || 0), 0);
+            setAvgBp(`${Math.round(totalSys / bpRecords.length)}/${Math.round(totalDia / bpRecords.length)}`);
+        }
+
+        // Avg Heart Rate
+        const hrRecords = records.filter(r => r.heart_rate).slice(0, 7);
+        if (hrRecords.length > 0) {
+            const totalHr = hrRecords.reduce((sum, r) => sum + (r.heart_rate || 0), 0);
+            setAvgHr(String(Math.round(totalHr / hrRecords.length)));
+        }
+    };
+
+    const handleAddEntry = async () => {
+        if (!user) return;
+
+        // Basic validation
+        if (!newEntry.systolic && !newEntry.diastolic && !newEntry.heartRate && !newEntry.weight) {
+            toast.error("Please enter at least one metric");
+            return;
+        }
+
+        try {
+            setSaving(true);
+            await VitalsService.logVitals({
+                systolic: newEntry.systolic ? Number(newEntry.systolic) : undefined,
+                diastolic: newEntry.diastolic ? Number(newEntry.diastolic) : undefined,
+                heart_rate: newEntry.heartRate ? Number(newEntry.heartRate) : undefined,
+                weight: newEntry.weight ? Number(newEntry.weight) : undefined
+            });
+
+            toast.success("Vitals logged successfully");
+            setIsDialogOpen(false);
+            setNewEntry({ systolic: '', diastolic: '', heartRate: '', weight: '' });
+            loadVitals(); // Refresh data
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to save entry");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading && data.length === 0) {
+        return (
+            <div className="flex justify-center p-12">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -71,6 +152,7 @@ export default function HealthTracker() {
                                     <Label htmlFor="systolic">Systolic (mmHg)</Label>
                                     <Input
                                         id="systolic"
+                                        type="number"
                                         placeholder="120"
                                         value={newEntry.systolic}
                                         onChange={(e) => setNewEntry({ ...newEntry, systolic: e.target.value })}
@@ -80,6 +162,7 @@ export default function HealthTracker() {
                                     <Label htmlFor="diastolic">Diastolic (mmHg)</Label>
                                     <Input
                                         id="diastolic"
+                                        type="number"
                                         placeholder="80"
                                         value={newEntry.diastolic}
                                         onChange={(e) => setNewEntry({ ...newEntry, diastolic: e.target.value })}
@@ -91,6 +174,7 @@ export default function HealthTracker() {
                                     <Label htmlFor="heartRate">Heart Rate (bpm)</Label>
                                     <Input
                                         id="heartRate"
+                                        type="number"
                                         placeholder="72"
                                         value={newEntry.heartRate}
                                         onChange={(e) => setNewEntry({ ...newEntry, heartRate: e.target.value })}
@@ -100,6 +184,7 @@ export default function HealthTracker() {
                                     <Label htmlFor="weight">Weight (kg)</Label>
                                     <Input
                                         id="weight"
+                                        type="number"
                                         placeholder="70.5"
                                         value={newEntry.weight}
                                         onChange={(e) => setNewEntry({ ...newEntry, weight: e.target.value })}
@@ -108,7 +193,10 @@ export default function HealthTracker() {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button onClick={handleAddEntry}>Save Entry</Button>
+                            <Button onClick={handleAddEntry} disabled={saving}>
+                                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                Save Entry
+                            </Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
@@ -121,8 +209,8 @@ export default function HealthTracker() {
                         <Heart className="h-4 w-4 text-rose-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">120/80</div>
-                        <p className="text-xs text-muted-foreground">Normal range</p>
+                        <div className="text-2xl font-bold">{avgBp}</div>
+                        <p className="text-xs text-muted-foreground">Last 7 readings</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -131,8 +219,8 @@ export default function HealthTracker() {
                         <Activity className="h-4 w-4 text-blue-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">72 bpm</div>
-                        <p className="text-xs text-muted-foreground">+2% from last week</p>
+                        <div className="text-2xl font-bold">{avgHr} bpm</div>
+                        <p className="text-xs text-muted-foreground">Last 7 readings</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -141,8 +229,8 @@ export default function HealthTracker() {
                         <Scale className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">70.0 kg</div>
-                        <p className="text-xs text-muted-foreground">-0.5 kg this week</p>
+                        <div className="text-2xl font-bold">{currentWeight} kg</div>
+                        <p className="text-xs text-muted-foreground">Latest entry</p>
                     </CardContent>
                 </Card>
             </div>
@@ -165,10 +253,10 @@ export default function HealthTracker() {
                                 <LineChart data={data}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="date" />
-                                    <YAxis domain={[60, 160]} />
+                                    <YAxis domain={['auto', 'auto']} />
                                     <Tooltip />
-                                    <Line type="monotone" dataKey="systolic" stroke="#ef4444" name="Systolic" strokeWidth={2} />
-                                    <Line type="monotone" dataKey="diastolic" stroke="#f97316" name="Diastolic" strokeWidth={2} />
+                                    <Line type="monotone" dataKey="systolic" stroke="#ef4444" name="Systolic" strokeWidth={2} connectNulls />
+                                    <Line type="monotone" dataKey="diastolic" stroke="#f97316" name="Diastolic" strokeWidth={2} connectNulls />
                                 </LineChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -185,9 +273,9 @@ export default function HealthTracker() {
                                 <LineChart data={data}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="date" />
-                                    <YAxis domain={[40, 120]} />
+                                    <YAxis domain={['auto', 'auto']} />
                                     <Tooltip />
-                                    <Line type="monotone" dataKey="heartRate" stroke="#3b82f6" name="Heart Rate" strokeWidth={2} />
+                                    <Line type="monotone" dataKey="heartRate" stroke="#3b82f6" name="Heart Rate" strokeWidth={2} connectNulls />
                                 </LineChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -206,7 +294,7 @@ export default function HealthTracker() {
                                     <XAxis dataKey="date" />
                                     <YAxis domain={['auto', 'auto']} />
                                     <Tooltip />
-                                    <Line type="monotone" dataKey="weight" stroke="#10b981" name="Weight" strokeWidth={2} />
+                                    <Line type="monotone" dataKey="weight" stroke="#10b981" name="Weight" strokeWidth={2} connectNulls />
                                 </LineChart>
                             </ResponsiveContainer>
                         </CardContent>
