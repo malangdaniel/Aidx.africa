@@ -95,7 +95,6 @@ export default function DoctorDashboard() {
         cancelled: cancelledRes.count || 0,
         totalEarnings,
         pendingPayouts,
-        pendingPayouts,
         rating: Number(doctorData?.rating) || 0,
         totalConsults: doctorData?.total_consultations || (completedRes.count || 0),
       });
