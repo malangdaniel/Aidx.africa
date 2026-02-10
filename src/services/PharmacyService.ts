@@ -219,7 +219,7 @@ export const PharmacyService = {
                 user_id: userId,
                 total_amount: totalAmount,
                 status: 'pending',
-                shipping_address: address
+                delivery_address: address
             })
             .select()
             .single();
@@ -230,8 +230,10 @@ export const PharmacyService = {
         const orderItems = items.map(item => ({
             order_id: order.id,
             drug_id: item.drugId,
+            pharmacy_id: '', // TODO: resolve pharmacy_id from drug
             quantity: item.quantity,
-            price_per_unit: item.price
+            unit_price: item.price,
+            total_price: item.price * item.quantity
         }));
 
         const { error: itemsError } = await supabase
