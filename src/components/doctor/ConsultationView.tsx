@@ -713,310 +713,312 @@ export default function ConsultationView({ consultationId, patientName, clinical
                                 </TabsTrigger>
                             </TabsList>
 
-                            <TabsContent value="notes" className="flex-1 flex flex-col min-h-0 p-0 m-0">
-                                <ScrollArea className="flex-1 p-4">
-                                    <div className="space-y-6">
-                                        {/* SOAP Notes */}
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <Label className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">SOAP Notes</Label>
-                                                <Badge variant="outline" className="text-[9px] font-bold opacity-60">AUTO-SAVING</Badge>
-                                            </div>
-                                            <Textarea
-                                                placeholder="Subjective: Patient reports...
+                            <div className="flex-1 overflow-hidden relative">
+                                <TabsContent value="notes" className="absolute inset-0 flex flex-col p-0 m-0 data-[state=inactive]:hidden">
+                                    <ScrollArea className="flex-1 p-4">
+                                        <div className="space-y-6">
+                                            {/* SOAP Notes */}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">SOAP Notes</Label>
+                                                    <Badge variant="outline" className="text-[9px] font-bold opacity-60">AUTO-SAVING</Badge>
+                                                </div>
+                                                <Textarea
+                                                    placeholder="Subjective: Patient reports...
 Objective: Vitals normal, chest clear...
 Assessment: Suspected GERD/MI...
 Plan: Order ECG, Rx Antacids..."
-                                                className="min-h-[160px] resize-none font-mono text-xs border-muted-foreground/10 focus-visible:ring-primary/20 rounded-xl p-3 bg-muted/5 leading-relaxed"
-                                                value={note}
-                                                onChange={(e) => setNote(e.target.value)}
-                                            />
-                                        </div>
-
-                                        {/* Physical Exam & Diagnosis */}
-                                        <div className="space-y-3 pt-2 border-t border-dashed">
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Physical Exam Findings</Label>
-                                                <Textarea
-                                                    className="min-h-[80px] text-xs"
-                                                    placeholder="Heart sounds, palpation results..."
-                                                    value={physicalExam}
-                                                    onChange={(e) => setPhysicalExam(e.target.value)}
+                                                    className="min-h-[160px] resize-none font-mono text-xs border-muted-foreground/10 focus-visible:ring-primary/20 rounded-xl p-3 bg-muted/5 leading-relaxed"
+                                                    value={note}
+                                                    onChange={(e) => setNote(e.target.value)}
                                                 />
                                             </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Provisional Diagnosis</Label>
-                                                <div className="relative">
-                                                    <Input
-                                                        className="text-xs font-bold"
-                                                        placeholder="e.g. R07.9 (Chest Pain, Unspecified)"
-                                                        value={diagnosis}
-                                                        onChange={(e) => setDiagnosis(e.target.value)}
-                                                    />
-                                                    <div className="absolute right-2 top-2">
-                                                        <Badge className="bg-green-600 text-[8px] h-4 px-1">ICD-10</Badge>
-                                                    </div>
-                                                </div>
-                                                <Input
-                                                    className="text-[10px]"
-                                                    placeholder="Differential diagnoses..."
-                                                    value={differentialDiagnosis}
-                                                    onChange={(e) => setDifferentialDiagnosis(e.target.value)}
-                                                />
-                                            </div>
-                                        </div>
 
-                                        {/* Session Checklist */}
-                                        <div className="space-y-3 pt-4 border-t border-dashed">
-                                            <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Symptom Checklist</Label>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {['Chest Pain', 'Nausea', 'Shortness of Breath', 'Dizziness', 'Fever', 'Cough'].map(s => (
-                                                    <label key={s} className="flex items-center gap-2 p-2 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group">
-                                                        <div className="w-4 h-4 border-2 rounded border-primary/20 group-hover:border-primary/40 flex items-center justify-center">
-                                                            {/* Simple checkbox UI */}
-                                                        </div>
-                                                        <span className="text-[11px] font-bold text-foreground/70">{s}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </ScrollArea>
-                                <div className="p-3 bg-muted/10 border-t flex items-center justify-between shrink-0">
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="outline" className="text-[9px] h-5 opacity-60">SESSION ID: {consultationId.slice(0, 6)}</Badge>
-                                        <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                                    </div>
-                                    <Button
-                                        className="h-9 px-6 bg-green-600 hover:bg-green-700 shadow-xl font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95"
-                                        onClick={handleFinish}
-                                        disabled={isFinishing}
-                                    >
-                                        {isFinishing ? (
-                                            <>
-                                                <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                                                Saving...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Check className="w-3 h-3 mr-2" />
-                                                Finalize
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="rx" className="flex-1 flex flex-col min-h-0 p-0 m-0">
-                                <ScrollArea className="flex-1 p-4">
-                                    <div className="space-y-6">
-                                        <div className="bg-primary/5 p-3 rounded-xl border border-primary/10 space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <h4 className="text-xs font-black text-primary uppercase tracking-tight">Prescription Writer</h4>
-                                                <Badge variant="outline" className="border-primary/20 text-primary text-[8px]">DRUG CHECK: ON</Badge>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Medication Name</Label>
-                                                    <Input className="h-8 text-xs" placeholder="e.g. Amoxicillin" value={rxName} onChange={(e) => setRxName(e.target.value)} />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Dose & Unit</Label>
-                                                    <Input className="h-8 text-xs" placeholder="e.g. 500mg" value={rxDosage} onChange={(e) => setRxDosage(e.target.value)} />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Frequency</Label>
-                                                    <Select value={rxFrequency} onValueChange={setRxFrequency}>
-                                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
-                                                        <SelectContent><SelectItem value="QD">Once daily</SelectItem><SelectItem value="BID">Twice daily</SelectItem><SelectItem value="TID">Three times</SelectItem><SelectItem value="PRN">As needed</SelectItem></SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Duration</Label>
-                                                    <Input className="h-8 text-xs" placeholder="e.g. 7 days" value={rxDuration} onChange={(e) => setRxDuration(e.target.value)} />
-                                                </div>
-                                            </div>
-                                            <Button onClick={handleAddMedication} className="w-full h-8 font-bold tracking-tight shadow-md text-xs">
-                                                <Plus className="w-3 h-3 mr-2" /> Add to Prescription
-                                            </Button>
-                                        </div>
-
-                                        <div className="space-y-3">
-                                            <Label className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">Active Prescription</Label>
-                                            {prescribedMeds.length === 0 ? (
-                                                <div className="text-center py-10 border-2 border-dashed rounded-xl bg-muted/5 text-muted-foreground">
-                                                    <p className="text-xs font-bold uppercase tracking-widest opacity-40">Cart Empty</p>
-                                                </div>
-                                            ) : (
+                                            {/* Physical Exam & Diagnosis */}
+                                            <div className="space-y-3 pt-2 border-t border-dashed">
                                                 <div className="space-y-2">
-                                                    {prescribedMeds.map((med, idx) => (
-                                                        <div key={idx} className="flex items-center justify-between p-2 bg-muted/20 border rounded-xl group transition-all hover:bg-muted/40 shadow-sm">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="bg-primary text-white p-1.5 rounded-lg"><Pill className="w-3 h-3" /></div>
-                                                                <div>
-                                                                    <p className="font-black text-xs">{med.name} <span className="font-normal text-muted-foreground text-[10px]">({med.dosage})</span></p>
-                                                                    <p className="text-[9px] font-bold text-muted-foreground/70 uppercase">{med.frequency} • {med.duration}</p>
-                                                                </div>
-                                                            </div>
-                                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveMedication(idx)} className="h-6 w-6 text-muted-foreground hover:text-destructive group-hover:scale-110 transition-transform">
-                                                                <X className="w-3 h-3" />
-                                                            </Button>
-                                                        </div>
-                                                    ))}
+                                                    <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Physical Exam Findings</Label>
+                                                    <Textarea
+                                                        className="min-h-[80px] text-xs"
+                                                        placeholder="Heart sounds, palpation results..."
+                                                        value={physicalExam}
+                                                        onChange={(e) => setPhysicalExam(e.target.value)}
+                                                    />
                                                 </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </ScrollArea>
-                                <div className="p-3 bg-muted/10 border-t flex items-center justify-between shrink-0">
-                                    <Badge variant="outline" className="text-[9px] h-5 opacity-60">SESSION ID: {consultationId.slice(0, 6)}</Badge>
-                                    <Button
-                                        className="h-9 px-6 bg-green-600 hover:bg-green-700 shadow-xl font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95"
-                                        onClick={handleFinish}
-                                        disabled={isFinishing}
-                                    >
-                                        {isFinishing ? (
-                                            <>
-                                                <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                                                Saving...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Check className="w-3 h-3 mr-2" />
-                                                Finalize
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="orders" className="flex-1 flex flex-col min-h-0 p-0 m-0">
-                                <ScrollArea className="flex-1 p-4">
-                                    <div className="space-y-4">
-                                        {/* Lab Order Wrapper */}
-                                        <div className="space-y-3 bg-muted/30 p-3 rounded-xl border border-muted-foreground/10">
-                                            <h4 className="text-xs font-black uppercase tracking-tight flex items-center gap-2">
-                                                <Activity className="w-3 h-3 text-primary" />
-                                                Order Diagnostics
-                                            </h4>
-                                            <div className="space-y-2">
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Test / Image Name</Label>
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Provisional Diagnosis</Label>
                                                     <div className="relative">
                                                         <Input
-                                                            className="h-8 text-xs"
-                                                            placeholder="CBC, MRI, ECG..."
-                                                            value={labSearch}
-                                                            onChange={(e) => setLabSearch(e.target.value)}
+                                                            className="text-xs font-bold"
+                                                            placeholder="e.g. R07.9 (Chest Pain, Unspecified)"
+                                                            value={diagnosis}
+                                                            onChange={(e) => setDiagnosis(e.target.value)}
                                                         />
-                                                        {labSearch.length > 1 && (
-                                                            <div className="absolute z-20 w-full bg-popover border rounded-md shadow-lg mt-1 max-h-40 overflow-auto scrollbar-hide">
-                                                                {MOCK_LAB_TESTS.filter(t => t.toLowerCase().includes(labSearch.toLowerCase())).map(lab => (
-                                                                    <div
-                                                                        key={lab}
-                                                                        className="p-2 hover:bg-muted cursor-pointer text-[11px] font-bold"
-                                                                        onClick={() => { setLabSearch(lab); }}
-                                                                    >
-                                                                        {lab}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Urgency</Label>
-                                                    <Select value={labUrgency} onValueChange={(v: any) => setLabUrgency(v)}>
-                                                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                                        <SelectContent><SelectItem value="routine">Routine</SelectItem><SelectItem value="urgent">Urgent</SelectItem><SelectItem value="stat">STAT</SelectItem></SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <Button onClick={handleAddLab} className="w-full h-7 text-[10px] font-black uppercase tracking-widest shadow-sm" variant="secondary">
-                                                    Add Order
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        {/* Actions Wrapper */}
-                                        <div className="space-y-3 bg-primary/5 p-3 rounded-xl border border-primary/10">
-                                            <h4 className="text-xs font-black uppercase tracking-tight text-primary flex items-center gap-2">
-                                                <Stethoscope className="w-3 h-3" />
-                                                Referrals & Escalate
-                                            </h4>
-                                            <div className="space-y-2">
-                                                <Button variant="outline" className="w-full justify-start text-[10px] font-bold h-8 bg-white shadow-sm hover:bg-primary/5 hover:text-primary transition-colors">
-                                                    <Share2 className="w-3 h-3 mr-2" /> Specialist Referral
-                                                </Button>
-                                                <Button variant="outline" className="w-full justify-start text-[10px] font-bold h-8 bg-white shadow-sm hover:bg-primary/5 hover:text-primary transition-colors">
-                                                    <Monitor className="w-3 h-3 mr-2" /> Request Imaging Clinic
-                                                </Button>
-                                                <Button variant="outline" className="w-full justify-start text-[10px] font-bold h-8 bg-red-50 text-red-600 border-red-200 shadow-sm hover:bg-red-600 hover:text-white transition-all">
-                                                    <Phone className="w-3 h-3 mr-2" /> Hospital Admission
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        {/* Active Orders List */}
-                                        <div className="space-y-3">
-                                            <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Diagnostics Cart</Label>
-                                            {labOrders.length === 0 ? (
-                                                <div className="text-center py-6 border-2 border-dashed rounded-xl bg-muted/5 opacity-50">
-                                                    <p className="text-[9px] font-black uppercase tracking-widest">No Tests Selected</p>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-2">
-                                                    {labOrders.map((order, idx) => (
-                                                        <div key={idx} className="flex items-center justify-between p-2 bg-card border rounded-lg shadow-sm border-muted-foreground/10">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className={`p-1 rounded-md ${order.urgency === 'stat' ? 'bg-red-500 text-white' : 'bg-primary/10 text-primary'}`}>
-                                                                    <Activity className="w-3 h-3" />
-                                                                </div>
-                                                                <span className="text-[10px] font-bold tracking-tight">{order.testName}</span>
-                                                            </div>
-                                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveLab(idx)} className="h-5 w-5">
-                                                                <X className="w-3 h-3" />
-                                                            </Button>
+                                                        <div className="absolute right-2 top-2">
+                                                            <Badge className="bg-green-600 text-[8px] h-4 px-1">ICD-10</Badge>
                                                         </div>
+                                                    </div>
+                                                    <Input
+                                                        className="text-[10px]"
+                                                        placeholder="Differential diagnoses..."
+                                                        value={differentialDiagnosis}
+                                                        onChange={(e) => setDifferentialDiagnosis(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Session Checklist */}
+                                            <div className="space-y-3 pt-4 border-t border-dashed">
+                                                <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Symptom Checklist</Label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {['Chest Pain', 'Nausea', 'Shortness of Breath', 'Dizziness', 'Fever', 'Cough'].map(s => (
+                                                        <label key={s} className="flex items-center gap-2 p-2 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group">
+                                                            <div className="w-4 h-4 border-2 rounded border-primary/20 group-hover:border-primary/40 flex items-center justify-center">
+                                                                {/* Simple checkbox UI */}
+                                                            </div>
+                                                            <span className="text-[11px] font-bold text-foreground/70">{s}</span>
+                                                        </label>
                                                     ))}
                                                 </div>
+                                            </div>
+                                        </div>
+                                    </ScrollArea>
+                                    <div className="p-3 bg-muted/10 border-t flex items-center justify-between shrink-0">
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="outline" className="text-[9px] h-5 opacity-60">SESSION ID: {consultationId.slice(0, 6)}</Badge>
+                                            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                                        </div>
+                                        <Button
+                                            className="h-9 px-6 bg-green-600 hover:bg-green-700 shadow-xl font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95"
+                                            onClick={handleFinish}
+                                            disabled={isFinishing}
+                                        >
+                                            {isFinishing ? (
+                                                <>
+                                                    <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                                                    Saving...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Check className="w-3 h-3 mr-2" />
+                                                    Finalize
+                                                </>
                                             )}
+                                        </Button>
+                                    </div>
+                                </TabsContent>
+
+                                <TabsContent value="rx" className="absolute inset-0 flex flex-col p-0 m-0 data-[state=inactive]:hidden">
+                                    <ScrollArea className="flex-1 p-4">
+                                        <div className="space-y-6">
+                                            <div className="bg-primary/5 p-3 rounded-xl border border-primary/10 space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <h4 className="text-xs font-black text-primary uppercase tracking-tight">Prescription Writer</h4>
+                                                    <Badge variant="outline" className="border-primary/20 text-primary text-[8px]">DRUG CHECK: ON</Badge>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Medication Name</Label>
+                                                        <Input className="h-8 text-xs" placeholder="e.g. Amoxicillin" value={rxName} onChange={(e) => setRxName(e.target.value)} />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Dose & Unit</Label>
+                                                        <Input className="h-8 text-xs" placeholder="e.g. 500mg" value={rxDosage} onChange={(e) => setRxDosage(e.target.value)} />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Frequency</Label>
+                                                        <Select value={rxFrequency} onValueChange={setRxFrequency}>
+                                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
+                                                            <SelectContent><SelectItem value="QD">Once daily</SelectItem><SelectItem value="BID">Twice daily</SelectItem><SelectItem value="TID">Three times</SelectItem><SelectItem value="PRN">As needed</SelectItem></SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Duration</Label>
+                                                        <Input className="h-8 text-xs" placeholder="e.g. 7 days" value={rxDuration} onChange={(e) => setRxDuration(e.target.value)} />
+                                                    </div>
+                                                </div>
+                                                <Button onClick={handleAddMedication} className="w-full h-8 font-bold tracking-tight shadow-md text-xs">
+                                                    <Plus className="w-3 h-3 mr-2" /> Add to Prescription
+                                                </Button>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <Label className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">Active Prescription</Label>
+                                                {prescribedMeds.length === 0 ? (
+                                                    <div className="text-center py-10 border-2 border-dashed rounded-xl bg-muted/5 text-muted-foreground">
+                                                        <p className="text-xs font-bold uppercase tracking-widest opacity-40">Cart Empty</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-2">
+                                                        {prescribedMeds.map((med, idx) => (
+                                                            <div key={idx} className="flex items-center justify-between p-2 bg-muted/20 border rounded-xl group transition-all hover:bg-muted/40 shadow-sm">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="bg-primary text-white p-1.5 rounded-lg"><Pill className="w-3 h-3" /></div>
+                                                                    <div>
+                                                                        <p className="font-black text-xs">{med.name} <span className="font-normal text-muted-foreground text-[10px]">({med.dosage})</span></p>
+                                                                        <p className="text-[9px] font-bold text-muted-foreground/70 uppercase">{med.frequency} • {med.duration}</p>
+                                                                    </div>
+                                                                </div>
+                                                                <Button variant="ghost" size="icon" onClick={() => handleRemoveMedication(idx)} className="h-6 w-6 text-muted-foreground hover:text-destructive group-hover:scale-110 transition-transform">
+                                                                    <X className="w-3 h-3" />
+                                                                </Button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </ScrollArea>
+                                    <div className="p-3 bg-muted/10 border-t flex items-center justify-between shrink-0">
+                                        <Badge variant="outline" className="text-[9px] h-5 opacity-60">SESSION ID: {consultationId.slice(0, 6)}</Badge>
+                                        <Button
+                                            className="h-9 px-6 bg-green-600 hover:bg-green-700 shadow-xl font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95"
+                                            onClick={handleFinish}
+                                            disabled={isFinishing}
+                                        >
+                                            {isFinishing ? (
+                                                <>
+                                                    <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                                                    Saving...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Check className="w-3 h-3 mr-2" />
+                                                    Finalize
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                </TabsContent>
+
+                                <TabsContent value="orders" className="absolute inset-0 flex flex-col p-0 m-0 data-[state=inactive]:hidden">
+                                    <ScrollArea className="flex-1 p-4">
+                                        <div className="space-y-4">
+                                            {/* Lab Order Wrapper */}
+                                            <div className="space-y-3 bg-muted/30 p-3 rounded-xl border border-muted-foreground/10">
+                                                <h4 className="text-xs font-black uppercase tracking-tight flex items-center gap-2">
+                                                    <Activity className="w-3 h-3 text-primary" />
+                                                    Order Diagnostics
+                                                </h4>
+                                                <div className="space-y-2">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Test / Image Name</Label>
+                                                        <div className="relative">
+                                                            <Input
+                                                                className="h-8 text-xs"
+                                                                placeholder="CBC, MRI, ECG..."
+                                                                value={labSearch}
+                                                                onChange={(e) => setLabSearch(e.target.value)}
+                                                            />
+                                                            {labSearch.length > 1 && (
+                                                                <div className="absolute z-20 w-full bg-popover border rounded-md shadow-lg mt-1 max-h-40 overflow-auto scrollbar-hide">
+                                                                    {MOCK_LAB_TESTS.filter(t => t.toLowerCase().includes(labSearch.toLowerCase())).map(lab => (
+                                                                        <div
+                                                                            key={lab}
+                                                                            className="p-2 hover:bg-muted cursor-pointer text-[11px] font-bold"
+                                                                            onClick={() => { setLabSearch(lab); }}
+                                                                        >
+                                                                            {lab}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Urgency</Label>
+                                                        <Select value={labUrgency} onValueChange={(v: any) => setLabUrgency(v)}>
+                                                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                                            <SelectContent><SelectItem value="routine">Routine</SelectItem><SelectItem value="urgent">Urgent</SelectItem><SelectItem value="stat">STAT</SelectItem></SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <Button onClick={handleAddLab} className="w-full h-7 text-[10px] font-black uppercase tracking-widest shadow-sm" variant="secondary">
+                                                        Add Order
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            {/* Actions Wrapper */}
+                                            <div className="space-y-3 bg-primary/5 p-3 rounded-xl border border-primary/10">
+                                                <h4 className="text-xs font-black uppercase tracking-tight text-primary flex items-center gap-2">
+                                                    <Stethoscope className="w-3 h-3" />
+                                                    Referrals & Escalate
+                                                </h4>
+                                                <div className="space-y-2">
+                                                    <Button variant="outline" className="w-full justify-start text-[10px] font-bold h-8 bg-white shadow-sm hover:bg-primary/5 hover:text-primary transition-colors">
+                                                        <Share2 className="w-3 h-3 mr-2" /> Specialist Referral
+                                                    </Button>
+                                                    <Button variant="outline" className="w-full justify-start text-[10px] font-bold h-8 bg-white shadow-sm hover:bg-primary/5 hover:text-primary transition-colors">
+                                                        <Monitor className="w-3 h-3 mr-2" /> Request Imaging Clinic
+                                                    </Button>
+                                                    <Button variant="outline" className="w-full justify-start text-[10px] font-bold h-8 bg-red-50 text-red-600 border-red-200 shadow-sm hover:bg-red-600 hover:text-white transition-all">
+                                                        <Phone className="w-3 h-3 mr-2" /> Hospital Admission
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            {/* Active Orders List */}
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Diagnostics Cart</Label>
+                                                {labOrders.length === 0 ? (
+                                                    <div className="text-center py-6 border-2 border-dashed rounded-xl bg-muted/5 opacity-50">
+                                                        <p className="text-[9px] font-black uppercase tracking-widest">No Tests Selected</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-2">
+                                                        {labOrders.map((order, idx) => (
+                                                            <div key={idx} className="flex items-center justify-between p-2 bg-card border rounded-lg shadow-sm border-muted-foreground/10">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className={`p-1 rounded-md ${order.urgency === 'stat' ? 'bg-red-500 text-white' : 'bg-primary/10 text-primary'}`}>
+                                                                        <Activity className="w-3 h-3" />
+                                                                    </div>
+                                                                    <span className="text-[10px] font-bold tracking-tight">{order.testName}</span>
+                                                                </div>
+                                                                <Button variant="ghost" size="icon" onClick={() => handleRemoveLab(idx)} className="h-5 w-5">
+                                                                    <X className="w-3 h-3" />
+                                                                </Button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </ScrollArea>
+                                    <div className="p-3 bg-muted/10 border-t flex items-center justify-between shrink-0">
+                                        <Badge variant="outline" className="text-[9px] h-5 opacity-60">SESSION ID: {consultationId.slice(0, 6)}</Badge>
+                                        <Button
+                                            className="h-9 px-6 bg-green-600 hover:bg-green-700 shadow-xl font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95"
+                                            onClick={handleFinish}
+                                            disabled={isFinishing}
+                                        >
+                                            {isFinishing ? (
+                                                <>
+                                                    <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                                                    Saving...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Check className="w-3 h-3 mr-2" />
+                                                    Finalize
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                </TabsContent>
+
+                                <TabsContent value="docs" className="absolute inset-0 flex flex-col p-4 m-0 space-y-4 data-[state=inactive]:hidden">
+                                    <div className="flex-1 border-2 border-dashed rounded-xl bg-muted/5 flex flex-col items-center justify-center text-center p-6 space-y-3">
+                                        <Monitor className="w-10 h-10 text-muted-foreground opacity-30" />
+                                        <div>
+                                            <h5 className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/80">No Shared Media</h5>
+                                            <p className="text-[10px] text-muted-foreground mt-1 px-4 leading-relaxed tracking-tight">Patient documents, lab photos, and imaging scans will appear here when shared during the call.</p>
                                         </div>
                                     </div>
-                                </ScrollArea>
-                                <div className="p-3 bg-muted/10 border-t flex items-center justify-between shrink-0">
-                                    <Badge variant="outline" className="text-[9px] h-5 opacity-60">SESSION ID: {consultationId.slice(0, 6)}</Badge>
-                                    <Button
-                                        className="h-9 px-6 bg-green-600 hover:bg-green-700 shadow-xl font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95"
-                                        onClick={handleFinish}
-                                        disabled={isFinishing}
-                                    >
-                                        {isFinishing ? (
-                                            <>
-                                                <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                                                Saving...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Check className="w-3 h-3 mr-2" />
-                                                Finalize
-                                            </>
-                                        )}
+                                    <Button variant="outline" className="w-full h-9 border-dashed text-[10px] font-black uppercase tracking-widest">
+                                        <Plus className="w-3.5 h-3.5 mr-2" /> Upload Reference
                                     </Button>
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="docs" className="flex-1 flex flex-col p-4 m-0 space-y-4">
-                                <div className="flex-1 border-2 border-dashed rounded-xl bg-muted/5 flex flex-col items-center justify-center text-center p-6 space-y-3">
-                                    <Monitor className="w-10 h-10 text-muted-foreground opacity-30" />
-                                    <div>
-                                        <h5 className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/80">No Shared Media</h5>
-                                        <p className="text-[10px] text-muted-foreground mt-1 px-4 leading-relaxed tracking-tight">Patient documents, lab photos, and imaging scans will appear here when shared during the call.</p>
-                                    </div>
-                                </div>
-                                <Button variant="outline" className="w-full h-9 border-dashed text-[10px] font-black uppercase tracking-widest">
-                                    <Plus className="w-3.5 h-3.5 mr-2" /> Upload Reference
-                                </Button>
-                            </TabsContent>
+                                </TabsContent>
+                            </div>
                         </Tabs>
                     </div>
                 )}

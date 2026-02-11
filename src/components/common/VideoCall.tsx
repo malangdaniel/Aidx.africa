@@ -41,11 +41,16 @@ export default function VideoCall({ roomId, userId, onEndCall }: VideoCallProps)
         console.log("VideoCall: initializeMedia started");
         try {
             console.log("VideoCall: Requesting user media...");
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+                audio: true
+            });
             console.log("VideoCall: Media stream obtained", stream.id);
             setLocalStream(stream);
             if (localVideoRef.current) {
                 localVideoRef.current.srcObject = stream;
+                // Force play to ensure video starts immediately
+                localVideoRef.current.play().catch(e => console.log('Local video play error:', e));
             }
             setStatus('waiting');
 
@@ -54,6 +59,7 @@ export default function VideoCall({ roomId, userId, onEndCall }: VideoCallProps)
         } catch (err) {
             console.error('VideoCall: Error accessing media devices:', err);
             toast.error('Could not access camera/microphone. Check permissions.');
+            setStatus('ended');
         }
     };
 
@@ -66,12 +72,16 @@ export default function VideoCall({ roomId, userId, onEndCall }: VideoCallProps)
         });
 
         pc.ontrack = (event) => {
+            console.log('VideoCall: Received remote track', event.track.kind);
             const [remote] = event.streams;
             setRemoteStream(remote);
             if (remoteVideoRef.current) {
                 remoteVideoRef.current.srcObject = remote;
+                // Force play to ensure remote video starts immediately
+                remoteVideoRef.current.play().catch(e => console.log('Remote video play error:', e));
             }
             setStatus('connected');
+            toast.success('Connected to call');
         };
 
         pc.onicecandidate = (event) => {
@@ -174,6 +184,7 @@ export default function VideoCall({ roomId, userId, onEndCall }: VideoCallProps)
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
+                muted={false}
                 className="absolute inset-0 w-full h-full object-cover"
             />
 
