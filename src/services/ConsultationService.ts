@@ -120,6 +120,7 @@ export class ConsultationService {
         if (!user) throw new Error("Not authenticated");
 
         // 1. Update Consultation Status & Notes
+        console.log("Completing consultation:", consultationId);
         const { error: consultError } = await supabase
             .from('consultations')
             .update({
@@ -130,10 +131,14 @@ export class ConsultationService {
             })
             .eq('id', consultationId);
 
-        if (consultError) throw consultError;
+        if (consultError) {
+            console.error("Error updating consultation:", consultError);
+            throw consultError;
+        }
 
         // 2. Create Prescription Record (if any)
         if (prescriptions.length > 0) {
+            console.log("Saving prescriptions:", prescriptions.length);
             const { error: rxError } = await supabase
                 .from('prescriptions')
                 .insert({
@@ -143,10 +148,16 @@ export class ConsultationService {
                     prescription_data: { medications: prescriptions }
                 });
 
-            if (rxError) throw rxError;
+            if (rxError) {
+                console.error("Error saving prescriptions:", rxError);
+                throw rxError;
+            }
         }
 
         // 3. Save Lab Orders (if any, checks empty inside)
-        await this.saveLabOrders(consultationId, patientId, labOrders);
+        if (labOrders.length > 0) {
+            console.log("Saving lab orders:", labOrders.length);
+            await this.saveLabOrders(consultationId, patientId, labOrders);
+        }
     }
 }

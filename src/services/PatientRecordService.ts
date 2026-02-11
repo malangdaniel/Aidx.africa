@@ -55,5 +55,19 @@ export const PatientRecordService = {
             if (error) throw error;
             return data;
         }
+    },
+
+    /**
+     * Get patient profile including medical demographics.
+     */
+    getPatientProfile: async (patientId: string) => {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, gender, date_of_birth, blood_group')
+            .eq('user_id', patientId)
+            .single();
+
+        if (error) throw error;
+        return data;
     }
 };
