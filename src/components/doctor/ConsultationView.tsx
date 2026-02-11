@@ -111,7 +111,7 @@ export default function ConsultationView({ consultationId, patientName, clinical
     const [labReason, setLabReason] = useState('');
     const [labOrders, setLabOrders] = useState<LabOrder[]>([]);
 
-    // Initialize & Fetch Patient Data
+    // Initialize: Fetch Patient Data + Join Realtime Channel
     useEffect(() => {
         const init = async () => {
             if (!consultationId) return;
@@ -136,6 +136,41 @@ export default function ConsultationView({ consultationId, patientName, clinical
             }
         };
         init();
+
+        // 3. Join Realtime channel for chat with patient
+        const channel = supabase.channel(`consultation:${consultationId}`, {
+            config: { broadcast: { self: false } },
+        });
+        setChatChannel(channel);
+
+        channel
+            .on('broadcast', { event: 'chat_message' }, ({ payload }) => {
+                if (payload.role === 'patient') {
+                    setChatMessages(prev => [...prev, {
+                        id: payload.id || Date.now().toString(),
+                        sender: 'patient',
+                        text: payload.content,
+                        timestamp: new Date(payload.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    }]);
+                }
+            })
+            .on('broadcast', { event: 'patient_joined' }, () => {
+                toast.info('Patient has joined the session.');
+            })
+            .subscribe((subStatus) => {
+                if (subStatus === 'SUBSCRIBED') {
+                    // Announce doctor presence
+                    channel.send({
+                        type: 'broadcast',
+                        event: 'doctor_joined',
+                        payload: {},
+                    });
+                }
+            });
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [consultationId]);
 
     // Timer Logic
@@ -185,6 +220,19 @@ export default function ConsultationView({ consultationId, patientName, clinical
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         setChatMessages([...chatMessages, newMessage]);
+
+        // Broadcast to patient via Realtime
+        chatChannel?.send({
+            type: 'broadcast',
+            event: 'chat_message',
+            payload: {
+                id: newMessage.id,
+                role: 'doctor',
+                content: newMessage.text,
+                timestamp: new Date().toISOString(),
+            },
+        });
+
         setChatInput('');
     };
 
@@ -240,21 +288,44 @@ export default function ConsultationView({ consultationId, patientName, clinical
         setLabOrders(newLabs);
     };
 
-    const handleFinish = () => {
-        const consultationData = {
-            id: consultationId,
-            patientName,
-            soapNotes: note,
-            prescriptions: prescribedMeds,
-            labOrders: labOrders,
-            completedAt: new Date().toISOString(),
-            doctor: user?.email || "Dr. Current User"
-        };
+    const handleFinish = async () => {
+        setIsFinishing(true);
+        try {
+            // Save to database via ConsultationService
+            await ConsultationService.completeConsultation(
+                consultationId,
+                patientId || '',
+                note,
+                diagnosis,
+                prescribedMeds,
+                labOrders.map(l => ({ test_name: l.testName, urgency: l.urgency, reason: l.reason }))
+            );
 
-        toast.success("Consultation Completed", {
-            description: `Saved: ${prescribedMeds.length} Rx, ${labOrders.length} Labs.`
-        });
-        onEndConsultation(consultationData);
+            // Notify patient that consultation is complete
+            chatChannel?.send({
+                type: 'broadcast',
+                event: 'consultation_ended',
+                payload: {},
+            });
+
+            toast.success("Consultation Completed & Saved", {
+                description: `Saved: ${prescribedMeds.length} Rx, ${labOrders.length} Labs.`
+            });
+
+            onEndConsultation({
+                id: consultationId,
+                patientName,
+                soapNotes: note,
+                prescriptions: prescribedMeds,
+                labOrders,
+                completedAt: new Date().toISOString(),
+            });
+        } catch (err) {
+            console.error('Error completing consultation:', err);
+            toast.error('Failed to save consultation. Please try again.');
+        } finally {
+            setIsFinishing(false);
+        }
     };
 
     const filteredLabs = MOCK_LAB_TESTS.filter(test =>
