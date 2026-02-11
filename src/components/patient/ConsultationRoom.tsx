@@ -149,6 +149,8 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
                 audio: true
             });
             setLocalStream(stream);
+        } catch (err) {
+            console.error(err);
             toast.error("Could not access camera or microphone. Please check permissions.");
         }
     };
