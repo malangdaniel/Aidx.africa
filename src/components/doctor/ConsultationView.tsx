@@ -560,7 +560,11 @@ export default function ConsultationView({ consultationId, patientName, clinical
                                         <Button
                                             size="sm"
                                             className="rounded-full px-6 font-bold shadow-xl"
-                                            onClick={() => { setIsCallActive(true); setIsTimerRunning(true); }}
+                                            onClick={() => {
+                                                console.log("ConsultationView: Start Video clicked");
+                                                setIsCallActive(true);
+                                                setIsTimerRunning(true);
+                                            }}
                                         >
                                             Start Video
                                         </Button>

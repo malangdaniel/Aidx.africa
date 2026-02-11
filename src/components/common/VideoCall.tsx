@@ -38,8 +38,11 @@ export default function VideoCall({ roomId, userId, onEndCall }: VideoCallProps)
     }, [roomId]);
 
     const initializeMedia = async () => {
+        console.log("VideoCall: initializeMedia started");
         try {
+            console.log("VideoCall: Requesting user media...");
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            console.log("VideoCall: Media stream obtained", stream.id);
             setLocalStream(stream);
             if (localVideoRef.current) {
                 localVideoRef.current.srcObject = stream;
@@ -49,8 +52,8 @@ export default function VideoCall({ roomId, userId, onEndCall }: VideoCallProps)
             initializePeerConnection(stream);
             initializeSignaling();
         } catch (err) {
-            console.error('Error accessing media devices:', err);
-            toast.error('Could not access camera/microphone');
+            console.error('VideoCall: Error accessing media devices:', err);
+            toast.error('Could not access camera/microphone. Check permissions.');
         }
     };
 
