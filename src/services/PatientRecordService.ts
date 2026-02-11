@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 export interface PatientRecord {
     id: string;
     user_id: string;
@@ -9,15 +11,49 @@ export interface PatientRecord {
     social_history: { smoker: boolean; alcohol: boolean; details?: string };
 }
 
-// Stub: patient_records table does not exist yet.
 export const PatientRecordService = {
+    /**
+     * Get patient medical record by user ID.
+     */
     getRecord: async (patientId: string): Promise<PatientRecord | null> => {
-        console.warn("PatientRecordService.getRecord: patient_records table not yet created.");
-        return null;
+        const { data, error } = await supabase
+            .from('patient_records')
+            .select('*')
+            .eq('user_id', patientId)
+            .maybeSingle();
+
+        if (error) throw error;
+        return data;
     },
 
+    /**
+     * Create or update patient medical record.
+     */
     updateRecord: async (patientId: string, updates: Partial<PatientRecord>) => {
-        console.warn("PatientRecordService.updateRecord: patient_records table not yet created.");
-        return null;
+        // First check if exists
+        const { data: existing } = await supabase
+            .from('patient_records')
+            .select('id')
+            .eq('user_id', patientId)
+            .maybeSingle();
+
+        if (existing) {
+            const { data, error } = await supabase
+                .from('patient_records')
+                .update(updates)
+                .eq('user_id', patientId)
+                .select()
+                .single();
+            if (error) throw error;
+            return data;
+        } else {
+            const { data, error } = await supabase
+                .from('patient_records')
+                .insert({ user_id: patientId, ...updates })
+                .select()
+                .single();
+            if (error) throw error;
+            return data;
+        }
     }
 };

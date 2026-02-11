@@ -8,6 +8,7 @@ import BookingModal from './BookingModal';
 import DoctorProfileOverlay from './DoctorProfileOverlay';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { ConsultationService } from '@/services/ConsultationService';
 
 interface DoctorSearchProps {
     initialSpecialty?: string;
@@ -105,8 +106,6 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
         try {
             console.log('Booking Confirmed:', details);
 
-            // In a real app, 'details' would likely come from the BookingModal 
-            // and include patient info. We assume the current auth user is the patient.
             const { data: { user } } = await supabase.auth.getUser();
 
             if (!user) {
@@ -114,23 +113,25 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
                 return;
             }
 
-            // Insert into consultations table
-            const { error } = await supabase
-                .from('consultations')
-                .insert({
-                    doctor_id: details.doctor.userId, // CAREFUL: consultation needs user_id of doctor, not doctor table id? Schema says doctor_id references auth.users
-                    patient_id: user.id,
-                    status: 'scheduled',
-                    price: details.doctor.price,
-                    scheduled_at: new Date().toISOString(), // Mocking 'now' for simplicity, actual modal should provide time
-                    notes: "Initial consultation booking"
-                });
+            // Construct proper Date object from date and timeSlot
+            let scheduledAt = new Date();
+            if (details.date && details.timeSlot) {
+                const dateStr = details.date.toDateString();
+                scheduledAt = new Date(`${dateStr} ${details.timeSlot}`);
+            }
 
-            if (error) throw error;
+            // Use ConsultationService to book
+            await ConsultationService.bookConsultation(
+                details.doctor.userId,
+                user.id,
+                scheduledAt,
+                details.doctor.price,
+                `Initial consultation booking (${details.consultType})`
+            );
 
             setIsBookingOpen(false);
             toast.success("Appointment Booked Successfully!", {
-                description: `Consultation with ${details.doctor.name} scheduled.`
+                description: `Consultation with ${details.doctor.name} scheduled for ${scheduledAt.toLocaleString()}.`
             });
         } catch (err) {
             console.error("Booking error:", err);

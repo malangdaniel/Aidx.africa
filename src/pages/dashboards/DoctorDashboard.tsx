@@ -100,20 +100,43 @@ export default function DoctorDashboard() {
       });
 
       // Fetch upcoming consultations with patient names
-      const { data: upcomingData } = await supabase
+      const { data: upcomingData, error: upcomingError } = await supabase
         .from('consultations')
         .select(`
-          id, scheduled_at, status, notes,
+          id, scheduled_at, status, notes, patient_id,
           profiles:patient_id (first_name, last_name)
         `)
         .eq('doctor_id', user.id)
         .in('status', ['scheduled', 'ongoing'])
         .order('scheduled_at', { ascending: true })
-        .limit(5);
+        .limit(10);
+
+      if (upcomingError) throw upcomingError;
+
+      // Handle missing profiles (fallback)
+      const patientIds = (upcomingData || [])
+        .filter((c: any) => !c.profiles)
+        .map((c: any) => c.patient_id)
+        .filter(Boolean); // Remove null/undefined
+
+      let profilesMap: Record<string, any> = {};
+      if (patientIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', patientIds);
+
+        (profiles || []).forEach((p: any) => {
+          profilesMap[p.user_id] = p;
+        });
+      }
 
       const mappedUpcoming: UpcomingConsultation[] = (upcomingData || []).map((c: any) => {
-        const fName = c.profiles?.first_name || 'Unknown';
-        const lName = c.profiles?.last_name || '';
+        // Try joined profile first, then fallback to manual map
+        const profile = c.profiles || profilesMap[c.patient_id] || {};
+        const fName = profile.first_name || 'Unknown';
+        const lName = profile.last_name || 'User';
+
         return {
           id: c.id,
           patientName: `${fName} ${lName}`.trim(),
