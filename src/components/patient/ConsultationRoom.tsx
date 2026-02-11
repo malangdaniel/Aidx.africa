@@ -17,6 +17,13 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
+const ICE_SERVERS = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' }
+    ],
+};
+
 interface Message {
     id: string;
     role: 'patient' | 'doctor';
@@ -47,7 +54,11 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
     const [summaryLoading, setSummaryLoading] = useState(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const localVideoRef = useRef<HTMLVideoElement>(null);
+    const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
     const channelRef = useRef<any>(null);
+    const callChannelRef = useRef<any>(null);
+    const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
     const doctorName = `Dr. ${consultation.doctor_profile?.first_name || 'Medical'} ${consultation.doctor_profile?.last_name || 'Specialist'}`;
 
@@ -138,11 +149,118 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
                 audio: true
             });
             setLocalStream(stream);
-        } catch (err) {
-            console.error("Error accessing media devices:", err);
             toast.error("Could not access camera or microphone. Please check permissions.");
         }
     };
+
+    // --- WebRTC Logic ---
+    const initializePeerConnection = (stream: MediaStream) => {
+        const pc = new RTCPeerConnection(ICE_SERVERS);
+        peerConnectionRef.current = pc;
+
+        stream.getTracks().forEach((track) => {
+            pc.addTrack(track, stream);
+        });
+
+        pc.ontrack = (event) => {
+            const [remote] = event.streams;
+            setRemoteStream(remote);
+            if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = remote;
+            }
+        };
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                sendSignal({ type: 'candidate', candidate: event.candidate });
+            }
+        };
+
+        pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'disconnected') {
+                toast.info("Video call disconnected");
+            }
+        };
+    };
+
+    const initializeCallSignaling = () => {
+        const channel = supabase.channel(`call:${consultation.id}`);
+        callChannelRef.current = channel;
+
+        channel
+            .on('broadcast', { event: 'signal' }, async ({ payload }) => {
+                // Ignore own messages? We need userId to filter properly.
+                // Assuming payload includes senderId.
+                const { data: { user } } = await supabase.auth.getUser();
+                if (payload.userId === user?.id) return;
+
+                try {
+                    const pc = peerConnectionRef.current;
+                    if (!pc && payload.type !== 'ready') return;
+
+                    // If we get a signal but have no PC, we might need to lazy init?
+                    // But we likely init PC with local stream. 
+                    // If stream isn't ready, we can't add tracks yet.
+
+                    if (payload.type === 'offer') {
+                        if (!pc) return; // Should refrain until stream ready
+                        await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        sendSignal({ type: 'answer', answer });
+                    } else if (payload.type === 'answer') {
+                        if (!pc) return;
+                        await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+                    } else if (payload.type === 'candidate') {
+                        if (!pc) return;
+                        await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                    } else if (payload.type === 'ready') {
+                        // Peer is ready, create offer
+                        createOffer();
+                    }
+                } catch (err) {
+                    console.error('Signaling error:', err);
+                }
+            })
+            .subscribe(async (status) => {
+                if (status === 'SUBSCRIBED') {
+                    // Announce presence 
+                    sendSignal({ type: 'ready' });
+                }
+            });
+    };
+
+    const createOffer = async () => {
+        const pc = peerConnectionRef.current;
+        if (!pc) return;
+        try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            sendSignal({ type: 'offer', offer });
+        } catch (err) {
+            console.error("Error creating offer", err);
+        }
+    };
+
+    const sendSignal = async (payload: any) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        callChannelRef.current?.send({
+            type: 'broadcast',
+            event: 'signal',
+            payload: { ...payload, userId: user?.id },
+        });
+    };
+
+    useEffect(() => {
+        if (status === 'connected' && localStream && !peerConnectionRef.current) {
+            initializePeerConnection(localStream);
+            initializeCallSignaling();
+        }
+        return () => {
+            // cleanup handled in handleEndCall or unmount
+        };
+    }, [status, localStream]); // waiting for stream
+
 
     const localVideoCallbackRef = useCallback((el: HTMLVideoElement | null) => {
         if (el && localStream) {
@@ -263,6 +381,7 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
     const handleEndCall = async () => {
         // Stop media
         localStream?.getTracks().forEach(track => track.stop());
+        peerConnectionRef.current?.close();
 
         // Notify doctor
         channelRef.current?.send({
@@ -270,6 +389,8 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
             event: 'patient_left',
             payload: {},
         });
+
+        if (callChannelRef.current) supabase.removeChannel(callChannelRef.current);
 
         await handleConsultationEnded();
     };
@@ -494,21 +615,21 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
                     <div className="relative flex-1 bg-neutral-900 rounded-3xl overflow-hidden border border-border group shadow-2xl shadow-primary/5">
                         {/* Doctor feed area */}
                         {!isVideoOff ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-white space-y-6 animate-in zoom-in-95 duration-700">
-                                <img
-                                    src={consultation.doctor_profile?.metadata?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${doctorName}`}
-                                    className="w-44 h-44 rounded-full border-8 border-primary/20 object-cover shadow-2xl"
-                                    alt="Doctor"
+                            remoteStream ? (
+                                <video
+                                    ref={remoteVideoRef}
+                                    autoPlay
+                                    playsInline
+                                    className="w-full h-full object-cover animate-in fade-in duration-700"
                                 />
-                                <div className="text-center space-y-2">
-                                    <div className="flex items-center justify-center gap-2">
-                                        <h2 className="text-2xl font-bold">{doctorName}</h2>
-                                        <ShieldCheck className="w-5 h-5 text-blue-400" />
+                            ) : (
+                                <div className="w-full h-full bg-neutral-800 flex flex-col items-center justify-center text-neutral-400 space-y-4">
+                                    <div className="w-20 h-20 rounded-full bg-neutral-700 flex items-center justify-center animate-pulse">
+                                        <Loader2 className="w-10 h-10 animate-spin" />
                                     </div>
-                                    <p className="text-sm text-white/50">{consultation.doctor_profile?.specialties?.[0] || 'Medical Specialist'}</p>
-                                    <Badge className="bg-green-500 scale-90">Live Session</Badge>
+                                    <p className="text-sm italic">Connecting to doctor...</p>
                                 </div>
-                            </div>
+                            )
                         ) : (
                             <div className="w-full h-full bg-neutral-800 flex flex-col items-center justify-center text-neutral-400 space-y-4">
                                 <div className="w-20 h-20 rounded-full bg-neutral-700 flex items-center justify-center">
@@ -630,7 +751,7 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
                         </CardFooter>
                     </Card>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
