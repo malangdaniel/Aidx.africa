@@ -2,8 +2,8 @@
 CREATE TABLE IF NOT EXISTS public.lab_orders (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     consultation_id UUID NOT NULL REFERENCES public.consultations(id) ON DELETE CASCADE,
-    patient_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    doctor_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    patient_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    doctor_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     test_name TEXT NOT NULL,
     urgency TEXT CHECK (urgency IN ('routine', 'urgent', 'stat')) DEFAULT 'routine',
     reason TEXT,

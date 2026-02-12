@@ -47,6 +47,13 @@ export default function VideoCall({ roomId, userId, onEndCall }: VideoCallProps)
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
     const channelRef = useRef<any>(null);
+    const makingOffer = useRef(false);
+    const ignoreOffer = useRef(false);
+    const isSettingRemoteAnswerPending = useRef(false);
+
+    // Using isDoctor to determine "politeness" in Perfect Negotiation
+    // Impolite peer (Doctor) initiates, Polite peer (Patient) yields
+    const isPolite = !isDoctor;
 
     useEffect(() => {
         initializeMedia();
@@ -65,7 +72,6 @@ export default function VideoCall({ roomId, userId, onEndCall }: VideoCallProps)
             setLocalStream(stream);
             if (localVideoRef.current) {
                 localVideoRef.current.srcObject = stream;
-                // Force play to ensure video starts immediately
                 localVideoRef.current.play().catch(e => console.log('Local video play error:', e));
             }
             setStatus('waiting');
@@ -87,13 +93,24 @@ export default function VideoCall({ roomId, userId, onEndCall }: VideoCallProps)
             pc.addTrack(track, stream);
         });
 
+        pc.onnegotiationneeded = async () => {
+            try {
+                makingOffer.current = true;
+                await pc.setLocalDescription();
+                sendSignal({ type: 'description', description: pc.localDescription });
+            } catch (err) {
+                console.error("Negotiation error:", err);
+            } finally {
+                makingOffer.current = false;
+            }
+        };
+
         pc.ontrack = (event) => {
             console.log('VideoCall: Received remote track', event.track.kind);
             const [remote] = event.streams;
             setRemoteStream(remote);
             if (remoteVideoRef.current) {
                 remoteVideoRef.current.srcObject = remote;
-                // Force play to ensure remote video starts immediately
                 remoteVideoRef.current.play().catch(e => console.log('Remote video play error:', e));
             }
             setStatus('connected');
@@ -108,9 +125,9 @@ export default function VideoCall({ roomId, userId, onEndCall }: VideoCallProps)
 
         pc.onconnectionstatechange = () => {
             console.log('Connection state:', pc.connectionState);
-            if (pc.connectionState === 'disconnected') {
+            if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
                 setStatus('ended');
-                toast.info("Call disconnected");
+                toast.info("Call connection lost");
             }
         };
     };
@@ -121,24 +138,38 @@ export default function VideoCall({ roomId, userId, onEndCall }: VideoCallProps)
 
         channel
             .on('broadcast', { event: 'signal' }, async ({ payload }) => {
-                if (payload.userId === userId) return; // Ignore own messages
+                if (payload.userId === userId) return;
 
                 try {
                     const pc = peerConnectionRef.current;
                     if (!pc) return;
 
-                    if (payload.type === 'offer') {
-                        await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        sendSignal({ type: 'answer', answer });
-                    } else if (payload.type === 'answer') {
-                        await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+                    if (payload.type === 'description') {
+                        const description = payload.description;
+                        const offerCollision = (description.type === "offer") &&
+                            (makingOffer.current || pc.signalingState !== "stable");
+
+                        ignoreOffer.current = !isPolite && offerCollision;
+                        if (ignoreOffer.current) {
+                            return;
+                        }
+
+                        isSettingRemoteAnswerPending.current = description.type === "answer";
+                        await pc.setRemoteDescription(description);
+                        isSettingRemoteAnswerPending.current = false;
+
+                        if (description.type === "offer") {
+                            await pc.setLocalDescription();
+                            sendSignal({ type: 'description', description: pc.localDescription });
+                        }
                     } else if (payload.type === 'candidate') {
-                        await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-                    } else if (payload.type === 'ready') {
-                        // Other peer is ready, I am the initiator
-                        createOffer();
+                        try {
+                            await pc.addIceCandidate(payload.candidate);
+                        } catch (err) {
+                            if (!ignoreOffer.current) {
+                                throw err;
+                            }
+                        }
                     }
                 } catch (err) {
                     console.error('Signaling error:', err);
@@ -146,22 +177,9 @@ export default function VideoCall({ roomId, userId, onEndCall }: VideoCallProps)
             })
             .subscribe((status) => {
                 if (status === 'SUBSCRIBED') {
-                    // Announce presence
-                    sendSignal({ type: 'ready' });
+                    console.log("VideoCall: Subscribed to signaling channel");
                 }
             });
-    };
-
-    const createOffer = async () => {
-        const pc = peerConnectionRef.current;
-        if (!pc) return;
-        try {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            sendSignal({ type: 'offer', offer });
-        } catch (err) {
-            console.error("Error creating offer", err);
-        }
     };
 
     const sendSignal = (payload: any) => {

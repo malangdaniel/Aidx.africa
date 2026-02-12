@@ -226,8 +226,8 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <Tabs defaultValue="basic" className="flex-1 flex flex-col">
-        <TabsList className="grid grid-cols-4 mb-4">
+      <Tabs defaultValue="basic" className="flex-1 flex flex-col overflow-hidden">
+        <TabsList className="grid grid-cols-4 mb-4 flex-shrink-0">
           <TabsTrigger value="basic" className="gap-1.5 text-xs sm:text-sm">
             <User className="h-4 w-4 hidden sm:inline" />
             Basic
@@ -246,58 +246,60 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
           </TabsTrigger>
         </TabsList>
 
-        <div className="space-y-4">
-          <TabsContent value="basic" className="mt-0 space-y-4">
-            <div className="space-y-1">
-              <h3 className="font-semibold text-lg">Basic Identification</h3>
-              <p className="text-sm text-muted-foreground">Your professional identity and trust credentials</p>
-            </div>
-            <DoctorBasicInfo
-              data={basicInfo}
-              firstName={firstName}
-              lastName={lastName}
-              onFirstNameChange={setFirstName}
-              onLastNameChange={setLastName}
-              onChange={handleBasicInfoChange}
-            />
-          </TabsContent>
+        <ScrollArea className="flex-1 pr-4">
+          <div className="space-y-4">
+            <TabsContent value="basic" className="mt-0 space-y-4">
+              <div className="space-y-1">
+                <h3 className="font-semibold text-lg">Basic Identification</h3>
+                <p className="text-sm text-muted-foreground">Your professional identity and trust credentials</p>
+              </div>
+              <DoctorBasicInfo
+                data={basicInfo}
+                firstName={firstName}
+                lastName={lastName}
+                onFirstNameChange={setFirstName}
+                onLastNameChange={setLastName}
+                onChange={handleBasicInfoChange}
+              />
+            </TabsContent>
 
-          <TabsContent value="credentials" className="mt-0 space-y-4">
-            <div className="space-y-1">
-              <h3 className="font-semibold text-lg">Professional Credentials</h3>
-              <p className="text-sm text-muted-foreground">Your qualifications, experience, and affiliations</p>
-            </div>
-            <DoctorCredentials
-              data={credentials}
-              onChange={handleCredentialsChange}
-            />
-          </TabsContent>
+            <TabsContent value="credentials" className="mt-0 space-y-4">
+              <div className="space-y-1">
+                <h3 className="font-semibold text-lg">Professional Credentials</h3>
+                <p className="text-sm text-muted-foreground">Your qualifications, experience, and affiliations</p>
+              </div>
+              <DoctorCredentials
+                data={credentials}
+                onChange={handleCredentialsChange}
+              />
+            </TabsContent>
 
-          <TabsContent value="expertise" className="mt-0 space-y-4">
-            <div className="space-y-1">
-              <h3 className="font-semibold text-lg">Areas of Expertise</h3>
-              <p className="text-sm text-muted-foreground">Help patients find you for the right conditions</p>
-            </div>
-            <DoctorExpertise
-              data={expertise}
-              onChange={handleExpertiseChange}
-            />
-          </TabsContent>
+            <TabsContent value="expertise" className="mt-0 space-y-4">
+              <div className="space-y-1">
+                <h3 className="font-semibold text-lg">Areas of Expertise</h3>
+                <p className="text-sm text-muted-foreground">Help patients find you for the right conditions</p>
+              </div>
+              <DoctorExpertise
+                data={expertise}
+                onChange={handleExpertiseChange}
+              />
+            </TabsContent>
 
-          <TabsContent value="availability" className="mt-0 space-y-4">
-            <div className="space-y-1">
-              <h3 className="font-semibold text-lg">Consultation Settings</h3>
-              <p className="text-sm text-muted-foreground">Configure your availability and booking preferences</p>
-            </div>
-            <DoctorAvailability
-              data={availability}
-              onChange={handleAvailabilityChange}
-            />
-          </TabsContent>
-        </div>
+            <TabsContent value="availability" className="mt-0 space-y-4">
+              <div className="space-y-1">
+                <h3 className="font-semibold text-lg">Consultation Settings</h3>
+                <p className="text-sm text-muted-foreground">Configure your availability and booking preferences</p>
+              </div>
+              <DoctorAvailability
+                data={availability}
+                onChange={handleAvailabilityChange}
+              />
+            </TabsContent>
+          </div>
+        </ScrollArea>
       </Tabs>
 
-      <div className="pt-4 border-t mt-4">
+      <div className="pt-4 border-t mt-4 flex-shrink-0">
         <Button onClick={handleSave} disabled={loading} className="w-full gap-2">
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
