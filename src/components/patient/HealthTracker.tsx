@@ -107,9 +107,11 @@ export default function HealthTracker() {
             setIsDialogOpen(false);
             setNewEntry({ systolic: '', diastolic: '', heartRate: '', weight: '' });
             loadVitals(); // Refresh data
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to save entry");
+        } catch (error: any) {
+            console.error("HealthTracker: Failed to save entry:", error);
+            // Provide more specific error info if possible
+            const errorMsg = error.message || error.details || "Failed to save entry";
+            toast.error(errorMsg);
         } finally {
             setSaving(false);
         }

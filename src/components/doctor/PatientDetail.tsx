@@ -7,6 +7,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+import { VitalsService, VitalRecord } from '@/services/VitalsService';
+
 interface PatientDetailProps {
     patientId: string; // This is the auth user id (profile user_id)
     onBack: () => void;
@@ -23,6 +25,7 @@ interface Consult {
 export default function PatientDetail({ patientId, onBack }: PatientDetailProps) {
     const [patient, setPatient] = useState<any>(null);
     const [consultations, setConsultations] = useState<Consult[]>([]);
+    const [vitals, setVitals] = useState<VitalRecord[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -35,25 +38,18 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
         setLoading(true);
         try {
             // Fetch Profile
-            const { data: profile, error: profileError } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('user_id', patientId)
-                .single();
+            const [profileRes, consultsRes, vitalsRes] = await Promise.all([
+                supabase.from('profiles').select('*').eq('user_id', patientId).single(),
+                supabase.from('consultations').select('id, doctor_id, created_at, notes, diagnosis').eq('patient_id', patientId).order('created_at', { ascending: false }),
+                VitalsService.getPatientVitals(patientId)
+            ]);
 
-            if (profileError) throw profileError;
-            setPatient(profile);
+            if (profileRes.error) throw profileRes.error;
+            if (consultsRes.error) throw consultsRes.error;
 
-            // Fetch Consultations - simplified query without problematic nested joins
-            const { data: consults, error: consultsError } = await supabase
-                .from('consultations')
-                .select('id, doctor_id, created_at, notes, diagnosis')
-                .eq('patient_id', patientId)
-                .order('created_at', { ascending: false });
-
-            if (consultsError) throw consultsError;
-
-            setConsultations(consults || []);
+            setPatient(profileRes.data);
+            setConsultations(consultsRes.data || []);
+            setVitals(vitalsRes || []);
 
         } catch (error) {
             console.error("Error fetching patient details:", error);
@@ -80,11 +76,13 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
     const sex = patient.metadata?.sex || 'N/A';
     const address = patient.metadata?.address || 'N/A';
 
-    // Mock vitals for now as there is no DB table
-    const MOCK_VITALS_DATA = [
-        { date: 'Mon', systolic: 120, diastolic: 80, heartRate: 72 },
-        { date: 'Tue', systolic: 122, diastolic: 82, heartRate: 75 },
-    ];
+    // Format vitals for chart
+    const chartData = [...vitals].reverse().map(v => ({
+        date: new Date(v.recorded_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
+        systolic: v.systolic,
+        diastolic: v.diastolic,
+        heartRate: v.heart_rate
+    }));
 
     return (
         <div className="space-y-6 animate-in fade-in zoom-in duration-300">
@@ -144,12 +142,12 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <Activity className="w-5 h-5 text-primary" />
-                                        Vitals Trends (Simulated)
+                                        Vitals Trends
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="h-[300px]">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={MOCK_VITALS_DATA}>
+                                        <LineChart data={chartData}>
                                             <CartesianGrid strokeDasharray="3 3" />
                                             <XAxis dataKey="date" />
                                             <YAxis />
