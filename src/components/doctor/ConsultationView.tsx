@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { ConsultationService, LabOrder } from '@/services/ConsultationService';
+import { ConsultationService, LabOrder as ServiceLabOrder } from '@/services/ConsultationService';
 import { PatientRecordService, PatientRecord } from '@/services/PatientRecordService';
 
 interface PrescriptionItem {
@@ -124,7 +124,7 @@ export default function ConsultationView({ consultationId, patientName, clinical
                 // 1. Get Consultation Details & Patient ID
                 const { data: consult, error } = await supabase
                     .from('consultations')
-                    .select('patient_id, clinical_summary, decision_support')
+                    .select('patient_id, decision_support, notes, diagnosis')
                     .eq('id', consultationId)
                     .single();
 
@@ -144,7 +144,7 @@ export default function ConsultationView({ consultationId, patientName, clinical
                     }
 
                     // 3. Set AI Data if available
-                    if (consult.clinical_summary) setAiClinicalSummary(consult.clinical_summary);
+                    if (consult.notes) setAiClinicalSummary(consult.notes);
                     if (consult.decision_support) setAiDecisionSupport(consult.decision_support);
                 }
             } catch (err) {

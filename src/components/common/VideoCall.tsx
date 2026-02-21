@@ -36,7 +36,7 @@ const ICE_SERVERS = {
     ],
 };
 
-export default function VideoCall({ roomId, userId, onEndCall }: VideoCallProps) {
+export default function VideoCall({ roomId, userId, isDoctor, onEndCall }: VideoCallProps) {
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const [isMuted, setIsMuted] = useState(false);

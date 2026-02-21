@@ -14,47 +14,20 @@ export interface PatientRecord {
 export const PatientRecordService = {
     /**
      * Get patient medical record by user ID.
+     * Note: patient_records table doesn't exist yet — returns null.
      */
-    getRecord: async (patientId: string): Promise<PatientRecord | null> => {
-        const { data, error } = await supabase
-            .from('patient_records')
-            .select('*')
-            .eq('user_id', patientId)
-            .maybeSingle();
-
-        if (error) throw error;
-        return data;
+    getRecord: async (_patientId: string): Promise<PatientRecord | null> => {
+        console.warn("PatientRecordService.getRecord: patient_records table not yet created.");
+        return null;
     },
 
     /**
      * Create or update patient medical record.
+     * Note: patient_records table doesn't exist yet — no-op.
      */
-    updateRecord: async (patientId: string, updates: Partial<PatientRecord>) => {
-        // First check if exists
-        const { data: existing } = await supabase
-            .from('patient_records')
-            .select('id')
-            .eq('user_id', patientId)
-            .maybeSingle();
-
-        if (existing) {
-            const { data, error } = await supabase
-                .from('patient_records')
-                .update(updates)
-                .eq('user_id', patientId)
-                .select()
-                .single();
-            if (error) throw error;
-            return data;
-        } else {
-            const { data, error } = await supabase
-                .from('patient_records')
-                .insert({ user_id: patientId, ...updates })
-                .select()
-                .single();
-            if (error) throw error;
-            return data;
-        }
+    updateRecord: async (_patientId: string, _updates: Partial<PatientRecord>) => {
+        console.warn("PatientRecordService.updateRecord: patient_records table not yet created.");
+        return null;
     },
 
     /**
