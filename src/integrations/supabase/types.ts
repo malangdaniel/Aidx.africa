@@ -231,7 +231,9 @@ export type Database = {
       }
       consultations: {
         Row: {
+          clinical_summary: string | null
           created_at: string
+          decision_support: Json | null
           diagnosis: string | null
           doctor_id: string
           ended_at: string | null
@@ -246,7 +248,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          clinical_summary?: string | null
           created_at?: string
+          decision_support?: Json | null
           diagnosis?: string | null
           doctor_id: string
           ended_at?: string | null
@@ -261,7 +265,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          clinical_summary?: string | null
           created_at?: string
+          decision_support?: Json | null
           diagnosis?: string | null
           doctor_id?: string
           ended_at?: string | null
@@ -391,6 +397,70 @@ export type Database = {
             columns: ["pharmacy_id"]
             isOneToOne: false
             referencedRelation: "pharmacies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_orders: {
+        Row: {
+          consultation_id: string
+          created_at: string
+          doctor_id: string
+          id: string
+          patient_id: string
+          reason: string | null
+          results: string | null
+          status: string | null
+          test_name: string
+          updated_at: string
+          urgency: string | null
+        }
+        Insert: {
+          consultation_id: string
+          created_at?: string
+          doctor_id: string
+          id?: string
+          patient_id: string
+          reason?: string | null
+          results?: string | null
+          status?: string | null
+          test_name: string
+          updated_at?: string
+          urgency?: string | null
+        }
+        Update: {
+          consultation_id?: string
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          patient_id?: string
+          reason?: string | null
+          results?: string | null
+          status?: string | null
+          test_name?: string
+          updated_at?: string
+          urgency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_orders_consultation_id_fkey"
+            columns: ["consultation_id"]
+            isOneToOne: false
+            referencedRelation: "consultations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_orders_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_orders_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -706,8 +776,11 @@ export type Database = {
       }
       profiles: {
         Row: {
+          blood_group: string | null
           created_at: string
+          date_of_birth: string | null
           first_name: string | null
+          gender: string | null
           id: string
           last_name: string | null
           metadata: Json | null
@@ -716,12 +789,15 @@ export type Database = {
           updated_at: string
           user_id: string
           verification_status:
-          | Database["public"]["Enums"]["verification_status"]
-          | null
+            | Database["public"]["Enums"]["verification_status"]
+            | null
         }
         Insert: {
+          blood_group?: string | null
           created_at?: string
+          date_of_birth?: string | null
           first_name?: string | null
+          gender?: string | null
           id?: string
           last_name?: string | null
           metadata?: Json | null
@@ -730,12 +806,15 @@ export type Database = {
           updated_at?: string
           user_id: string
           verification_status?:
-          | Database["public"]["Enums"]["verification_status"]
-          | null
+            | Database["public"]["Enums"]["verification_status"]
+            | null
         }
         Update: {
+          blood_group?: string | null
           created_at?: string
+          date_of_birth?: string | null
           first_name?: string | null
+          gender?: string | null
           id?: string
           last_name?: string | null
           metadata?: Json | null
@@ -744,8 +823,8 @@ export type Database = {
           updated_at?: string
           user_id?: string
           verification_status?:
-          | Database["public"]["Enums"]["verification_status"]
-          | null
+            | Database["public"]["Enums"]["verification_status"]
+            | null
         }
         Relationships: []
       }
@@ -826,6 +905,53 @@ export type Database = {
           },
         ]
       }
+      vitals: {
+        Row: {
+          created_at: string | null
+          diastolic: number | null
+          heart_rate: number | null
+          id: string
+          oxygen_saturation: number | null
+          recorded_at: string | null
+          systolic: number | null
+          temperature: number | null
+          user_id: string
+          weight: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          diastolic?: number | null
+          heart_rate?: number | null
+          id?: string
+          oxygen_saturation?: number | null
+          recorded_at?: string | null
+          systolic?: number | null
+          temperature?: number | null
+          user_id: string
+          weight?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          diastolic?: number | null
+          heart_rate?: number | null
+          id?: string
+          oxygen_saturation?: number | null
+          recorded_at?: string | null
+          systolic?: number | null
+          temperature?: number | null
+          user_id?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vitals_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       wallets: {
         Row: {
           balance: number | null
@@ -861,100 +987,6 @@ export type Database = {
           },
         ]
       }
-      vitals: {
-        Row: {
-          id: string
-          user_id: string
-          systolic: number | null
-          diastolic: number | null
-          heart_rate: number | null
-          weight: number | null
-          temperature: number | null
-          oxygen_saturation: number | null
-          recorded_at: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          systolic?: number | null
-          diastolic?: number | null
-          heart_rate?: number | null
-          weight?: number | null
-          temperature?: number | null
-          oxygen_saturation?: number | null
-          recorded_at?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          systolic?: number | null
-          diastolic?: number | null
-          heart_rate?: number | null
-          weight?: number | null
-          temperature?: number | null
-          oxygen_saturation?: number | null
-          recorded_at?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vitals_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          }
-        ]
-      }
-      patient_records: {
-        Row: {
-          id: string
-          user_id: string
-          allergies: string[] | null
-          chronic_conditions: string[] | null
-          family_history: string[] | null
-          past_surgeries: Json | null
-          current_medications: Json | null
-          social_history: Json | null
-          updated_at: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          allergies?: string[] | null
-          chronic_conditions?: string[] | null
-          family_history?: string[] | null
-          past_surgeries?: Json | null
-          current_medications?: Json | null
-          social_history?: Json | null
-          updated_at?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          allergies?: string[] | null
-          chronic_conditions?: string[] | null
-          family_history?: string[] | null
-          past_surgeries?: Json | null
-          current_medications?: Json | null
-          social_history?: Json | null
-          updated_at?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "patient_records_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          }
-        ]
-      }
     }
     Views: {
       [_ in never]: never
@@ -976,12 +1008,12 @@ export type Database = {
       app_role: "patient" | "doctor" | "pharmacist" | "admin"
       consultation_status: "scheduled" | "ongoing" | "completed" | "cancelled"
       order_status:
-      | "pending"
-      | "paid"
-      | "processing"
-      | "out_for_delivery"
-      | "delivered"
-      | "cancelled"
+        | "pending"
+        | "paid"
+        | "processing"
+        | "out_for_delivery"
+        | "delivered"
+        | "cancelled"
       payout_status: "pending" | "approved" | "rejected" | "paid"
       severity_level: "mild" | "moderate" | "severe"
       verification_status: "pending" | "verified" | "rejected"
@@ -998,116 +1030,116 @@ type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-  : never = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-  ? R
-  : never
+    ? R
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
-    }
-  ? R
-  : never
-  : never
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
+      Insert: infer I
+    }
+    ? I
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U
-  }
-  ? U
-  : never
+      Update: infer U
+    }
+    ? U
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Update: infer U
-  }
-  ? U
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-  | keyof DefaultSchema["Enums"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-  | keyof DefaultSchema["CompositeTypes"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
   public: {

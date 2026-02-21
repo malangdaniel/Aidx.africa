@@ -62,6 +62,7 @@ export default function PatientDashboard() {
   const tabs = [
     { id: 'ai-chat', label: 'AI Chat', icon: Bot },
     { id: 'consultations', label: 'Doctors', icon: Video },
+    { id: 'vitals', label: 'Vitals', icon: Activity },
     { id: 'pharmacy', label: 'Pharmacy', icon: Pill },
     { id: 'history', label: 'History', icon: FileText },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
@@ -135,6 +136,8 @@ export default function PatientDashboard() {
             <OrderList />
           </div>
         );
+      case 'vitals':
+        return <HealthTracker />;
       case 'pharmacy':
         return (
           <div className="space-y-4">

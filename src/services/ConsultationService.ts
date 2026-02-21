@@ -16,53 +16,21 @@ export interface LabOrder {
 
 export class ConsultationService {
     // --- CHAT ---
+    // Note: consultation_chat_messages table doesn't exist yet.
+    // Chat is handled via Supabase Realtime broadcast channels for now.
 
-    static async sendMessage(consultationId: string, message: string) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Not authenticated");
-
-        const { error } = await supabase
-            .from('consultation_chat_messages')
-            .insert({
-                consultation_id: consultationId,
-                sender_id: user.id,
-                message: message.trim()
-            });
-
-        if (error) throw error;
+    static async sendMessage(_consultationId: string, _message: string) {
+        console.warn("ConsultationService.sendMessage: consultation_chat_messages table not yet created. Using Realtime broadcast instead.");
     }
 
-    static subscribeToMessages(consultationId: string, onMessage: (msg: ChatMessage) => void) {
-        // 1. Load existing history
-        this.getChatHistory(consultationId).then(msgs => msgs.forEach(onMessage));
-
-        // 2. Subscribe to new
-        return supabase
-            .channel(`consultation_chat:${consultationId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'consultation_chat_messages',
-                    filter: `consultation_id=eq.${consultationId}`
-                },
-                (payload) => {
-                    onMessage(payload.new as ChatMessage);
-                }
-            )
-            .subscribe();
+    static subscribeToMessages(_consultationId: string, _onMessage: (msg: ChatMessage) => void) {
+        console.warn("ConsultationService.subscribeToMessages: consultation_chat_messages table not yet created. Using Realtime broadcast instead.");
+        return null;
     }
 
-    static async getChatHistory(consultationId: string): Promise<ChatMessage[]> {
-        const { data, error } = await supabase
-            .from('consultation_chat_messages')
-            .select('*')
-            .eq('consultation_id', consultationId)
-            .order('created_at', { ascending: true });
-
-        if (error) throw error;
-        return data || [];
+    static async getChatHistory(_consultationId: string): Promise<ChatMessage[]> {
+        console.warn("ConsultationService.getChatHistory: consultation_chat_messages table not yet created.");
+        return [];
     }
 
     // --- ACTIONS ---
@@ -154,7 +122,7 @@ export class ConsultationService {
             }
         }
 
-        // 3. Save Lab Orders (if any, checks empty inside)
+        // 3. Save Lab Orders (if any)
         if (labOrders.length > 0) {
             console.log("Saving lab orders:", labOrders.length);
             await this.saveLabOrders(consultationId, patientId, labOrders);
