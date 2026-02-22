@@ -128,4 +128,57 @@ export class ConsultationService {
             await this.saveLabOrders(consultationId, patientId, labOrders);
         }
     }
+
+    /**
+     * openFromElite — pre-fills a consultation request with an Elite clinical packet.
+     * Called by EliteDashboard when an alert warrants doctor review.
+     * The packet is serialised into the consultation notes; doctor can view it during consult.
+     */
+    static async openFromElite(packet: {
+        userId: string;
+        generatedAt: string;
+        scores?: Record<string, any> | null;
+        alerts?: Array<{ alert_level: string; reason: string }>;
+        geminiSummary?: string;
+    }): Promise<{ consultationId: string | null }> {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
+
+        const packetNote = [
+            '=== AiDx Elite Clinical Summary ===',
+            `Generated At: ${packet.generatedAt}`,
+            '',
+            'Health Indices:',
+            packet.scores ? JSON.stringify(packet.scores, null, 2) : 'N/A',
+            '',
+            'Active Alerts:',
+            (packet.alerts ?? []).map(a => `  [${a.alert_level.toUpperCase()}] ${a.reason}`).join('\n') || '  None',
+            '',
+            'AI Interpretation:',
+            packet.geminiSummary ?? 'Not generated.',
+            '',
+            '=== END ELITE PACKET ===',
+        ].join('\n');
+
+        // Insert a pending consultation record pre-filled with elite data
+        const { data, error } = await supabase
+            .from('consultations')
+            .insert({
+                patient_id: user.id,
+                status: 'pending',
+                notes: packetNote,
+                scheduled_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // default: tomorrow
+                price: 0,
+            })
+            .select('id')
+            .single();
+
+        if (error) {
+            console.error('ConsultationService.openFromElite error:', error);
+            // Non-fatal: return null and let caller handle (e.g., redirect to DoctorSearch)
+            return { consultationId: null };
+        }
+
+        return { consultationId: data.id };
+    }
 }
