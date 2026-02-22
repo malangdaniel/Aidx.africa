@@ -19,6 +19,7 @@ interface DashboardLayoutProps {
   tabs?: NavTab[];
   activeTab?: string;
   onTabChange?: (id: string) => void;
+  headerActions?: React.ReactNode;
 }
 
 export default function DashboardLayout({
@@ -26,7 +27,8 @@ export default function DashboardLayout({
   title,
   tabs,
   activeTab,
-  onTabChange
+  onTabChange,
+  headerActions
 }: DashboardLayoutProps) {
   const { profile, signOut } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
@@ -50,7 +52,11 @@ export default function DashboardLayout({
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex flex-col">
       {/* Mobile Header */}
       <div className="md:hidden">
-        <MobileHeader onSettingsClick={() => setShowSettings(true)} onSignOut={handleSignOut} />
+        <MobileHeader
+          onSettingsClick={() => setShowSettings(true)}
+          onSignOut={handleSignOut}
+          headerActions={headerActions}
+        />
       </div>
 
       {/* Desktop Header */}
@@ -73,6 +79,7 @@ export default function DashboardLayout({
             </div>
 
             <div className="flex items-center gap-2">
+              {headerActions}
               <Button
                 variant="ghost"
                 size="icon"

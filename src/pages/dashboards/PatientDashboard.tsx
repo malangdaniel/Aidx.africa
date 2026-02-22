@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import BottomNav from '@/components/layout/BottomNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Calendar, Pill, Wallet, Bot, Video, Plus, FileText, Activity, Sparkles } from 'lucide-react';
+import { MessageSquare, Calendar, Pill, Wallet, Bot, Video, Plus, Sparkles, Settings, User } from 'lucide-react';
 import AIChatInterface from '@/components/patient/AIChatInterface';
 import DoctorSearch from '@/components/patient/DoctorSearch';
 import MedicationMarketplace from '@/components/patient/MedicationMarketplace';
-import HealthTracker from '@/components/patient/HealthTracker';
-import MedicalHistoryView from '@/components/patient/medical-history/MedicalHistoryView';
+import PatientProfile from '@/components/patient/PatientProfile';
+import WalletView from '@/components/patient/WalletView';
 import ConsultationsList from '@/components/patient/ConsultationsList';
 import OrderList from '@/components/patient/OrderList';
 import AiChatHistory from '@/components/patient/AiChatHistory';
@@ -67,11 +68,9 @@ export default function PatientDashboard() {
   const tabs = [
     { id: 'ai-chat', label: 'AI Chat', icon: Bot },
     { id: 'consultations', label: 'Doctors', icon: Video },
-    { id: 'vitals', label: 'Vitals', icon: Activity },
     ...(ELITE_ENABLED ? [{ id: 'elite', label: 'Elite', icon: Sparkles }] : []),
     { id: 'pharmacy', label: 'Pharmacy', icon: Pill },
-    { id: 'history', label: 'History', icon: FileText },
-    { id: 'wallet', label: 'Wallet', icon: Wallet },
+    { id: 'profile', label: 'Profile', icon: User },
   ];
 
   const renderContent = () => {
@@ -142,8 +141,6 @@ export default function PatientDashboard() {
             <OrderList />
           </div>
         );
-      case 'vitals':
-        return <HealthTracker />;
       case 'elite':
         return ELITE_ENABLED ? <EliteDashboard /> : null;
       case 'pharmacy':
@@ -153,42 +150,10 @@ export default function PatientDashboard() {
             <MedicationMarketplace />
           </div>
         );
-      case 'history':
-        return (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Medical History</h2>
-            <MedicalHistoryView />
-          </div>
-        );
+      case 'profile':
+        return <PatientProfile />;
       case 'wallet':
-        return (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Wallet</h2>
-            <div className="grid gap-3">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Available Balance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">₦{wallet.balance.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</div>
-                  <Button className="mt-3 w-full" size="sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Funds
-                  </Button>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Escrow Balance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">₦{wallet.escrow.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</div>
-                  <p className="text-xs text-muted-foreground mt-1">Funds held for pending orders</p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        );
+        return <WalletView balance={wallet.balance} escrow={wallet.escrow} />;
       default:
         return null;
     }
@@ -200,6 +165,24 @@ export default function PatientDashboard() {
       tabs={tabs}
       activeTab={activeTab}
       onTabChange={setActiveTab}
+      headerActions={
+        <div className="flex items-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setActiveTab('wallet')}
+            className={cn(
+              "h-9 px-2 gap-2 text-muted-foreground hover:text-primary transition-colors",
+              activeTab === 'wallet' && "text-primary bg-primary/5"
+            )}
+          >
+            <Wallet className="w-5 h-5" />
+            <span className="hidden sm:inline font-bold text-xs">
+              ₦{wallet.balance.toLocaleString('en-NG', { maximumFractionDigits: 0 })}
+            </span>
+          </Button>
+        </div>
+      }
     >
       <div className="space-y-4">
         {/* Welcome Section */}
@@ -257,11 +240,6 @@ export default function PatientDashboard() {
               <p className="text-[10px] text-muted-foreground">Track drugs</p>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Health Tracker - Hidden on mobile home */}
-        <div className="hidden md:block">
-          <HealthTracker />
         </div>
 
         {/* Main Content Area */}
