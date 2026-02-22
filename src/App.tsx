@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { Analytics } from "@vercel/analytics/react";
 import AuthPage from "./pages/auth/AuthPage";
 import PatientDashboard from "./pages/dashboards/PatientDashboard";
 import DoctorDashboard from "./pages/dashboards/DoctorDashboard";
@@ -100,6 +101,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
       </AuthProvider>
+      <Analytics />
     </TooltipProvider>
   </QueryClientProvider>
 );
