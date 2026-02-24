@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Activity, Heart, Scale, Loader2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { VitalsService, VitalRecord } from '@/services/VitalsService';
+import { vitalsService, VitalRecord } from '@/services/vitals';
+import { EliteService, EliteBaseline } from '@/services/EliteService';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
@@ -23,12 +24,15 @@ export default function HealthTracker() {
     const [avgBp, setAvgBp] = useState("0/0");
     const [avgHr, setAvgHr] = useState("0");
     const [currentWeight, setCurrentWeight] = useState("0");
+    const [baselines, setBaselines] = useState<EliteBaseline[]>([]);
 
     const [newEntry, setNewEntry] = useState({
         systolic: '',
         diastolic: '',
         heartRate: '',
-        weight: ''
+        weight: '',
+        temperature: '',
+        oxygenSaturation: ''
     });
 
     useEffect(() => {
@@ -40,7 +44,7 @@ export default function HealthTracker() {
     const loadVitals = async () => {
         try {
             setLoading(true);
-            const records = await VitalsService.getVitals(14); // Last 2 weeks
+            const records = await vitalsService.getVitals(14); // Last 2 weeks
 
             // Format for Chart (Recharts expects array of objects)
             // We reverse because API returns desc (latest first), but chart needs asc (oldest left to right)
@@ -49,11 +53,15 @@ export default function HealthTracker() {
                 systolic: r.systolic,
                 diastolic: r.diastolic,
                 heartRate: r.heart_rate,
-                weight: Number(r.weight)
+                weight: Number(r.weight),
+                temperature: r.temperature,
+                oxygenSaturation: r.oxygen_saturation
             }));
 
             setData(chartData);
-            calculateStats(records);
+            const bl = await vitalsService.getBaselines();
+            setBaselines(bl);
+            calculateStats(records, bl);
         } catch (error) {
             console.error("Failed to load vitals", error);
             toast.error("Could not load health history");
@@ -62,26 +70,42 @@ export default function HealthTracker() {
         }
     };
 
-    const calculateStats = (records: VitalRecord[]) => {
+    const calculateStats = (records: VitalRecord[], bl: EliteBaseline[] = []) => {
         if (records.length === 0) return;
 
         // Latest Weight
         const latestWeightRecord = records.find(r => r.weight);
         if (latestWeightRecord) setCurrentWeight(String(latestWeightRecord.weight));
 
-        // Avg BP (last 7 entries)
-        const bpRecords = records.filter(r => r.systolic && r.diastolic).slice(0, 7);
-        if (bpRecords.length > 0) {
-            const totalSys = bpRecords.reduce((sum, r) => sum + (r.systolic || 0), 0);
-            const totalDia = bpRecords.reduce((sum, r) => sum + (r.diastolic || 0), 0);
-            setAvgBp(`${Math.round(totalSys / bpRecords.length)}/${Math.round(totalDia / bpRecords.length)}`);
+        // Baseline-aware stats
+        const getBaseline = (metric: string) => bl.find(b => b.metric === metric)?.baseline_mean;
+
+        // BP
+        const blSys = getBaseline('systolic_bp');
+        const blDia = getBaseline('diastolic_bp');
+
+        if (blSys && blDia) {
+            setAvgBp(`${Math.round(blSys)}/${Math.round(blDia)}`);
+        } else {
+            // Fallback to last 7 avg if no baseline yet
+            const bpRecords = records.filter(r => r.systolic && r.diastolic).slice(0, 7);
+            if (bpRecords.length > 0) {
+                const totalSys = bpRecords.reduce((sum, r) => sum + (r.systolic || 0), 0);
+                const totalDia = bpRecords.reduce((sum, r) => sum + (r.diastolic || 0), 0);
+                setAvgBp(`${Math.round(totalSys / bpRecords.length)}/${Math.round(totalDia / bpRecords.length)}`);
+            }
         }
 
-        // Avg Heart Rate
-        const hrRecords = records.filter(r => r.heart_rate).slice(0, 7);
-        if (hrRecords.length > 0) {
-            const totalHr = hrRecords.reduce((sum, r) => sum + (r.heart_rate || 0), 0);
-            setAvgHr(String(Math.round(totalHr / hrRecords.length)));
+        // Heart Rate
+        const blHr = getBaseline('heart_rate');
+        if (blHr) {
+            setAvgHr(String(Math.round(blHr)));
+        } else {
+            const hrRecords = records.filter(r => r.heart_rate).slice(0, 7);
+            if (hrRecords.length > 0) {
+                const totalHr = hrRecords.reduce((sum, r) => sum + (r.heart_rate || 0), 0);
+                setAvgHr(String(Math.round(totalHr / hrRecords.length)));
+            }
         }
     };
 
@@ -89,23 +113,29 @@ export default function HealthTracker() {
         if (!user) return;
 
         // Basic validation
-        if (!newEntry.systolic && !newEntry.diastolic && !newEntry.heartRate && !newEntry.weight) {
+        if (!newEntry.systolic && !newEntry.diastolic && !newEntry.heartRate && !newEntry.weight && !newEntry.temperature && !newEntry.oxygenSaturation) {
             toast.error("Please enter at least one metric");
             return;
         }
 
         try {
             setSaving(true);
-            await VitalsService.logVitals({
+            await vitalsService.logVitals({
                 systolic: newEntry.systolic ? Number(newEntry.systolic) : undefined,
                 diastolic: newEntry.diastolic ? Number(newEntry.diastolic) : undefined,
                 heart_rate: newEntry.heartRate ? Number(newEntry.heartRate) : undefined,
-                weight: newEntry.weight ? Number(newEntry.weight) : undefined
+                weight: newEntry.weight ? Number(newEntry.weight) : undefined,
+                temperature: newEntry.temperature ? Number(newEntry.temperature) : undefined,
+                oxygen_saturation: newEntry.oxygenSaturation ? Number(newEntry.oxygenSaturation) : undefined
             });
 
             toast.success("Vitals logged successfully");
             setIsDialogOpen(false);
-            setNewEntry({ systolic: '', diastolic: '', heartRate: '', weight: '' });
+            setNewEntry({ systolic: '', diastolic: '', heartRate: '', weight: '', temperature: '', oxygenSaturation: '' });
+
+            // Trigger core engine recompute (non-blocking)
+            EliteService.computeAndStoreScores(user.id).catch(console.error);
+
             loadVitals(); // Refresh data
         } catch (error: any) {
             console.error("HealthTracker: Failed to save entry:", error);
@@ -193,6 +223,29 @@ export default function HealthTracker() {
                                     />
                                 </div>
                             </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="temperature">Temperature (°C)</Label>
+                                    <Input
+                                        id="temperature"
+                                        type="number"
+                                        step="0.1"
+                                        placeholder="36.6"
+                                        value={newEntry.temperature}
+                                        onChange={(e) => setNewEntry({ ...newEntry, temperature: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="oxygenSaturation">Oxygen Saturation (%)</Label>
+                                    <Input
+                                        id="oxygenSaturation"
+                                        type="number"
+                                        placeholder="98"
+                                        value={newEntry.oxygenSaturation}
+                                        onChange={(e) => setNewEntry({ ...newEntry, oxygenSaturation: e.target.value })}
+                                    />
+                                </div>
+                            </div>
                         </div>
                         <DialogFooter>
                             <Button onClick={handleAddEntry} disabled={saving}>
@@ -212,7 +265,7 @@ export default function HealthTracker() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{avgBp}</div>
-                        <p className="text-xs text-muted-foreground">Last 7 readings</p>
+                        <p className="text-xs text-muted-foreground">{baselines.some(b => b.metric === 'systolic_bp') ? 'Personal Baseline' : 'Last 7 readings'}</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -222,7 +275,7 @@ export default function HealthTracker() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{avgHr} bpm</div>
-                        <p className="text-xs text-muted-foreground">Last 7 readings</p>
+                        <p className="text-xs text-muted-foreground">{baselines.some(b => b.metric === 'heart_rate') ? 'Personal Baseline' : 'Last 7 readings'}</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -242,6 +295,8 @@ export default function HealthTracker() {
                     <TabsTrigger value="bp">Blood Pressure</TabsTrigger>
                     <TabsTrigger value="hr">Heart Rate</TabsTrigger>
                     <TabsTrigger value="weight">Weight</TabsTrigger>
+                    <TabsTrigger value="temp">Temperature</TabsTrigger>
+                    <TabsTrigger value="spo2">SpO2</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="bp" className="space-y-4">
@@ -297,6 +352,44 @@ export default function HealthTracker() {
                                     <YAxis domain={['auto', 'auto']} />
                                     <Tooltip />
                                     <Line type="monotone" dataKey="weight" stroke="#10b981" name="Weight" strokeWidth={2} connectNulls />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="temp" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Temperature Trend</CardTitle>
+                        </CardHeader>
+                        <CardContent className="h-[300px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={data}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" />
+                                    <YAxis domain={['auto', 'auto']} />
+                                    <Tooltip />
+                                    <Line type="monotone" dataKey="temperature" stroke="#fb923c" name="Temperature (°C)" strokeWidth={2} connectNulls />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="spo2" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Oxygen Saturation Trend</CardTitle>
+                        </CardHeader>
+                        <CardContent className="h-[300px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={data}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" />
+                                    <YAxis domain={['auto', 'auto']} />
+                                    <Tooltip />
+                                    <Line type="monotone" dataKey="oxygenSaturation" stroke="#0ea5e9" name="SpO2 (%)" strokeWidth={2} connectNulls />
                                 </LineChart>
                             </ResponsiveContainer>
                         </CardContent>

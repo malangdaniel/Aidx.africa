@@ -95,12 +95,9 @@ export function useIngestVitals() {
     return useMutation({
         mutationFn: (vitals: RawVital[]) => EliteService.ingestVitals(user!.id, vitals),
         onSuccess: async () => {
-            // Invalidate scores + vitals cache, then recompute scores
+            // Invalidate scores + vitals cache. 
+            // The database trigger will handle the computation on the backend.
             await qc.invalidateQueries({ queryKey: eliteKeys.all });
-            if (user) {
-                // Non-blocking: compute scores after ingestion
-                EliteService.computeAndStoreScores(user.id).catch(console.error);
-            }
         },
     });
 }

@@ -6,7 +6,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import BottomNav from '@/components/layout/BottomNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Calendar, Pill, Wallet, Bot, Video, Plus, Sparkles, Settings, User } from 'lucide-react';
+import { MessageSquare, Calendar, Pill, Wallet, Bot, Video, Plus, Sparkles, Settings, User, Activity } from 'lucide-react';
 import AIChatInterface from '@/components/patient/AIChatInterface';
 import DoctorSearch from '@/components/patient/DoctorSearch';
 import MedicationMarketplace from '@/components/patient/MedicationMarketplace';
@@ -18,6 +18,7 @@ import AiChatHistory from '@/components/patient/AiChatHistory';
 import ConsultationRoom from '@/components/patient/ConsultationRoom';
 import EliteDashboard from '@/components/elite/EliteDashboard';
 import AICoachCard from '@/components/elite/AICoachCard';
+import HealthTracker from '@/components/patient/HealthTracker';
 
 // Feature flag for AiDx Elite Health Coach
 const ELITE_ENABLED = import.meta.env.VITE_ELITE_ENABLED === 'true';
@@ -68,6 +69,7 @@ export default function PatientDashboard() {
   const tabs = [
     { id: 'ai-chat', label: 'AI Chat', icon: Bot },
     { id: 'consultations', label: 'Doctors', icon: Video },
+    { id: 'vitals', label: 'Vitals', icon: Activity },
     ...(ELITE_ENABLED ? [{ id: 'elite', label: 'Elite', icon: Sparkles }] : []),
     { id: 'pharmacy', label: 'Pharmacy', icon: Pill },
     { id: 'profile', label: 'Profile', icon: User },
@@ -141,6 +143,8 @@ export default function PatientDashboard() {
             <OrderList />
           </div>
         );
+      case 'vitals':
+        return <HealthTracker />;
       case 'elite':
         return ELITE_ENABLED ? <EliteDashboard /> : null;
       case 'pharmacy':
@@ -200,7 +204,7 @@ export default function PatientDashboard() {
         )}
 
         {/* Quick Stats */}
-        <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 md:grid md:grid-cols-3 md:overflow-visible md:mx-0 md:px-0">
+        <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 md:grid md:grid-cols-4 md:overflow-visible md:mx-0 md:px-0">
           <Card
             className="min-w-[140px] flex-shrink-0 md:min-w-0 cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setActiveTab('ai-history')}
@@ -238,6 +242,19 @@ export default function PatientDashboard() {
             <CardContent className="p-3 pt-0">
               <div className="text-xl font-bold text-primary">{stats.orders}</div>
               <p className="text-[10px] text-muted-foreground">Track drugs</p>
+            </CardContent>
+          </Card>
+          <Card
+            className="min-w-[140px] flex-shrink-0 md:min-w-0 cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => setActiveTab('vitals')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+              <CardTitle className="text-xs font-medium">Vitals</CardTitle>
+              <Activity className="h-3.5 w-3.5 text-rose-500" />
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold text-primary">Track</div>
+              <p className="text-[10px] text-muted-foreground">Health stats</p>
             </CardContent>
           </Card>
         </div>

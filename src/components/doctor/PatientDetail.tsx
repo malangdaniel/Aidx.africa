@@ -7,7 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-import { VitalsService, VitalRecord } from '@/services/VitalsService';
+import { vitalsService, VitalRecord } from '@/services/vitals';
 
 interface PatientDetailProps {
     patientId: string; // This is the auth user id (profile user_id)
@@ -41,7 +41,7 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
             const [profileRes, consultsRes, vitalsRes] = await Promise.all([
                 supabase.from('profiles').select('*').eq('user_id', patientId).single(),
                 supabase.from('consultations').select('id, doctor_id, created_at, notes, diagnosis').eq('patient_id', patientId).order('created_at', { ascending: false }),
-                VitalsService.getPatientVitals(patientId)
+                vitalsService.getPatientVitals(patientId)
             ]);
 
             if (profileRes.error) throw profileRes.error;
@@ -81,7 +81,9 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
         date: new Date(v.recorded_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
         systolic: v.systolic,
         diastolic: v.diastolic,
-        heartRate: v.heart_rate
+        heartRate: v.heart_rate,
+        temperature: v.temperature,
+        oxygenSaturation: v.oxygen_saturation
     }));
 
     return (
@@ -152,8 +154,11 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                                             <XAxis dataKey="date" />
                                             <YAxis />
                                             <Tooltip />
-                                            <Line type="monotone" dataKey="systolic" stroke="#ef4444" name="Systolic BP" />
-                                            <Line type="monotone" dataKey="diastolic" stroke="#f97316" name="Diastolic BP" />
+                                            <Line type="monotone" dataKey="systolic" stroke="#ef4444" name="Systolic BP" strokeWidth={2} connectNulls />
+                                            <Line type="monotone" dataKey="diastolic" stroke="#f97316" name="Diastolic BP" strokeWidth={2} connectNulls />
+                                            <Line type="monotone" dataKey="heartRate" stroke="#3b82f6" name="Heart Rate" strokeWidth={2} connectNulls opacity={0.5} />
+                                            <Line type="monotone" dataKey="temperature" stroke="#fb923c" name="Temp (°C)" strokeWidth={2} connectNulls opacity={0.5} />
+                                            <Line type="monotone" dataKey="oxygenSaturation" stroke="#0ea5e9" name="SpO2 (%)" strokeWidth={2} connectNulls opacity={0.5} />
                                         </LineChart>
                                     </ResponsiveContainer>
                                 </CardContent>
