@@ -19,7 +19,6 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import {
     useLatestScores, useActiveAlerts, useRecentNormalizedVitals, useResolveAlert,
     useComputeScores, useGenerateClinicalPacket,
@@ -46,17 +45,16 @@ interface ScoreCardProps {
     inverse?: boolean;      // if true, lower = better (default higher = better)
 }
 
-function ScoreCard({ label, sublabel, icon: Icon, value, prev, confidence, color, inverse = false }: ScoreCardProps) {
-    const pct = value ?? 50;
+function ScoreCard({ label, sublabel, icon: Icon, value, prev, confidence, color }: ScoreCardProps) {
+    const pct = value ?? 100;
 
-    // For most indices higher = more adverse; for Recovery, higher = better
-    const effectivePct = inverse ? 100 - pct : pct;
-    const isGood = effectivePct <= 30;
-    const isMedium = effectivePct > 30 && effectivePct <= 60;
-    const isBad = effectivePct > 60;
+    // New model: 100 is perfect, lower is worse
+    const isGood = pct >= 85;
+    const isFair = pct >= 70 && pct < 85;
+    const isAttention = pct < 70;
 
-    const statusColor = isGood ? 'text-emerald-400' : isMedium ? 'text-amber-400' : 'text-rose-400';
-    const statusLabel = isGood ? 'Good' : isMedium ? 'Fair' : 'Elevated';
+    const statusColor = isGood ? 'text-emerald-400' : isFair ? 'text-amber-400' : 'text-rose-400';
+    const statusLabel = isGood ? 'Optimal' : isFair ? 'Stable' : 'Attention';
 
     const delta = (value !== null && prev !== null && prev !== undefined) ? value - prev : null;
 
@@ -70,7 +68,7 @@ function ScoreCard({ label, sublabel, icon: Icon, value, prev, confidence, color
             {/* Background glow based on status */}
             <div className={cn(
                 'absolute inset-0 opacity-10 pointer-events-none',
-                isGood ? 'bg-emerald-500' : isMedium ? 'bg-amber-500' : 'bg-rose-500'
+                isGood ? 'bg-emerald-500' : isFair ? 'bg-amber-500' : 'bg-rose-500'
             )} />
 
             <div className="relative">
@@ -80,8 +78,8 @@ function ScoreCard({ label, sublabel, icon: Icon, value, prev, confidence, color
                     </div>
                     <div className="flex items-center gap-1">
                         {delta !== null && (
-                            delta < -3 ? <TrendingDown className="w-3.5 h-3.5 text-emerald-400" /> :
-                                delta > 3 ? <TrendingUp className="w-3.5 h-3.5 text-rose-400" /> :
+                            delta > 2 ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> :
+                                delta < -2 ? <TrendingDown className="w-3.5 h-3.5 text-rose-400" /> :
                                     <Minus className="w-3.5 h-3.5 text-white/40" />
                         )}
                         <span className={cn('text-xs font-bold', statusColor)}>{statusLabel}</span>
@@ -101,7 +99,7 @@ function ScoreCard({ label, sublabel, icon: Icon, value, prev, confidence, color
                     <div
                         className={cn(
                             'h-full rounded-full transition-all duration-500',
-                            isGood ? 'bg-emerald-400' : isMedium ? 'bg-amber-400' : 'bg-rose-400'
+                            isGood ? 'bg-emerald-400' : isFair ? 'bg-amber-400' : 'bg-rose-400'
                         )}
                         style={{ width: `${pct}%` }}
                     />
@@ -110,6 +108,25 @@ function ScoreCard({ label, sublabel, icon: Icon, value, prev, confidence, color
                 <div className="mt-1 text-[9px] text-white/30">
                     Confidence: {Math.round(confidence * 100)}%
                 </div>
+            </div>
+        </div>
+    );
+}
+
+// =============================================================================
+// Early Warning Banner
+// =============================================================================
+function EarlyWarningBanner({ warning }: { warning: any }) {
+    if (!warning || !warning.active) return null;
+
+    return (
+        <div className="rounded-2xl p-4 bg-indigo-950/40 border border-indigo-500/30 flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-indigo-200 mb-1">
+                    Companion Insight
+                </div>
+                <p className="text-[11px] text-indigo-100/70 leading-relaxed">{warning.message}</p>
             </div>
         </div>
     );
@@ -213,8 +230,6 @@ function MetricsChart({ vitals }: { vitals: any[] }) {
 export default function EliteDashboard() {
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [showEntryForm, setShowEntryForm] = useState(false);
-    const [todayInsight, setTodayInsight] = useState<string | null>(null);
-    const [insightLoading, setInsightLoading] = useState(false);
 
     const { data: scores } = useLatestScores(7);
     const { data: alerts } = useActiveAlerts();
@@ -229,43 +244,12 @@ export default function EliteDashboard() {
     const prev = scores?.[1] ?? null;
     const hasData = !!latest;
 
-    // --- Generate daily insight via Gemini -----------------------------------
-    const generateInsight = useCallback(async () => {
-        if (!latest) return;
-        const insightKey = `aidx_elite_insight_${new Date().toISOString().slice(0, 10)}`;
-        const cached = sessionStorage.getItem(insightKey);
-        if (cached) { setTodayInsight(cached); return; }
-
-        const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (!geminiKey) {
-            setTodayInsight("Your health data is looking good! Remember to stay hydrated and get adequate rest today.");
-            return;
-        }
-
-        setInsightLoading(true);
-        try {
-            const prompt = dailyInsightPrompt({
-                scores: latest,
-                recentVitals: vitals?.slice(0, 15) ?? [],
-                symptoms: [],
-                baseline: [],
-            });
-
-            const genai = new GoogleGenerativeAI(geminiKey);
-            const model = genai.getGenerativeModel({ model: 'gemini-1.5-flash' });
-            const result = await model.generateContent(prompt);
-            const text = result.response.text().trim();
-            setTodayInsight(text);
-            sessionStorage.setItem(insightKey, text);
-        } catch (err) {
-            console.error('generateInsight:', err);
-            setTodayInsight("Great job tracking your health data today. Stay consistent and your personal baseline will be ready soon.");
-        } finally {
-            setInsightLoading(false);
-        }
-    }, [latest, vitals]);
-
-    useEffect(() => { generateInsight(); }, [generateInsight]);
+    // --- Insights from backend scores -------------------------------------------
+    const todayInsight = latest?.confidence_json?.insight ??
+        (hasData ? "Stay consistent with your vitals tracking to see more detailed insights." : null);
+    const guidance = latest?.confidence_json?.guidance ?? null;
+    const severity = latest?.confidence_json?.severity ?? 'normal';
+    const earlyWarning = latest?.confidence_json?.early_warning ?? null;
 
     // --- Handle doctor escalation -------------------------------------------
     const handleBookDoctor = async (alert: EliteAlert) => {
@@ -349,11 +333,16 @@ export default function EliteDashboard() {
             </div>
 
             {/* ---------- Alert Banner ---------- */}
-            {alerts && alerts.length > 0 && (
-                <div className="px-4 mb-2">
-                    <AlertBanner alerts={alerts} onOpenConsult={handleBookDoctor} />
+            {(alerts && alerts.length > 0) || (earlyWarning && earlyWarning.active) ? (
+                <div className="px-4 mb-2 space-y-2">
+                    {alerts && alerts.length > 0 && (
+                        <AlertBanner alerts={alerts} onOpenConsult={handleBookDoctor} />
+                    )}
+                    {earlyWarning && earlyWarning.active && (
+                        <EarlyWarningBanner warning={earlyWarning} />
+                    )}
                 </div>
-            )}
+            ) : null}
 
             {/* ---------- 4 Score Indices ---------- */}
             <div className="px-4 pb-3">
@@ -385,7 +374,6 @@ export default function EliteDashboard() {
                         prev={prev?.recovery_efficiency}
                         confidence={latest?.confidence_json?.recovery_efficiency ?? 0.5}
                         color="from-emerald-500 to-teal-600"
-                        inverse
                     />
                 </div>
 
@@ -403,8 +391,15 @@ export default function EliteDashboard() {
                     <div className="flex items-center gap-2 mb-3">
                         <Sparkles className="w-4 h-4 text-violet-400" />
                         <span className="text-xs font-semibold text-white/80">Your Coach</span>
-                        {insightLoading && <Badge variant="outline" className="text-[9px] border-violet-500/30 text-violet-300 py-0">thinking…</Badge>}
                     </div>
+
+                    {guidance && (
+                        <div className="mb-4 p-3 bg-violet-500/10 border border-violet-500/20 rounded-xl">
+                            <p className="text-[11px] text-violet-200 font-medium mb-1">Recommended for you:</p>
+                            <p className="text-[11px] text-white/80 leading-relaxed">{guidance}</p>
+                        </div>
+                    )}
+
                     <EliteCoachChat
                         todayInsight={todayInsight}
                         latestScores={latest}

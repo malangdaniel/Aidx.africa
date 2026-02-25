@@ -22,14 +22,14 @@ function TrendIcon({ value, prev }: { value: number | null; prev?: number | null
 }
 
 function IndexBadge({ label, value, confidence }: { label: string; value: number | null; confidence?: number }) {
-    const pct = value ?? 50;
-    const color = pct <= 30 ? 'from-emerald-500/80 to-emerald-600/80'
-        : pct <= 60 ? 'from-amber-500/80 to-amber-600/80'
+    const pct = value ?? 100;
+    const color = pct >= 80 ? 'from-emerald-500/80 to-emerald-600/80'
+        : pct >= 60 ? 'from-amber-500/80 to-amber-600/80'
             : 'from-rose-500/80 to-rose-600/80';
 
     return (
         <div className="flex flex-col items-center gap-0.5">
-            <div className={cn('text-[10px] font-bold text-white tabular-nums', pct > 60 ? 'text-rose-200' : '')}>
+            <div className={cn('text-[10px] font-bold text-white tabular-nums')}>
                 {value !== null ? value : '—'}
             </div>
             <div className="text-[9px] text-white/50 text-center leading-tight max-w-[48px]">{label}</div>
@@ -47,6 +47,19 @@ export default function AICoachCard({ insight, isLoadingInsight, onOpenDashboard
     const latest = scores?.[0] ?? null;
     const hasAlerts = (alerts?.length ?? 0) > 0;
     const latestConf = latest?.confidence_json ?? {};
+    const backendInsight = latestConf.insight ?? insight;
+    const severity = latestConf.severity ?? 'normal';
+
+    const severityStyles = {
+        normal: "border-violet-500/30 shadow-violet-900/20",
+        early_watch: "border-indigo-500/40 shadow-indigo-900/20",
+        watch: "border-amber-500/40 shadow-amber-900/20",
+        attention: "border-amber-500/60 shadow-amber-900/30",
+        high: "border-rose-500/60 shadow-rose-900/30",
+        critical: "border-rose-600 shadow-rose-900/40 animate-pulse",
+    };
+
+    const currentStyle = hasAlerts ? severityStyles.high : (severityStyles[severity as keyof typeof severityStyles] || severityStyles.normal);
 
     return (
         <div
@@ -55,7 +68,7 @@ export default function AICoachCard({ insight, isLoadingInsight, onOpenDashboard
                 "relative overflow-hidden rounded-2xl cursor-pointer select-none",
                 "bg-gradient-to-br from-[#1a0533] via-[#1e0a4a] to-[#0d1550]",
                 "border transition-all duration-200",
-                hasAlerts ? "border-rose-500/60 shadow-rose-900/30" : "border-violet-500/30 shadow-violet-900/20",
+                currentStyle,
                 "shadow-xl hover:shadow-2xl hover:scale-[1.01] active:scale-[0.99]"
             )}
         >
@@ -95,13 +108,13 @@ export default function AICoachCard({ insight, isLoadingInsight, onOpenDashboard
                     </div>
                 ) : latest ? (
                     <div className="flex justify-between mb-3 bg-white/5 rounded-xl p-2.5">
-                        <IndexBadge label="Stability" value={latest.physiological_stability} confidence={latestConf.physiological_stability} />
+                        <IndexBadge label="Stability" value={latest.physiological_stability} confidence={0.9} />
                         <div className="w-px bg-white/10" />
-                        <IndexBadge label="Immune" value={latest.immune_activation} confidence={latestConf.immune_activation} />
+                        <IndexBadge label="Immune" value={latest.immune_activation} confidence={0.9} />
                         <div className="w-px bg-white/10" />
-                        <IndexBadge label="Cardio" value={latest.cardiovascular_strain} confidence={latestConf.cardiovascular_strain} />
+                        <IndexBadge label="Cardio" value={latest.cardiovascular_strain} confidence={0.9} />
                         <div className="w-px bg-white/10" />
-                        <IndexBadge label="Recovery" value={latest.recovery_efficiency} confidence={latestConf.recovery_efficiency} />
+                        <IndexBadge label="Recovery" value={latest.recovery_efficiency} confidence={0.9} />
                     </div>
                 ) : (
                     <div className="mb-3 bg-white/5 rounded-xl p-3 text-center">
@@ -118,9 +131,9 @@ export default function AICoachCard({ insight, isLoadingInsight, onOpenDashboard
                             <Skeleton className="h-3 w-full rounded bg-white/5" />
                             <Skeleton className="h-3 w-3/4 rounded bg-white/5" />
                         </div>
-                    ) : insight ? (
+                    ) : backendInsight ? (
                         <p className="text-[11px] leading-relaxed text-white/80 line-clamp-3">
-                            {insight}
+                            {backendInsight}
                         </p>
                     ) : (
                         <p className="text-[11px] text-white/40 italic">

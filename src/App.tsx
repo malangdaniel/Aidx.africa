@@ -10,6 +10,7 @@ import PatientDashboard from "./pages/dashboards/PatientDashboard";
 import DoctorDashboard from "./pages/dashboards/DoctorDashboard";
 import PharmacistDashboard from "./pages/dashboards/PharmacistDashboard";
 import AdminDashboard from "./pages/dashboards/AdminDashboard";
+import NotificationsPage from "./pages/NotificationsPage";
 import NotFound from "./pages/NotFound";
 import { DevRoleSwitcher } from "@/components/dev/DevRoleSwitcher";
 
@@ -95,6 +96,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<ProtectedRoute />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

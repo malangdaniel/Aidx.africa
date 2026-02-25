@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Settings, LucideIcon, LogOut } from 'lucide-react';
 import { SettingsDialog } from './SettingsDialog';
 import { MobileHeader } from './MobileHeader';
+import { NotificationBell } from './NotificationBell';
 import aidxLogo from '@/assets/aidx-logo.png';
 import { cn } from '@/lib/utils';
 
@@ -56,6 +57,7 @@ export default function DashboardLayout({
           onSettingsClick={() => setShowSettings(true)}
           onSignOut={handleSignOut}
           headerActions={headerActions}
+          notificationBell={<NotificationBell />}
         />
       </div>
 
@@ -72,14 +74,15 @@ export default function DashboardLayout({
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1">
+            {headerActions}
+            <NotificationBell />
             <div className="text-right">
               <p className="text-sm font-medium leading-none">{getDisplayName()}</p>
               <p className="text-xs text-muted-foreground capitalize">{profile?.role}</p>
             </div>
 
             <div className="flex items-center gap-2">
-              {headerActions}
               <Button
                 variant="ghost"
                 size="icon"

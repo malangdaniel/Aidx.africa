@@ -19,6 +19,7 @@ import ConsultationRoom from '@/components/patient/ConsultationRoom';
 import EliteDashboard from '@/components/elite/EliteDashboard';
 import AICoachCard from '@/components/elite/AICoachCard';
 import HealthTracker from '@/components/patient/HealthTracker';
+import { HealthAlertTriggers } from '@/components/elite/HealthAlertTriggers';
 
 // Feature flag for AiDx Elite Health Coach
 const ELITE_ENABLED = import.meta.env.VITE_ELITE_ENABLED === 'true';
@@ -43,16 +44,19 @@ export default function PatientDashboard() {
     if (!user) return;
     try {
       const [chatsRes, consultsRes, ordersRes, walletRes] = await Promise.all([
-        supabase.from('ai_chats').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-        supabase.from('consultations').select('id', { count: 'exact', head: true }).eq('patient_id', user.id),
-        supabase.from('orders').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('ai_chats').select('session_id').eq('user_id', user.id),
+        supabase.from('consultations').select('id').eq('patient_id', user.id),
+        supabase.from('orders').select('id').eq('user_id', user.id),
         supabase.from('wallets').select('balance, escrow_balance').eq('user_id', user.id).maybeSingle(),
       ]);
 
+      // Calculate unique sessions for AI Chats
+      const uniqueSessions = new Set((chatsRes.data || []).map(chat => chat.session_id)).size;
+
       setStats({
-        aiChats: chatsRes.count || 0,
-        consultations: consultsRes.count || 0,
-        orders: ordersRes.count || 0,
+        aiChats: uniqueSessions,
+        consultations: consultsRes.data?.length || 0,
+        orders: ordersRes.data?.length || 0,
       });
 
       if (walletRes.data) {
@@ -189,6 +193,9 @@ export default function PatientDashboard() {
       }
     >
       <div className="space-y-4">
+        {/* Elite Health Alerts (Banners + Modals) */}
+        {ELITE_ENABLED && <HealthAlertTriggers />}
+
         {/* Welcome Section */}
         <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-4 text-primary-foreground">
           <h1 className="text-lg font-bold">Hi, {firstName}!</h1>

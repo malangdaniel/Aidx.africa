@@ -6,14 +6,16 @@ interface MobileHeaderProps {
   onSettingsClick: () => void;
   onSignOut: () => void;
   headerActions?: React.ReactNode;
+  notificationBell?: React.ReactNode;
 }
 
-export function MobileHeader({ onSettingsClick, onSignOut, headerActions }: MobileHeaderProps) {
+export function MobileHeader({ onSettingsClick, onSignOut, headerActions, notificationBell }: MobileHeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-12 items-center justify-between px-4">
         <img src={aidxLogo} alt="AiDx" className="h-7 w-auto" />
         <div className="flex items-center gap-1">
+          {notificationBell}
           {headerActions}
           <Button
             variant="ghost"

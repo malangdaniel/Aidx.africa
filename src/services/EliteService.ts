@@ -65,7 +65,21 @@ export interface EliteScores {
     immune_activation: number | null;
     cardiovascular_strain: number | null;
     recovery_efficiency: number | null;
-    confidence_json: Record<string, number>;
+    confidence_json: {
+        z_scores?: Record<string, number>;
+        severity?: 'normal' | 'watch' | 'early_watch' | 'attention' | 'high' | 'critical';
+        insight?: string;
+        guidance?: string;
+        top_driver?: string;
+        early_warning?: {
+            active: boolean;
+            type: 'trend' | 'volatility' | 'sustained_shift' | null;
+            metric: string | null;
+            direction?: 'up' | 'down';
+            message?: string;
+        };
+        [key: string]: any;
+    };
     computed_at: string;
 }
 
@@ -223,115 +237,17 @@ export const EliteService = {
     // For production, call the compute_scores edge function instead.
     // ---------------------------------------------------------------------------
     async computeAndStoreScores(userId: string): Promise<EliteScores | null> {
-        const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-        const { data: vitals, error: vitErr } = await supabase
-            .from('elite_vitals_normalized')
-            .select('*')
-            .eq('user_id', userId)
-            .gte('timestamp', since);
-
-        if (vitErr) throw new Error(`computeAndStoreScores (fetch): ${vitErr.message}`);
-        if (!vitals || vitals.length === 0) return null;
-
-        const baselines = await EliteService.getBaseline(userId);
-        const baselineMap: Record<string, EliteBaseline> = Object.fromEntries(
-            baselines.map(b => [b.metric, b])
-        );
-
-        // --- Scoring functions (0-100, higher = more adverse deviation) ----------
-
-        const avg = (vals: number[]) =>
-            vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-
-        const getMetricVals = (metric: string) =>
-            (vitals as EliteVitalNormalized[])
-                .filter(v => v.metric === metric)
-                .map(v => v.normalized_value);
-
-        const deviationScore = (metric: string, ideal: number, range: number): number => {
-            const vals = getMetricVals(metric);
-            if (vals.length === 0) return 50; // neutral when no data
-            const mean = avg(vals)!;
-            const bl = baselineMap[metric];
-            const ref = bl ? bl.baseline_mean : ideal;
-            const dev = Math.abs(mean - ref) / range;
-            return Math.min(100, Math.round(dev * 100));
-        };
-
-        const hrVals = getMetricVals('heart_rate');
-        const spo2Vals = getMetricVals('spo2');
-        const tempVals = getMetricVals('temperature');
-        const bpSys = getMetricVals('systolic_bp');
-        const bpDia = getMetricVals('diastolic_bp');
-        const hrvVals = getMetricVals('hrv');
-        const sleepVals = getMetricVals('sleep_hours');
-        const fatVals = getMetricVals('fatigue');
-
-        const avgHR = avg(hrVals);
-        const avgSpO2 = avg(spo2Vals);
-        const avgTemp = avg(tempVals);
-
-        // Physiological Stability: deviations in HR + SpO2 + Temp
-        const physio = Math.max(0, 100 - Math.round(
-            (deviationScore('heart_rate', 72, 40) * 0.4) +
-            (deviationScore('spo2', 98, 8) * 0.4) +
-            (deviationScore('temperature', 37, 2) * 0.2)
-        ));
-
-        // Immune Activation: elevated temp + elevated HR + fatigue
-        const immune = Math.min(100, Math.round(
-            (deviationScore('temperature', 37, 2) * 0.5) +
-            (deviationScore('heart_rate', 72, 40) * 0.3) +
-            (fatVals.length ? (avg(fatVals)! / 10) * 20 : 0)
-        ));
-
-        // Cardiovascular Strain: HR + BP deviation + low HRV
-        const cardio = Math.min(100, Math.round(
-            (deviationScore('heart_rate', 72, 40) * 0.35) +
-            (deviationScore('systolic_bp', 120, 60) * 0.35) +
-            (hrvVals.length ? Math.max(0, 30 - (avg(hrvVals)! / 100) * 30) : 0)
-        ));
-
-        // Recovery Efficiency: HRV + sleep + low fatigue
-        const recovery = Math.max(0, Math.min(100, 100 - Math.round(
-            (sleepVals.length ? Math.max(0, (8 - avg(sleepVals)!) * 12.5) : 25) +
-            (fatVals.length ? avg(fatVals)! * 5 : 25) -
-            (hrvVals.length ? Math.min(25, avg(hrvVals)! / 4) : 0)
-        )));
-
-        const confidenceJson: Record<string, number> = {
-            physiological_stability: hrVals.length > 0 && spo2Vals.length > 0 ? 0.85 : 0.5,
-            immune_activation: tempVals.length > 0 ? 0.80 : 0.45,
-            cardiovascular_strain: hrVals.length > 0 && bpSys.length > 0 ? 0.85 : 0.55,
-            recovery_efficiency: sleepVals.length > 0 ? 0.80 : 0.50,
-        };
-
-        const scoreDate = new Date().toISOString().slice(0, 10);
-
-        const { data: scoreRow, error: scoreErr } = await supabase
-            .from('elite_scores')
-            .upsert({
-                user_id: userId,
-                score_date: scoreDate,
-                physiological_stability: physio,
-                immune_activation: immune,
-                cardiovascular_strain: cardio,
-                recovery_efficiency: recovery,
-                confidence_json: confidenceJson,
-                computed_at: new Date().toISOString(),
-            }, { onConflict: 'user_id,score_date' })
-            .select()
-            .single();
-
-        if (scoreErr) throw new Error(`computeAndStoreScores (upsert): ${scoreErr.message}`);
-
-        // ---- Safety alert checks ------------------------------------------------
-        await EliteService._checkSafetyThresholds(userId, scoreRow as EliteScores, {
-            avgHR, avgSpO2, avgTemp,
+        const { data, error } = await supabase.functions.invoke('compute_scores', {
+            body: { user_id: userId },
         });
 
-        return scoreRow as EliteScores;
+        if (error) {
+            console.error('computeAndStoreScores Edge Function error:', error);
+            throw new Error(`Failed to compute scores: ${error.message}`);
+        }
+
+        // The Edge Function already stores the results in the database and returns the row
+        return data as EliteScores;
     },
 
     // ---------------------------------------------------------------------------
