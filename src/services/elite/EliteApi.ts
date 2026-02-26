@@ -18,6 +18,7 @@ import {
     type EliteAlert,
     type EliteVitalNormalized,
     type EliteClinicalPacket,
+    type AlertEvent,
 } from '@/services/EliteService';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -28,6 +29,8 @@ export const eliteKeys = {
     baseline: (userId: string) => ['elite', 'baseline', userId] as const,
     alerts: (userId: string) => ['elite', 'alerts', userId] as const,
     vitals: (userId: string, days: number) => ['elite', 'vitals', userId, days] as const,
+    alertEvents: (userId: string) => ['elite', 'alertEvents', userId] as const,
+    stabilityHistory: (userId: string, days: number) => ['elite', 'stabilityHistory', userId, days] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -80,6 +83,61 @@ export function useRecentNormalizedVitals(days = 7): UseQueryResult<EliteVitalNo
     return useQuery({
         queryKey: eliteKeys.vitals(user?.id ?? '', days),
         queryFn: () => EliteService.getRecentNormalizedVitals(user!.id, days),
+        enabled: !!user,
+        staleTime: 5 * 60 * 1000,
+    });
+}
+
+// ---------------------------------------------------------------------------
+// useAlertEvents
+// ---------------------------------------------------------------------------
+export function useAlertEvents(days = 7): UseQueryResult<AlertEvent[]> {
+    const { user } = useAuth();
+    return useQuery({
+        queryKey: eliteKeys.alertEvents(user?.id ?? ''),
+        queryFn: () => EliteService.getAlertEvents(user!.id, days),
+        enabled: !!user,
+        staleTime: 5 * 60 * 1000,
+    });
+}
+
+// ---------------------------------------------------------------------------
+// useActiveAlertEvents
+// ---------------------------------------------------------------------------
+export function useActiveAlertEvents(): UseQueryResult<AlertEvent[]> {
+    const { user } = useAuth();
+    return useQuery({
+        queryKey: eliteKeys.alertEvents(user?.id ?? ''),
+        queryFn: () => EliteService.getActiveAlertEvents(user!.id),
+        enabled: !!user,
+        staleTime: 2 * 60 * 1000,
+    });
+}
+
+// ---------------------------------------------------------------------------
+// useSubmitAlertFeedback — mutation
+// ---------------------------------------------------------------------------
+export function useSubmitAlertFeedback() {
+    const { user } = useAuth();
+    const qc = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ alertId, feedback }: { alertId: string; feedback: 'helpful' | 'not_helpful' }) =>
+            EliteService.submitAlertFeedback(alertId, feedback),
+        onSuccess: () => {
+            if (user) qc.invalidateQueries({ queryKey: eliteKeys.alertEvents(user.id) });
+        },
+    });
+}
+
+// ---------------------------------------------------------------------------
+// useStabilityHistory
+// ---------------------------------------------------------------------------
+export function useStabilityHistory(days = 7): UseQueryResult<any[]> {
+    const { user } = useAuth();
+    return useQuery({
+        queryKey: eliteKeys.stabilityHistory(user?.id ?? '', days),
+        queryFn: () => EliteService.getStabilityHistory(user!.id, days),
         enabled: !!user,
         staleTime: 5 * 60 * 1000,
     });

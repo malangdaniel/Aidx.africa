@@ -21,14 +21,16 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
     useLatestScores, useActiveAlerts, useRecentNormalizedVitals, useResolveAlert,
-    useComputeScores, useGenerateClinicalPacket,
+    useComputeScores, useGenerateClinicalPacket, useActiveAlertEvents,
+    useStabilityHistory,
 } from '@/services/elite/EliteApi';
 import { useEliteVitals } from '@/hooks/useEliteVitals';
 import { ConsultationService } from '@/services/ConsultationService';
 import { dailyInsightPrompt } from '@/services/elite/elitePrompts';
-import type { EliteScores, EliteAlert } from '@/services/EliteService';
+import type { EliteScores, EliteAlert, AlertEvent } from '@/services/EliteService';
 import VitalsEntryForm from './VitalsEntryForm';
 import EliteCoachChat from './EliteCoachChat';
+import { AlertEventBanner } from './AlertEventBanner';
 
 // =============================================================================
 // Score Index Card
@@ -233,7 +235,9 @@ export default function EliteDashboard() {
 
     const { data: scores } = useLatestScores(7);
     const { data: alerts } = useActiveAlerts();
+    const { data: alertEvents } = useActiveAlertEvents();
     const { data: vitals } = useRecentNormalizedVitals(7);
+    const { data: stabilityHistory } = useStabilityHistory(7);
     const resolveAlert = useResolveAlert();
     const computeScores = useComputeScores();
     const genPacket = useGenerateClinicalPacket();
@@ -332,10 +336,30 @@ export default function EliteDashboard() {
                 </div>
             </div>
 
+            {/* ---------- Stability Index Hero ---------- */}
+            <div className="px-4">
+                {latest?.stability_index ? (
+                    <StabilityHero index={latest.stability_index} />
+                ) : (
+                    <div className="rounded-3xl p-6 bg-white/5 border border-white/10 mb-4 animate-pulse">
+                        <div className="h-4 w-24 bg-white/10 rounded mb-4" />
+                        <div className="h-8 w-16 bg-white/10 rounded mb-4" />
+                        <div className="h-12 w-full bg-white/10 rounded" />
+                    </div>
+                )}
+            </div>
+
             {/* ---------- Alert Banner ---------- */}
-            {(alerts && alerts.length > 0) || (earlyWarning && earlyWarning.active) ? (
+            {(alerts && alerts.length > 0) || (alertEvents && alertEvents.length > 0) || (earlyWarning && earlyWarning.active) ? (
                 <div className="px-4 mb-2 space-y-2">
-                    {alerts && alerts.length > 0 && (
+                    {alertEvents && alertEvents.map(ae => (
+                        <AlertEventBanner
+                            key={ae.id}
+                            alert={ae}
+                            onOpenConsult={handleBookDoctor}
+                        />
+                    ))}
+                    {(alertEvents?.length === 0) && alerts && alerts.length > 0 && (
                         <AlertBanner alerts={alerts} onOpenConsult={handleBookDoctor} />
                     )}
                     {earlyWarning && earlyWarning.active && (

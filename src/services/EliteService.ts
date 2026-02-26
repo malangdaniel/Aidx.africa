@@ -65,6 +65,12 @@ export interface EliteScores {
     immune_activation: number | null;
     cardiovascular_strain: number | null;
     recovery_efficiency: number | null;
+    stability_index?: {
+        score: number;
+        raw_score: number;
+        band: 'very_stable' | 'stable' | 'mild_instability' | 'attention' | 'high_risk';
+        trend: 'improving' | 'declining' | 'stable';
+    };
     confidence_json: {
         z_scores?: Record<string, number>;
         severity?: 'normal' | 'watch' | 'early_watch' | 'attention' | 'high' | 'critical';
@@ -95,6 +101,20 @@ export interface EliteAlert {
     resolved_at: string | null;
 }
 
+export interface AlertEvent {
+    id: string;
+    user_id: string;
+    metric: string | null;
+    severity: string;
+    early_warning: boolean;
+    confidence_score: number;
+    triggered_at: string;
+    resolved_at: string | null;
+    acknowledged_at: string | null;
+    feedback: 'helpful' | 'not_helpful' | null;
+    meta: Record<string, unknown>;
+}
+
 export interface EliteClinicalPacket {
     userId: string;
     generatedAt: string;
@@ -103,6 +123,7 @@ export interface EliteClinicalPacket {
     recentVitals: EliteVitalNormalized[];
     baselines: EliteBaseline[];
     alerts: EliteAlert[];
+    alertEvents?: AlertEvent[];
     geminiSummary?: string;
 }
 
@@ -407,5 +428,67 @@ export const EliteService = {
         };
 
         return packet;
+    },
+
+    // ---------------------------------------------------------------------------
+    // getAlertEvents
+    // ---------------------------------------------------------------------------
+    async getAlertEvents(userId: string, days = 7): Promise<AlertEvent[]> {
+        const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+        const { data, error } = await supabase
+            .from('alert_events')
+            .select('*')
+            .eq('user_id', userId)
+            .gte('triggered_at', since)
+            .order('triggered_at', { ascending: false });
+
+        if (error) throw new Error(`getAlertEvents: ${error.message}`);
+        return (data ?? []) as AlertEvent[];
+    },
+
+    // ---------------------------------------------------------------------------
+    // submitAlertFeedback
+    // ---------------------------------------------------------------------------
+    async submitAlertFeedback(alertId: string, feedback: 'helpful' | 'not_helpful'): Promise<void> {
+        const { error } = await supabase
+            .from('alert_events')
+            .update({ feedback })
+            .eq('id', alertId);
+
+        if (error) throw new Error(`submitAlertFeedback: ${error.message}`);
+    },
+
+    // ---------------------------------------------------------------------------
+    // getActiveAlertEvents
+    // ---------------------------------------------------------------------------
+    async getActiveAlertEvents(userId: string): Promise<AlertEvent[]> {
+        const { data, error } = await supabase
+            .from('alert_events')
+            .select('*')
+            .eq('user_id', userId)
+            .is('resolved_at', null)
+            .order('triggered_at', { ascending: false });
+
+        if (error) throw new Error(`getActiveAlertEvents: ${error.message}`);
+        return (data ?? []) as AlertEvent[];
+    },
+
+    // ---------------------------------------------------------------------------
+    // getStabilityHistory
+    // ---------------------------------------------------------------------------
+    async getStabilityHistory(userId: string, days = 7): Promise<any[]> {
+        const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .slice(0, 10);
+
+        const { data, error } = await supabase
+            .from('daily_stability_scores')
+            .select('*')
+            .eq('user_id', userId)
+            .gte('date', since)
+            .order('date', { ascending: true });
+
+        if (error) throw new Error(`getStabilityHistory: ${error.message}`);
+        return data ?? [];
     },
 };

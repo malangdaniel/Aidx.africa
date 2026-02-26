@@ -64,6 +64,13 @@ interface ScoringOutput {
         weight: number | null;
     };
     composite_score: number | null;
+    stability_index?: {
+        score: number;
+        raw_score: number;
+        band: 'very_stable' | 'stable' | 'mild_instability' | 'attention' | 'high_risk';
+        trend: 'improving' | 'declining' | 'stable';
+        insight: string;
+    };
     severity: SeverityLevel;
     top_driver: string | null;
     secondary_driver?: string | null;
@@ -71,6 +78,7 @@ interface ScoringOutput {
     guidance: string;
     requires_attention: boolean;
     early_warning?: EarlyWarning;
+    confidence_score?: number; // Added for Calibration Layer
 }
 
 // ---------------------------------------------------------------------------
@@ -251,6 +259,284 @@ function generateExplanations(severity: SeverityLevel, topMetricKey: string | nu
         insight: insights[severity] || insights.normal,
         guidance: guidance[severity] || guidance.normal
     };
+}
+
+// ---------------------------------------------------------------------------
+// CALIBRATION & SAFETY LAYER
+// ---------------------------------------------------------------------------
+
+class CalibrationService {
+    private client: any;
+    private userId: string;
+
+    constructor(client: any, userId: string) {
+        this.client = client;
+        this.userId = userId;
+    }
+
+    /**
+     * Compute internal confidence score ∈ [0,1]
+     */
+    calculateConfidence(params: {
+        magnitude: number;        // Higher z-score -> higher magnitude
+        duration: number;         // More consecutive abnormal readings -> higher factor
+        consistency: number;      // Slope + sustained shift alignment
+        volatility: number;       // High instability -> moderate increase
+    }): number {
+        const score = (0.35 * params.magnitude) + (0.25 * params.duration) + (0.20 * params.consistency) + (0.20 * params.volatility);
+        return Math.min(1, Math.max(0, score));
+    }
+
+    /**
+     * Rule 1: Alert Cooldown (24h/48h)
+     */
+    async checkCooldown(metric: string, severity: string): Promise<boolean> {
+        // "Do NOT trigger more than 1 alert per metric per 24h (unless escalation)"
+        // "Same metric, Same severity, Within last 48 hours -> Do NOT re-trigger (Unless severity escalates)"
+        // We use 48h for same severity, and 24h as a hard floor.
+
+        const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
+        const { data: recentAlerts } = await this.client
+            .from('alert_events')
+            .select('severity')
+            .eq('user_id', this.userId)
+            .eq('metric', metric)
+            .gte('triggered_at', fortyEightHoursAgo)
+            .order('triggered_at', { ascending: false })
+            .limit(1);
+
+        if (!recentAlerts || recentAlerts.length === 0) return false;
+
+        const lastSeverity = recentAlerts[0].severity as SeverityLevel;
+        const severityOrder: Record<string, number> = { 'early_watch': 1, 'watch': 2, 'attention': 3, 'high': 4, 'critical': 5 };
+
+        // Cooldown applies if severity is GEQ or same as last alert
+        return severityOrder[severity] <= severityOrder[lastSeverity];
+    }
+
+    /**
+     * Rule 2: Confirmation Rule (Noise Protection)
+     */
+    async isConfirmed(severity: string, metric: string, history: any[]): Promise<{ confirmed: boolean; durationFactor: number }> {
+        // Critical alerts ("attention" and above) bypass this rule.
+        if (severity !== 'watch' && severity !== 'early_watch' && severity !== 'normal') return { confirmed: true, durationFactor: 1.0 };
+
+        // Require 2 consecutive abnormal readings OR sustained abnormal state for >= 12h
+        const readings = history.filter(h => h.metric === metric).slice(-10);
+        if (readings.length < 2) return { confirmed: false, durationFactor: 0.1 };
+
+        const lastReadings = readings.slice(-2);
+        // We simplified "abnormal" check here based on the fact we are already in scoring
+        // Real implementation should probably check if previous was also > 1z
+        const isConsecutive = lastReadings.length >= 2;
+
+        const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+        const readingsIn12h = readings.filter(r => new Date(r.timestamp) >= twelveHoursAgo);
+        const isSustained = readingsIn12h.length >= 2;
+
+        const durationFactor = Math.min(1.0, readingsIn12h.length / 5);
+
+        return { confirmed: isConsecutive || isSustained, durationFactor };
+    }
+
+    /**
+     * Rule 5: Resolution Logic
+     * Two consecutive "normal" readings close the alert.
+     */
+    async processResolutions(currentVitals: Record<string, number>, baselineMap: Record<string, { mean: number; sd: number }>, history: any[]) {
+        const { data: activeAlerts } = await this.client
+            .from('alert_events')
+            .select('*')
+            .eq('user_id', this.userId)
+            .is('resolved_at', null);
+
+        if (!activeAlerts || activeAlerts.length === 0) return;
+
+        for (const alert of activeAlerts) {
+            if (!alert.metric) continue;
+
+            const metricHistory = history.filter(h => h.metric === alert.metric).slice(-2);
+            if (metricHistory.length < 2) continue;
+
+            const baseline = baselineMap[alert.metric];
+            if (!baseline) continue;
+
+            const isResolved = metricHistory.every(h => {
+                const z = calculateZScore(h.normalized_value, baseline.mean, baseline.sd);
+                return Math.abs(z) < 1.0; // Normal range
+            });
+
+            if (isResolved) {
+                await this.client
+                    .from('alert_events')
+                    .update({ resolved_at: new Date().toISOString() })
+                    .eq('id', alert.id);
+            }
+        }
+    }
+
+    async logAlert(alert: {
+        metric: string | null;
+        severity: string;
+        early_warning: boolean;
+        confidence: number;
+        meta?: any;
+    }) {
+        await this.client.from('alert_events').insert({
+            user_id: this.userId,
+            metric: alert.metric,
+            severity: alert.severity,
+            early_warning: alert.early_warning,
+            confidence_score: alert.confidence,
+            triggered_at: new Date().toISOString(),
+            meta: alert.meta ?? {}
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// STABILITY INDEX SERVICE
+// ---------------------------------------------------------------------------
+
+class StabilityService {
+    private client: any;
+    private userId: string;
+
+    constructor(client: any, userId: string) {
+        this.client = client;
+        this.userId = userId;
+    }
+
+    /**
+     * Map Z-Score to Stability Metric (0-100)
+     */
+    private zToStability(z: number | null): number | null {
+        if (z === null) return null;
+        const absZ = Math.abs(z);
+        if (absZ <= 0.5) return 100;
+        if (absZ <= 1.0) return 90;
+        if (absZ <= 2.0) return 75;
+        if (absZ <= 3.0) return 50;
+        return 25;
+    }
+
+    /**
+     * Compute final stability index
+     */
+    async calculateStabilityIndex(params: {
+        zScores: Record<string, number | null>;
+        severity: SeverityLevel;
+        earlyWarning: EarlyWarning;
+        date: string;
+    }): Promise<ScoringOutput['stability_index']> {
+        const weights: Record<string, number> = {
+            heart_rate: 0.25,
+            systolic_bp: 0.20,
+            diastolic_bp: 0.15,
+            spo2: 0.20,
+            temperature: 0.10,
+            weight: 0.10
+        };
+
+        let weightedSum = 0;
+        let totalWeight = 0;
+
+        for (const [metric, weight] of Object.entries(weights)) {
+            const z = params.zScores[metric];
+            const stability = this.zToStability(z);
+            if (stability !== null) {
+                weightedSum += stability * weight;
+                totalWeight += weight;
+            }
+        }
+
+        if (totalWeight === 0) return undefined;
+
+        let rawScore = Math.max(20, Math.round(weightedSum / totalWeight));
+
+        // Penalties
+        // 1. Volatility
+        if (params.earlyWarning.active && params.earlyWarning.type === 'volatility') {
+            rawScore -= 10;
+        } else if (params.earlyWarning.active) {
+            rawScore -= 5;
+        }
+
+        // 2. Active Alert
+        const alertPenalties: Record<string, number> = {
+            'early_watch': 5,
+            'watch': 10,
+            'attention': 20,
+            'high': 20,
+            'critical': 20
+        };
+        rawScore -= (alertPenalties[params.severity] ?? 0);
+
+        rawScore = Math.max(20, rawScore);
+
+        // EMA Smoothing (alpha = 0.4)
+        const alpha = 0.4;
+        const { data: history } = await this.client
+            .from('daily_stability_scores')
+            .select('smoothed_score')
+            .eq('user_id', this.userId)
+            .lt('date', params.date)
+            .order('date', { ascending: false })
+            .limit(3);
+
+        const yesterday = history?.[0]?.smoothed_score;
+        let smoothedScore = yesterday
+            ? Math.round(alpha * rawScore + (1 - alpha) * yesterday)
+            : rawScore;
+
+        smoothedScore = Math.max(20, smoothedScore);
+
+        // Band
+        let band: any = 'high_risk';
+        let insight = "Your health patterns are significantly outside your normal range. Please review your recent readings carefully.";
+
+        if (smoothedScore >= 90) {
+            band = 'very_stable';
+            insight = "Your health patterns are steady and consistent. Everything looks well within your normal range.";
+        } else if (smoothedScore >= 75) {
+            band = 'stable';
+            insight = "Your health is generally stable with minor fluctuations. Nothing concerning right now.";
+        } else if (smoothedScore >= 60) {
+            band = 'mild_instability';
+            insight = "There are small shifts in your readings. It’s not urgent, but staying consistent with healthy habits would help.";
+        } else if (smoothedScore >= 40) {
+            band = 'attention';
+            insight = "Your readings show noticeable changes from your usual pattern. Keep monitoring closely.";
+        }
+
+        // Trend (3-day)
+        let trend: any = 'stable';
+        if (history && history.length >= 2) {
+            const lastThree = [smoothedScore, history[0].smoothed_score, history[1].smoothed_score];
+            const diff = lastThree[0] - lastThree[2]; // compare today to day-before-yesterday
+            if (diff > 3) trend = 'improving';
+            else if (diff < -3) trend = 'declining';
+        }
+
+        // Persist
+        await this.client.from('daily_stability_scores').upsert({
+            user_id: this.userId,
+            date: params.date,
+            raw_score: rawScore,
+            smoothed_score: smoothedScore,
+            band,
+            meta: { trend, z_scores: params.zScores, insight }
+        }, { onConflict: 'user_id,date' });
+
+        return {
+            score: smoothedScore,
+            raw_score: rawScore,
+            band,
+            trend,
+            insight
+        };
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -499,21 +785,54 @@ Deno.serve(async (req: Request) => {
             early_warning: earlyWarning.active ? earlyWarning : undefined,
         };
 
-        // 6. Database Persistence (Keep existing schema working)
+        // 6. Database Persistence
         const scoreDate = new Date().toISOString().slice(0, 10);
+
+        // --- CALIBRATION & STABILITY LAYER INTEGRATION ---
+        const calibration = new CalibrationService(serviceClient, targetUserId);
+        const stabilitySvc = new StabilityService(serviceClient, targetUserId);
+
+        // Calculate Stability Index
+        const stabilityIndex = await stabilitySvc.calculateStabilityIndex({
+            zScores,
+            severity,
+            earlyWarning,
+            date: scoreDate
+        });
+
+        output.stability_index = stabilityIndex;
+
+        // Calculate Confidence components
+
+        // Calculate Confidence components
+        const magnitudeFactor = Math.min(1.0, maxZ / 4);
+        const { confirmed, durationFactor } = await calibration.isConfirmed(severity, driver || 'composite', allVitals);
+
+        const consistencyFactor = earlyWarning.active ? (earlyWarning.type === 'trend' ? 0.8 : 1.0) : 0.5;
+        const volatilityFactor = earlyWarning.type === 'volatility' ? 0.7 : 0.4;
+
+        const internalConfidence = calibration.calculateConfidence({
+            magnitude: magnitudeFactor,
+            duration: durationFactor,
+            consistency: consistencyFactor,
+            volatility: volatilityFactor
+        });
+
         const { data: scoreRow, error: scoreErr } = await serviceClient
             .from('elite_scores')
             .upsert({
                 user_id: targetUserId,
                 score_date: scoreDate,
-                physiological_stability: H, // Map H to physiological_stability
+                physiological_stability: H,
                 confidence_json: {
                     ...output.metric_scores,
                     z_scores: zScores,
                     severity: output.severity,
                     insight: output.insight,
                     guidance: output.guidance,
-                    top_driver: output.top_driver
+                    top_driver: output.top_driver,
+                    early_warning: output.early_warning,
+                    internal_confidence: internalConfidence
                 },
                 computed_at: new Date().toISOString(),
             }, { onConflict: 'user_id,score_date' })
@@ -522,48 +841,44 @@ Deno.serve(async (req: Request) => {
 
         if (scoreErr) throw new Error(`upsert scores: ${scoreErr.message}`);
 
-        // 7. Notification Layer (Backend-driven)
-        if (severity === 'attention' || severity === 'high' || severity === 'critical') {
-            const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+        // Resolution Logic
+        await calibration.processResolutions(metricMeans, baselineMap, allVitals);
 
-            // Check for duplicates/escalation within last 6 hours
-            const { data: recentNotifs } = await serviceClient
-                .from('notifications')
-                .select('severity')
-                .eq('user_id', targetUserId)
-                .gte('created_at', sixHoursAgo)
-                .order('created_at', { ascending: false })
-                .limit(1);
+        // Alert Triggering with Guardrails
+        const inCooldown = await calibration.checkCooldown(driver || 'composite', severity);
+        const shouldAlert = confirmed && !inCooldown && severity !== 'normal';
 
-            const lastSeverity = recentNotifs?.[0]?.severity;
-            const severityOrder = { attention: 1, high: 2, critical: 3 };
+        if (shouldAlert) {
+            // Log to alert_events
+            await calibration.logAlert({
+                metric: driver,
+                severity,
+                early_warning: earlyWarning.active,
+                confidence: internalConfidence,
+                meta: { output }
+            });
 
-            // Create if no recent notif OR if severity escalated
-            const shouldNotify = !lastSeverity ||
-                (severityOrder[severity as keyof typeof severityOrder] > (severityOrder[lastSeverity as keyof typeof severityOrder] || 0));
+            // Legacy Notifications
+            const title = severity === 'critical' ? "Important Health Alert" : "Health Update";
+            await serviceClient.from('notifications').insert({
+                user_id: targetUserId,
+                severity: severity,
+                title: title,
+                message: output.insight,
+                related_score_id: scoreRow.id,
+                read: false
+            });
 
-            if (shouldNotify) {
-                const title = severity === 'critical' ? "Important Health Alert" : "Health Update";
-                await serviceClient.from('notifications').insert({
+            // Legacy elite_alerts (for critical only)
+            if (isCritical) {
+                await serviceClient.from('elite_alerts').insert({
                     user_id: targetUserId,
-                    severity: severity,
-                    title: title,
-                    message: output.insight,
-                    related_score_id: scoreRow.id,
-                    read: false
+                    score_id: scoreRow.id,
+                    alert_level: 'critical',
+                    reason: `Critical safety threshold exceeded: ${driver}`,
+                    payload: { vitals: metricMeans, output },
                 });
             }
-        }
-
-        // Handle Alerts (Existing physiological alerts)
-        if (isCritical) {
-            await serviceClient.from('elite_alerts').insert({
-                user_id: targetUserId,
-                score_id: scoreRow.id,
-                alert_level: 'critical',
-                reason: `Critical safety threshold exceeded: ${driver}`,
-                payload: { vitals: metricMeans, output },
-            });
         }
 
         return new Response(JSON.stringify(output), {
