@@ -401,6 +401,202 @@ export type Database = {
           },
         ]
       }
+      elite_alerts: {
+        Row: {
+          alert_level: string
+          created_at: string
+          id: string
+          metric: string | null
+          payload: Json | null
+          reason: string
+          resolved_at: string | null
+          score_id: string | null
+          user_id: string
+        }
+        Insert: {
+          alert_level: string
+          created_at?: string
+          id?: string
+          metric?: string | null
+          payload?: Json | null
+          reason: string
+          resolved_at?: string | null
+          score_id?: string | null
+          user_id: string
+        }
+        Update: {
+          alert_level?: string
+          created_at?: string
+          id?: string
+          metric?: string | null
+          payload?: Json | null
+          reason?: string
+          resolved_at?: string | null
+          score_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elite_alerts_score_id_fkey"
+            columns: ["score_id"]
+            isOneToOne: false
+            referencedRelation: "elite_scores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elite_baselines: {
+        Row: {
+          baseline_mean: number
+          baseline_sd: number
+          id: string
+          last_updated: string
+          metric: string
+          sample_count: number
+          user_id: string
+        }
+        Insert: {
+          baseline_mean: number
+          baseline_sd?: number
+          id?: string
+          last_updated?: string
+          metric: string
+          sample_count?: number
+          user_id: string
+        }
+        Update: {
+          baseline_mean?: number
+          baseline_sd?: number
+          id?: string
+          last_updated?: string
+          metric?: string
+          sample_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      elite_scores: {
+        Row: {
+          cardiovascular_strain: number | null
+          computed_at: string
+          confidence_json: Json
+          id: string
+          immune_activation: number | null
+          physiological_stability: number | null
+          recovery_efficiency: number | null
+          score_date: string
+          user_id: string
+        }
+        Insert: {
+          cardiovascular_strain?: number | null
+          computed_at?: string
+          confidence_json?: Json
+          id?: string
+          immune_activation?: number | null
+          physiological_stability?: number | null
+          recovery_efficiency?: number | null
+          score_date: string
+          user_id: string
+        }
+        Update: {
+          cardiovascular_strain?: number | null
+          computed_at?: string
+          confidence_json?: Json
+          id?: string
+          immune_activation?: number | null
+          physiological_stability?: number | null
+          recovery_efficiency?: number | null
+          score_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      elite_vitals_normalized: {
+        Row: {
+          created_at: string
+          id: string
+          metric: string
+          normalized_unit: string
+          normalized_value: number
+          raw_id: string
+          rolling_mean_24h: number | null
+          rolling_sd_24h: number | null
+          timestamp: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metric: string
+          normalized_unit: string
+          normalized_value: number
+          raw_id: string
+          rolling_mean_24h?: number | null
+          rolling_sd_24h?: number | null
+          timestamp: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metric?: string
+          normalized_unit?: string
+          normalized_value?: number
+          raw_id?: string
+          rolling_mean_24h?: number | null
+          rolling_sd_24h?: number | null
+          timestamp?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elite_vitals_normalized_raw_id_fkey"
+            columns: ["raw_id"]
+            isOneToOne: false
+            referencedRelation: "elite_vitals_raw"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elite_vitals_raw: {
+        Row: {
+          confidence: number
+          created_at: string
+          id: string
+          meta: Json | null
+          metric: string
+          source: string
+          timestamp: string
+          unit: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          metric: string
+          source?: string
+          timestamp?: string
+          unit: string
+          user_id: string
+          value: number
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          metric?: string
+          source?: string
+          timestamp?: string
+          unit?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: []
+      }
       lab_orders: {
         Row: {
           consultation_id: string
@@ -461,6 +657,47 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          read: boolean | null
+          related_score_id: string | null
+          severity: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          read?: boolean | null
+          related_score_id?: string | null
+          severity: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          read?: boolean | null
+          related_score_id?: string | null
+          severity?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_related_score_id_fkey"
+            columns: ["related_score_id"]
+            isOneToOne: false
+            referencedRelation: "elite_scores"
             referencedColumns: ["id"]
           },
         ]
