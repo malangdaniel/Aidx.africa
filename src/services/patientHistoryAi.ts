@@ -8,34 +8,44 @@ export interface GeneratePatientHealthSummaryInput {
     personalDetails: {
         fullName: string;
         age?: number;
+        sex?: string;
+        address?: string;
+        ethnicity?: string;
+        occupation?: string;
+        maritalStatus?: string;
         gender?: string;
         bloodGroup?: string;
     };
-    medicalHistory: string[];
-    surgicalHistory: string[];
-    currentMedications: string[];
-    allergies: string[];
-    familyHistory: string[];
-    socialHistory: string;
+    medicalHistory: {
+        currentMedications: Array<{ name: string; dosage: string }>;
+        pastChronicDiseases: string[];
+        otherPastConditifons: Array<{ name: string; details: string }>;
+        familyHistory: string[];
+        allergies: string[];
+        socialHistory: string;
+    };
+    symptoms: string;
+    labResultsDataUri?: string;
 }
 
 export async function generatePatientHealthSummary(input: GeneratePatientHealthSummaryInput): Promise<{ summary: string }> {
     try {
-        const prompt = `Generate a concise clinical health summary for the following patient information. Write it in a professional medical format suitable for doctor review.
+        const meds = input.medicalHistory.currentMedications.map(m => `${m.name} (${m.dosage})`).join(', ') || 'None';
+        const prompt = `Generate a concise clinical health summary for the following patient. Write in professional medical format.
 
 Patient: ${input.personalDetails.fullName}
-Age: ${input.personalDetails.age || 'Unknown'}
-Gender: ${input.personalDetails.gender || 'Unknown'}
-Blood Group: ${input.personalDetails.bloodGroup || 'Unknown'}
+Age: ${input.personalDetails.age || 'Unknown'}, Sex: ${input.personalDetails.sex || 'Unknown'}
+Address: ${input.personalDetails.address || 'N/A'}
 
-Medical History: ${input.medicalHistory.length > 0 ? input.medicalHistory.join(', ') : 'None reported'}
-Surgical History: ${input.surgicalHistory.length > 0 ? input.surgicalHistory.join(', ') : 'None reported'}
-Current Medications: ${input.currentMedications.length > 0 ? input.currentMedications.join(', ') : 'None reported'}
-Allergies: ${input.allergies.length > 0 ? input.allergies.join(', ') : 'NKDA'}
-Family History: ${input.familyHistory.length > 0 ? input.familyHistory.join(', ') : 'None reported'}
-Social History: ${input.socialHistory || 'None reported'}
+Current Medications: ${meds}
+Past Chronic Diseases: ${input.medicalHistory.pastChronicDiseases.join(', ') || 'None'}
+Other Conditions: ${input.medicalHistory.otherPastConditifons.map(c => `${c.name}: ${c.details}`).join(', ') || 'None'}
+Family History: ${input.medicalHistory.familyHistory.join(', ') || 'None'}
+Allergies: ${input.medicalHistory.allergies.join(', ') || 'NKDA'}
+Social History: ${input.medicalHistory.socialHistory || 'None'}
+Current Symptoms: ${input.symptoms}
 
-Provide a structured summary paragraph.`;
+Provide a structured clinical summary paragraph.`;
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
