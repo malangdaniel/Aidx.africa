@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { EliteService, RawVital, EliteBaseline } from './EliteService';
 
 export interface VitalRecord {
     id: string;
@@ -13,94 +12,71 @@ export interface VitalRecord {
     recorded_at: string;
 }
 
-/**
- * Pivot helper to convert row-per-metric data into object-per-timestamp format.
- */
-function pivotVitals(rows: any[]): VitalRecord[] {
-    const pivoted: Record<string, VitalRecord> = {};
-
-    rows.forEach(row => {
-        // Round timestamp to nearest second or minute if they are slightly off, 
-        // but typically they are exact if logged as a batch.
-        const ts = row.timestamp;
-        if (!pivoted[ts]) {
-            pivoted[ts] = {
-                id: row.id, // Note: This ID is from one of the metric rows
-                user_id: row.user_id,
-                recorded_at: ts,
-            } as VitalRecord;
-        }
-
-        const value = Number(row.normalized_value);
-        switch (row.metric) {
-            case 'systolic_bp': pivoted[ts].systolic = value; break;
-            case 'diastolic_bp': pivoted[ts].diastolic = value; break;
-            case 'heart_rate': pivoted[ts].heart_rate = value; break;
-            case 'weight': pivoted[ts].weight = value; break;
-            case 'temperature': pivoted[ts].temperature = value; break;
-            case 'spo2': pivoted[ts].oxygen_saturation = value; break;
-        }
-    });
-
-    return Object.values(pivoted).sort((a, b) =>
-        new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
-    );
-}
-
 export const vitalsService = {
-    /**
-     * Fetch vitals for the current user, pivoting normalized data from Elite engine.
-     * @param limitDays Days of history to fetch (default 30)
-     */
     getVitals: async (limitDays = 30): Promise<VitalRecord[]> => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return [];
 
-        const normalizedRows = await EliteService.getRecentNormalizedVitals(user.id, limitDays);
-        return pivotVitals(normalizedRows);
+        const since = new Date(Date.now() - limitDays * 24 * 60 * 60 * 1000).toISOString();
+        const { data, error } = await supabase
+            .from('vitals')
+            .select('*')
+            .eq('user_id', user.id)
+            .gte('recorded_at', since)
+            .order('recorded_at', { ascending: false });
+
+        if (error) { console.error('getVitals error:', error); return []; }
+        return (data || []).map(r => ({
+            id: r.id,
+            user_id: r.user_id,
+            systolic: r.systolic,
+            diastolic: r.diastolic,
+            heart_rate: r.heart_rate,
+            weight: r.weight,
+            temperature: r.temperature,
+            oxygen_saturation: r.oxygen_saturation,
+            recorded_at: r.recorded_at || r.created_at || new Date().toISOString(),
+        }));
     },
 
-    /**
-     * Log a new set of vitals using the Elite ingestion pipeline.
-     */
     logVitals: async (vitals: Partial<Omit<VitalRecord, 'id' | 'user_id' | 'recorded_at'>>) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("User not authenticated");
 
-        const batch: RawVital[] = [];
-        const timestamp = new Date().toISOString();
+        const { error } = await supabase.from('vitals').insert({
+            user_id: user.id,
+            systolic: vitals.systolic ?? null,
+            diastolic: vitals.diastolic ?? null,
+            heart_rate: vitals.heart_rate ?? null,
+            weight: vitals.weight ?? null,
+            temperature: vitals.temperature ?? null,
+            oxygen_saturation: vitals.oxygen_saturation ?? null,
+            recorded_at: new Date().toISOString(),
+        });
 
-        if (vitals.systolic) batch.push({ metric: 'systolic_bp', value: vitals.systolic, unit: 'mmHg', timestamp });
-        if (vitals.diastolic) batch.push({ metric: 'diastolic_bp', value: vitals.diastolic, unit: 'mmHg', timestamp });
-        if (vitals.heart_rate) batch.push({ metric: 'heart_rate', value: vitals.heart_rate, unit: 'bpm', timestamp });
-        if (vitals.weight) batch.push({ metric: 'weight', value: vitals.weight, unit: 'kg', timestamp });
-        if (vitals.temperature) batch.push({ metric: 'temperature', value: vitals.temperature, unit: '°C', timestamp });
-        if (vitals.oxygen_saturation) batch.push({ metric: 'spo2', value: vitals.oxygen_saturation, unit: '%', timestamp });
-
-        if (batch.length === 0) return null;
-
-        return await EliteService.ingestVitals(user.id, batch);
+        if (error) throw error;
     },
 
-    /**
-     * Fetch vitals for a specific patient (Doctor view)
-     */
     getPatientVitals: async (patientId: string, limitDays = 30): Promise<VitalRecord[]> => {
-        const normalizedRows = await EliteService.getRecentNormalizedVitals(patientId, limitDays);
-        return pivotVitals(normalizedRows);
+        const since = new Date(Date.now() - limitDays * 24 * 60 * 60 * 1000).toISOString();
+        const { data, error } = await supabase
+            .from('vitals')
+            .select('*')
+            .eq('user_id', patientId)
+            .gte('recorded_at', since)
+            .order('recorded_at', { ascending: false });
+
+        if (error) { console.error('getPatientVitals error:', error); return []; }
+        return (data || []).map(r => ({
+            id: r.id,
+            user_id: r.user_id,
+            systolic: r.systolic,
+            diastolic: r.diastolic,
+            heart_rate: r.heart_rate,
+            weight: r.weight,
+            temperature: r.temperature,
+            oxygen_saturation: r.oxygen_saturation,
+            recorded_at: r.recorded_at || r.created_at || new Date().toISOString(),
+        }));
     },
-
-    /**
-     * Fetch persistent baselines for a user.
-     */
-    getBaselines: async (userId?: string): Promise<EliteBaseline[]> => {
-        let targetId = userId;
-        if (!targetId) {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return [];
-            targetId = user.id;
-        }
-        return await EliteService.getBaseline(targetId);
-    }
 };
-

@@ -1,7 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { SYSTEM_PROMPT, DIAGNOSIS_PROMPT } from "../config/prompts";
 
-// Initialize Gemini AI
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 if (!API_KEY) {
@@ -9,8 +7,17 @@ if (!API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(API_KEY || "");
-// Fallback to gemini-pro which is the most stable GA model
 const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+const SYSTEM_PROMPT = `You are Sophie AI, a medical assistant for AiDx Health. You help patients understand their symptoms, provide general health guidance, and recommend when to see a doctor. You are not a replacement for professional medical advice. Always be empathetic, clear, and professional. If symptoms sound serious or life-threatening, strongly recommend immediate medical attention.`;
+
+const DIAGNOSIS_PROMPT = `Based on the following conversation between a patient and an AI health assistant, generate a preliminary assessment in JSON format with these fields:
+- "condition": most likely condition name
+- "confidence_percentage": 0-100
+- "severity": "mild" | "moderate" | "severe"
+- "rationale": brief explanation
+- "recommendations": array of recommended actions
+Return ONLY valid JSON, no markdown.`;
 
 export interface ChatMessage {
     role: "user" | "model";
@@ -21,19 +28,11 @@ export const sendMessageToAI = async (history: ChatMessage[], messageAttributes:
     try {
         const chat = model.startChat({
             history: [
-                {
-                    role: "user",
-                    parts: [{ text: SYSTEM_PROMPT }]
-                },
-                {
-                    role: "model",
-                    parts: [{ text: "Understood. I am sophie AI, ready to assist patients with their symptoms safely and professionally." }]
-                },
+                { role: "user", parts: [{ text: SYSTEM_PROMPT }] },
+                { role: "model", parts: [{ text: "Understood. I am Sophie AI, ready to assist patients with their symptoms safely and professionally." }] },
                 ...history
             ],
-            generationConfig: {
-                maxOutputTokens: 500,
-            },
+            generationConfig: { maxOutputTokens: 500 },
         });
 
         const result = await chat.sendMessage(messageAttributes);
@@ -48,14 +47,10 @@ export const sendMessageToAI = async (history: ChatMessage[], messageAttributes:
 export const generateDiagnosis = async (conversationHistory: string): Promise<any> => {
     try {
         const prompt = `${DIAGNOSIS_PROMPT}\n\nConversation History:\n${conversationHistory}`;
-
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
-
-        // Clean up potential markdown code blocks if the model adds them
         const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-
         return JSON.parse(cleanText);
     } catch (error) {
         console.error("Error creating diagnosis:", error);
