@@ -70,9 +70,10 @@ export default function ConsultationView({ consultationId, patientName, clinical
     const { user, profile } = useAuth();
 
     // Layout State
+    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
     const [isTheaterMode, setIsTheaterMode] = useState(false);
-    const [showLeftPanel, setShowLeftPanel] = useState(true);
-    const [showRightPanel, setShowRightPanel] = useState(true);
+    const [showLeftPanel, setShowLeftPanel] = useState(!isMobile);
+    const [showRightPanel, setShowRightPanel] = useState(!isMobile);
     const [showNotes, setShowNotes] = useState(true);
     const [isFinishing, setIsFinishing] = useState(false);
     const [chatChannel, setChatChannel] = useState<any>(null);
@@ -428,7 +429,7 @@ export default function ConsultationView({ consultationId, patientName, clinical
             <div className="flex-1 flex overflow-hidden">
                 {/* Left Panel: Patient Info & Context */}
                 {showLeftPanel && (
-                    <div className="w-80 shrink-0 border-r bg-background flex flex-col h-full overflow-hidden transition-all duration-300">
+                    <div className="w-full md:w-80 shrink-0 border-r bg-background flex flex-col h-full overflow-hidden transition-all duration-300">
                         <ScrollArea className="flex-1 pr-4">
                             <div className="space-y-4 pb-4">
                                 <Card className="shrink-0 border-muted-foreground/10 shadow-sm overflow-hidden">
@@ -692,7 +693,7 @@ export default function ConsultationView({ consultationId, patientName, clinical
 
                 {/* Right Panel: Clinical Notes & Tools */}
                 {showRightPanel && (
-                    <div className="w-80 shrink-0 border-l bg-background flex flex-col h-full overflow-hidden transition-all duration-300">
+                    <div className="w-full md:w-80 shrink-0 border-l bg-background flex flex-col h-full overflow-hidden transition-all duration-300">
                         <Tabs defaultValue="notes" className="flex-1 flex flex-col min-h-0 bg-card border-none">
                             <TabsList className="grid grid-cols-4 bg-muted/20 border-b rounded-none h-11">
                                 <TabsTrigger value="notes" className="text-[9px] font-black uppercase tracking-widest data-[state=active]:bg-card">
