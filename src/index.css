@@ -139,3 +139,29 @@ html {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
+
+/* Prevent horizontal page overflow on small screens */
+html, body, #root {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Ensure flex/grid children can shrink below content size on mobile */
+@media (max-width: 767px) {
+  main {
+    min-width: 0;
+    max-width: 100vw;
+  }
+  main * {
+    max-width: 100%;
+  }
+  main img, main video, main canvas, main svg {
+    max-width: 100%;
+    height: auto;
+  }
+  /* Tables and any wide content should scroll internally, not push the page */
+  main table, main pre {
+    display: block;
+    overflow-x: auto;
+  }
+}
