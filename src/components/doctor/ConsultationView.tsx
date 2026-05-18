@@ -70,9 +70,10 @@ export default function ConsultationView({ consultationId, patientName, clinical
     const { user, profile } = useAuth();
 
     // Layout State
+    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
     const [isTheaterMode, setIsTheaterMode] = useState(false);
-    const [showLeftPanel, setShowLeftPanel] = useState(true);
-    const [showRightPanel, setShowRightPanel] = useState(true);
+    const [showLeftPanel, setShowLeftPanel] = useState(!isMobile);
+    const [showRightPanel, setShowRightPanel] = useState(!isMobile);
     const [showNotes, setShowNotes] = useState(true);
     const [isFinishing, setIsFinishing] = useState(false);
     const [chatChannel, setChatChannel] = useState<any>(null);
