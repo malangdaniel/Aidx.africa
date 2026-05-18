@@ -219,7 +219,7 @@ export default function HealthTracker() {
             </div>
 
             <Tabs defaultValue="bp" className="space-y-4">
-                <TabsList>
+                <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide flex">
                     <TabsTrigger value="bp">Blood Pressure</TabsTrigger>
                     <TabsTrigger value="hr">Heart Rate</TabsTrigger>
                     <TabsTrigger value="weight">Weight</TabsTrigger>
