@@ -40,7 +40,7 @@ export default function DoctorProfileOverlay({ doctor, open, onOpenChange, onBoo
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="w-[400px] sm:w-[540px] flex flex-col p-0 gap-0">
+            <SheetContent className="w-full sm:max-w-[540px] flex flex-col p-0 gap-0">
                 {/* Header Section */}
                 <div className="p-6 border-b bg-muted/20">
                     <SheetHeader className="mb-4">
