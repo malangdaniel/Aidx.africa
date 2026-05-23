@@ -64,7 +64,7 @@ export const sendMessageToAI = async (history: ChatMessage[], messageAttributes:
                 { role: "model", parts: [{ text: "Understood. I am Sophie AI, ready to assist patients with their symptoms safely and professionally." }] },
                 ...history
             ],
-            generationConfig: { maxOutputTokens: 500 },
+            generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
         });
 
         const result = await chat.sendMessage(messageAttributes);
