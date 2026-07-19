@@ -17,7 +17,7 @@ import { DevRoleSwitcher } from "@/components/dev/DevRoleSwitcher";
 const queryClient = new QueryClient();
 
 // DEV MODE: Set to false to enable authentication
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 type DevRole = 'patient' | 'doctor' | 'pharmacist' | 'admin';
 
