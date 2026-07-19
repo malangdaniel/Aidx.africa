@@ -189,9 +189,9 @@ export default function PatientDashboard() {
         </div>
 
         {/* Quick Stats */}
-        <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 md:grid md:grid-cols-4 md:overflow-visible md:mx-0 md:px-0">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Card
-            className="min-w-[140px] flex-shrink-0 md:min-w-0 cursor-pointer hover:border-primary/50 transition-colors"
+            className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setActiveTab('ai-history')}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
@@ -204,7 +204,7 @@ export default function PatientDashboard() {
             </CardContent>
           </Card>
           <Card
-            className="min-w-[140px] flex-shrink-0 md:min-w-0 cursor-pointer hover:border-primary/50 transition-colors"
+            className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setActiveTab('consultations-list')}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
@@ -217,7 +217,7 @@ export default function PatientDashboard() {
             </CardContent>
           </Card>
           <Card
-            className="min-w-[140px] flex-shrink-0 md:min-w-0 cursor-pointer hover:border-primary/50 transition-colors"
+            className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setActiveTab('orders-list')}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
@@ -230,7 +230,7 @@ export default function PatientDashboard() {
             </CardContent>
           </Card>
           <Card
-            className="min-w-[140px] flex-shrink-0 md:min-w-0 cursor-pointer hover:border-primary/50 transition-colors"
+            className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setActiveTab('vitals')}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
@@ -243,6 +243,7 @@ export default function PatientDashboard() {
             </CardContent>
           </Card>
         </div>
+
 
         {/* Main Content Area */}
         <div className="min-h-[60vh]">
