@@ -149,7 +149,7 @@ export default function PharmacistDashboard() {
         </div>
 
         {/* Quick Stats */}
-        <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 md:grid md:grid-cols-3 md:overflow-visible md:mx-0 md:px-0">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           <Card className="min-w-[130px] flex-shrink-0 md:min-w-0 bg-gradient-to-br from-primary to-secondary text-primary-foreground border-none">
             <CardContent className="p-3">
               <p className="text-[10px] opacity-80 uppercase">Active Orders</p>
