@@ -1,12 +1,13 @@
 import { ReactNode, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Settings, LucideIcon, LogOut } from 'lucide-react';
+import { Settings, LucideIcon } from 'lucide-react';
 import { SettingsDialog } from './SettingsDialog';
 import { MobileHeader } from './MobileHeader';
 import { NotificationBell } from './NotificationBell';
 import aidxLogo from '@/assets/aidx-logo.png';
 import { cn } from '@/lib/utils';
+
 
 export interface NavTab {
   id: string;
@@ -31,7 +32,7 @@ export default function DashboardLayout({
   onTabChange,
   headerActions
 }: DashboardLayoutProps) {
-  const { profile, signOut } = useAuth();
+  const { profile } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
 
   const getDisplayName = () => {
@@ -41,13 +42,6 @@ export default function DashboardLayout({
     return `${profile?.role?.charAt(0).toUpperCase()}${profile?.role?.slice(1)} User`;
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      console.error("Error signing out:", error);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex flex-col">
@@ -55,11 +49,11 @@ export default function DashboardLayout({
       <div className="md:hidden">
         <MobileHeader
           onSettingsClick={() => setShowSettings(true)}
-          onSignOut={handleSignOut}
           headerActions={headerActions}
           notificationBell={<NotificationBell />}
         />
       </div>
+
 
       {/* Desktop Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 hidden md:block">
@@ -92,16 +86,8 @@ export default function DashboardLayout({
               >
                 <Settings className="w-5 h-5" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleSignOut}
-                title="Log Out"
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <LogOut className="w-5 h-5" />
-              </Button>
             </div>
+
           </div>
         </div>
       </header>
@@ -140,14 +126,8 @@ export default function DashboardLayout({
                 <Settings className="w-4 h-4 text-primary" />
                 Settings
               </button>
-              <button
-                onClick={handleSignOut}
-                className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors"
-              >
-                <LogOut className="w-4 h-4 text-red-500" />
-                Log Out
-              </button>
             </div>
+
           </aside>
         )}
 
