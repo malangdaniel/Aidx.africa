@@ -160,8 +160,8 @@ export default function DoctorDashboard() {
     { id: 'patients', label: 'Patients', icon: Users },
     { id: 'earnings', label: 'Earnings', icon: DollarSign },
     { id: 'reviews', label: 'Reviews', icon: Star },
-    { id: 'profile', label: 'Profile', icon: UserCog },
   ];
+
 
   const renderContent = () => {
     if (activeConsultation) {

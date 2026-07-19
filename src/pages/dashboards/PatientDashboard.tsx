@@ -67,8 +67,8 @@ export default function PatientDashboard() {
     { id: 'consultations', label: 'Doctors', icon: Video },
     { id: 'vitals', label: 'Vitals', icon: Activity },
     { id: 'pharmacy', label: 'Pharmacy', icon: Pill },
-    { id: 'profile', label: 'Profile', icon: User },
   ];
+
 
   const renderContent = () => {
     switch (activeTab) {
