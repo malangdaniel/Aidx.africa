@@ -14,10 +14,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, LogOut, User, Stethoscope } from 'lucide-react';
+import { Loader2, LogOut, User, Stethoscope, HeartPulse } from 'lucide-react';
 import { toast } from 'sonner';
 import { DoctorProfileSettings } from '@/components/doctor/settings/DoctorProfileSettings';
 import { AvatarUpload } from '@/components/shared/AvatarUpload';
+import MedicalHistoryView from '@/components/patient/medical-history/MedicalHistoryView';
+
 
 interface SettingsDialogProps {
     open: boolean;
@@ -240,11 +242,35 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                             </ScrollArea>
                         </TabsContent>
                     </Tabs>
+                ) : profile?.role === 'patient' ? (
+                    <Tabs defaultValue="personal" className="flex-1">
+                        <TabsList className="grid grid-cols-2 mx-4 mb-2">
+                            <TabsTrigger value="personal" className="gap-1.5 text-xs">
+                                <User className="h-3.5 w-3.5" />
+                                Personal
+                            </TabsTrigger>
+                            <TabsTrigger value="medical" className="gap-1.5 text-xs">
+                                <HeartPulse className="h-3.5 w-3.5" />
+                                Medical History
+                            </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="personal" className="mt-0 px-4 pb-4">
+                            <ScrollArea className="h-[60vh] pr-3">
+                                <GeneralProfileContent />
+                            </ScrollArea>
+                        </TabsContent>
+                        <TabsContent value="medical" className="mt-0 px-4 pb-4">
+                            <ScrollArea className="h-[60vh] pr-3">
+                                <MedicalHistoryView />
+                            </ScrollArea>
+                        </TabsContent>
+                    </Tabs>
                 ) : (
                     <ScrollArea className="h-[60vh] px-4 pb-4">
                         <GeneralProfileContent />
                     </ScrollArea>
                 )}
+
             </DialogContent>
         </Dialog>
     );
