@@ -406,7 +406,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Stats */}
-        <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 md:grid md:grid-cols-4 md:overflow-visible md:mx-0 md:px-0">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Card className="min-w-[120px] flex-shrink-0 md:min-w-0">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
               <CardTitle className="text-xs font-medium">Users</CardTitle>

@@ -393,8 +393,9 @@ export default function DoctorDashboard() {
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory md:grid md:grid-cols-4 md:mx-0 md:px-0 md:overflow-visible">
-              <Card className="min-w-[140px] flex-shrink-0 snap-center border-muted-foreground/10 shadow-sm">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <Card className="border-muted-foreground/10 shadow-sm">
+
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
                   <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total</CardTitle>
                   <Users className="h-3.5 w-3.5 text-primary" />
@@ -404,7 +405,7 @@ export default function DoctorDashboard() {
                   <p className="text-[9px] text-muted-foreground font-medium">Global Consults</p>
                 </CardContent>
               </Card>
-              <Card className="min-w-[140px] flex-shrink-0 snap-center border-muted-foreground/10 shadow-sm">
+              <Card className="border-muted-foreground/10 shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
                   <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Active</CardTitle>
                   <Calendar className="h-3.5 w-3.5 text-secondary" />
@@ -414,7 +415,7 @@ export default function DoctorDashboard() {
                   <p className="text-[9px] text-muted-foreground font-medium">Upcoming</p>
                 </CardContent>
               </Card>
-              <Card className="min-w-[140px] flex-shrink-0 snap-center border-muted-foreground/10 shadow-sm">
+              <Card className="border-muted-foreground/10 shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
                   <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Settled</CardTitle>
                   <DollarSign className="h-3.5 w-3.5 text-green-600" />
@@ -424,7 +425,7 @@ export default function DoctorDashboard() {
                   <p className="text-[9px] text-muted-foreground font-medium">Paid Earnings</p>
                 </CardContent>
               </Card>
-              <Card className="min-w-[140px] flex-shrink-0 snap-center border-muted-foreground/10 shadow-sm">
+              <Card className="border-muted-foreground/10 shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
                   <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Rep</CardTitle>
                   <Star className="h-3.5 w-3.5 text-orange-500 fill-orange-500" />
