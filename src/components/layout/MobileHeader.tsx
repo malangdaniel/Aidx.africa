@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
-import aidxLogo from '@/assets/aidx-logo.png';
+import sanariLogo from '@/assets/sanari-logo.png';
 
 interface MobileHeaderProps {
   onSettingsClick: () => void;
@@ -13,7 +13,7 @@ export function MobileHeader({ onSettingsClick, headerActions, notificationBell 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-12 items-center justify-between px-4">
-        <img src={aidxLogo} alt="AiDx" className="h-7 w-auto" />
+        <img src={sanariLogo} alt="Sanari AI" className="h-7 w-auto" />
         <div className="flex items-center gap-1">
           {notificationBell}
           {headerActions}

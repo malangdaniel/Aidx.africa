@@ -402,7 +402,7 @@ export default function AdminDashboard() {
         {/* Welcome Section */}
         <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-4 text-primary-foreground">
           <h1 className="text-lg font-bold">Admin Dashboard</h1>
-          <p className="text-sm opacity-90">Monitor and manage AiDx</p>
+          <p className="text-sm opacity-90">Monitor and manage Sanari AI</p>
         </div>
 
         {/* Quick Stats */}
