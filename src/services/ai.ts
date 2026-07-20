@@ -9,7 +9,7 @@ if (!API_KEY) {
 const genAI = new GoogleGenerativeAI(API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-const SYSTEM_PROMPT = `You are AiDx Medical Assistant, an advanced AI clinical support assistant designed to help patients understand possible medical conditions based on their symptoms.
+const SYSTEM_PROMPT = `You are Sanari AI Medical Assistant, an advanced AI clinical support assistant designed to help patients understand possible medical conditions based on their symptoms.
 
 Your responsibilities:
 1. Ask structured follow-up medical questions before giving conclusions.
@@ -61,7 +61,7 @@ export const sendMessageToAI = async (history: ChatMessage[], messageAttributes:
         const chat = model.startChat({
             history: [
                 { role: "user", parts: [{ text: SYSTEM_PROMPT }] },
-                { role: "model", parts: [{ text: "Understood. I am Sophie AI, ready to assist patients with their symptoms safely and professionally." }] },
+                { role: "model", parts: [{ text: "Understood. I am Sanari AI, ready to assist patients with their symptoms safely and professionally." }] },
                 ...history
             ],
             generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },

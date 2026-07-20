@@ -5,7 +5,7 @@ import { Settings, LucideIcon } from 'lucide-react';
 import { SettingsDialog } from './SettingsDialog';
 import { MobileHeader } from './MobileHeader';
 import { NotificationBell } from './NotificationBell';
-import aidxLogo from '@/assets/aidx-logo.png';
+import sanariLogo from '@/assets/sanari-logo.png';
 import { cn } from '@/lib/utils';
 
 
@@ -59,7 +59,7 @@ export default function DashboardLayout({
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 hidden md:block">
         <div className="container flex h-14 items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={aidxLogo} alt="AiDx Logo" className="h-8 w-auto" />
+            <img src={sanariLogo} alt="Sanari AI" className="h-8 w-auto" />
             {title && (
               <>
                 <span className="text-muted-foreground">•</span>

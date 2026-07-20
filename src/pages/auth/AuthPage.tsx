@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Stethoscope, Pill, User, Eye, EyeOff } from 'lucide-react';
-import aidxLogo from '@/assets/aidx-logo.png';
+import sanariLogo from '@/assets/sanari-logo.png';
 
 export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +48,7 @@ export default function AuthPage() {
       } else {
         toast({
           title: "Welcome back!",
-          description: "Successfully signed in to AiDx"
+          description: "Successfully signed in to Sanari AI"
         });
         navigate('/');
       }
@@ -122,7 +122,7 @@ export default function AuthPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <img src={aidxLogo} alt="AiDx Logo" className="h-16 w-auto" />
+            <img src={sanariLogo} alt="Sanari AI" className="h-16 w-auto" />
           </div>
           <p className="text-muted-foreground">Healthcare AI Assistant Platform</p>
         </div>
