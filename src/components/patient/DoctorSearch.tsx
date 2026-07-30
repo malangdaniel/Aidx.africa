@@ -50,6 +50,8 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
                     rating,
                     total_consultations,
                     bio,
+                    license_number,
+
                     user_id,
                     profiles:user_id (
                         first_name,
