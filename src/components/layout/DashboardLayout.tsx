@@ -1,7 +1,7 @@
 import { ReactNode, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Settings, LucideIcon } from 'lucide-react';
+import { User, LucideIcon } from 'lucide-react';
 import { SettingsDialog } from './SettingsDialog';
 import { MobileHeader } from './MobileHeader';
 import { NotificationBell } from './NotificationBell';

@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Settings } from 'lucide-react';
+import { User } from 'lucide-react';
 import sanariLogo from '@/assets/sanari-logo.png';
 
 interface MobileHeaderProps {
