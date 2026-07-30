@@ -60,18 +60,49 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
 
             if (error) throw error;
 
-            const mappedDoctors: Doctor[] = data.map((d: any) => ({
-                id: d.id, // This is the doctor table ID
-                userId: d.user_id, // Auth user id
-                name: `Dr. ${d.profiles?.first_name || 'Unknown'} ${d.profiles?.last_name || ''}`,
-                specialty: d.specialties && d.specialties.length > 0 ? d.specialties[0] : 'General Practitioner',
-                rating: Number(d.rating) || 0,
-                reviews: d.total_consultations || 0, // Using consult count as proxy for reviews count for now
-                nextAvailable: 'Available Today', // Placeholder until availability system is built
-                price: Number(d.consult_price) || 0,
-                imageUrl: d.profiles?.metadata?.avatar_url || 'https://ui.shadcn.com/avatars/01.png',
-                bio: d.bio || "Experienced medical professional."
-            }));
+            const mappedDoctors: Doctor[] = data.map((d: any) => {
+                const meta = d.profiles?.metadata || {};
+                const dp = meta.doctorProfile || {};
+                const basic = dp.basicInfo || {};
+                const creds = dp.credentials || {};
+                const expertise = dp.expertise || {};
+                const avail = dp.availability || {};
+
+                const title = basic.professionalTitle || 'Dr.';
+                const location = [basic.city, basic.country].filter(Boolean).join(', ');
+                const education = [creds.primaryDegree, ...(creds.postgraduateQualifications || [])]
+                    .filter(Boolean).join(', ');
+
+                return {
+                    id: d.id, // This is the doctor table ID
+                    userId: d.user_id, // Auth user id
+                    name: `${title} ${d.profiles?.first_name || 'Unknown'} ${d.profiles?.last_name || ''}`.trim(),
+                    specialty: creds.specialty || (d.specialties && d.specialties.length > 0 ? d.specialties[0] : 'General Practitioner'),
+                    subSpecialty: creds.subSpecialty || undefined,
+                    rating: Number(d.rating) || 0,
+                    reviews: d.total_consultations || 0,
+                    nextAvailable: avail.availableDays && avail.availableDays.length > 0
+                        ? avail.availableDays.slice(0, 2).join(', ')
+                        : 'Contact for availability',
+                    price: Number(avail.consultPrice) || Number(d.consult_price) || 0,
+                    imageUrl: basic.profilePhoto || meta.avatar_url || undefined,
+                    bio: d.bio || undefined,
+                    location: location || undefined,
+                    languages: basic.languages || [],
+                    experience: creds.yearsExperience ? `${creds.yearsExperience} Years` : undefined,
+                    education: education || undefined,
+                    affiliations: creds.currentAffiliations || [],
+                    conditionsTreated: expertise.conditionsTreated || [],
+                    consultationModes: avail.consultationModes || [],
+                    licenseNumber: d.license_number || basic.registrationNumber || undefined,
+                    availableDays: avail.availableDays || [],
+                    workingHours: avail.workingHoursStart && avail.workingHoursEnd
+                        ? `${avail.workingHoursStart} - ${avail.workingHoursEnd}${avail.timezone ? ` (${avail.timezone})` : ''}`
+                        : undefined,
+                    emergencyAvailable: !!avail.emergencyAvailable,
+                };
+            });
+
 
             setDoctors(mappedDoctors);
 
