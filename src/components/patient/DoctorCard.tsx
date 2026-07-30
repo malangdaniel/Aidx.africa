@@ -9,13 +9,26 @@ export interface Doctor {
     userId?: string;
     name: string;
     specialty: string;
+    subSpecialty?: string;
     rating: number;
     reviews: number;
     imageUrl?: string;
     nextAvailable: string;
     price: number;
     bio?: string;
+    location?: string;
+    languages?: string[];
+    experience?: string;
+    education?: string;
+    affiliations?: string[];
+    conditionsTreated?: string[];
+    consultationModes?: string[];
+    licenseNumber?: string;
+    availableDays?: string[];
+    workingHours?: string;
+    emergencyAvailable?: boolean;
 }
+
 
 interface DoctorCardProps {
     doctor: Doctor;
