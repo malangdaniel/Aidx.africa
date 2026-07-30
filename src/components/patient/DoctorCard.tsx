@@ -9,13 +9,26 @@ export interface Doctor {
     userId?: string;
     name: string;
     specialty: string;
+    subSpecialty?: string;
     rating: number;
     reviews: number;
     imageUrl?: string;
     nextAvailable: string;
     price: number;
     bio?: string;
+    location?: string;
+    languages?: string[];
+    experience?: string;
+    education?: string;
+    affiliations?: string[];
+    conditionsTreated?: string[];
+    consultationModes?: string[];
+    licenseNumber?: string;
+    availableDays?: string[];
+    workingHours?: string;
+    emergencyAvailable?: boolean;
 }
+
 
 interface DoctorCardProps {
     doctor: Doctor;
@@ -47,16 +60,21 @@ export default function DoctorCard({ doctor, onBook, onViewProfile }: DoctorCard
             <div className="p-6 md:w-3/4 flex flex-col justify-between">
                 <div>
                     <h3 className="text-xl font-bold mb-1 group-hover:text-primary transition-colors">{doctor.name}</h3>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-                        <div className="flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
-                            <span>Lagos, NG</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <Video className="w-4 h-4" />
-                            <span>Video Consult</span>
-                        </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mb-4">
+                        {doctor.location && (
+                            <div className="flex items-center gap-1">
+                                <MapPin className="w-4 h-4" />
+                                <span>{doctor.location}</span>
+                            </div>
+                        )}
+                        {doctor.consultationModes && doctor.consultationModes.length > 0 && (
+                            <div className="flex items-center gap-1">
+                                <Video className="w-4 h-4" />
+                                <span>{doctor.consultationModes.join(', ')}</span>
+                            </div>
+                        )}
                     </div>
+
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
                         {doctor.bio || `Experienced ${doctor.specialty} dedicated to providing patient-centered care and accurate diagnosis.`}
                     </p>
