@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Settings } from 'lucide-react';
+import { User } from 'lucide-react';
 import sanariLogo from '@/assets/sanari-logo.png';
 
 interface MobileHeaderProps {
@@ -23,7 +23,7 @@ export function MobileHeader({ onSettingsClick, headerActions, notificationBell 
             onClick={onSettingsClick}
             className="h-9 w-9 text-muted-foreground hover:text-foreground"
           >
-            <Settings className="w-5 h-5" />
+            <User className="w-5 h-5" />
           </Button>
         </div>
       </div>

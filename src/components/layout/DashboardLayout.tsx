@@ -1,7 +1,7 @@
 import { ReactNode, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Settings, LucideIcon } from 'lucide-react';
+import { User, LucideIcon } from 'lucide-react';
 import { SettingsDialog } from './SettingsDialog';
 import { MobileHeader } from './MobileHeader';
 import { NotificationBell } from './NotificationBell';
@@ -81,10 +81,10 @@ export default function DashboardLayout({
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowSettings(true)}
-                title="Settings"
+                title="Profile"
                 className="text-muted-foreground hover:text-foreground"
               >
-                <Settings className="w-5 h-5" />
+                <User className="w-5 h-5" />
               </Button>
             </div>
 
@@ -123,8 +123,8 @@ export default function DashboardLayout({
                 onClick={() => setShowSettings(true)}
                 className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               >
-                <Settings className="w-4 h-4 text-primary" />
-                Settings
+                <User className="w-4 h-4 text-primary" />
+                Profile
               </button>
             </div>
 
