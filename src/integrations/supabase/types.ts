@@ -1233,6 +1233,12 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      get_doctor_booked_slots: {
+        Args: { _day: string; _doctor_id: string }
+        Returns: {
+          scheduled_at: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
