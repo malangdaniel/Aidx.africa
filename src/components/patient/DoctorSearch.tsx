@@ -101,6 +101,9 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
                     workingHours: avail.workingHoursStart && avail.workingHoursEnd
                         ? `${avail.workingHoursStart} - ${avail.workingHoursEnd}${avail.timezone ? ` (${avail.timezone})` : ''}`
                         : undefined,
+                    workingHoursStart: avail.workingHoursStart || undefined,
+                    workingHoursEnd: avail.workingHoursEnd || undefined,
+                    slotDurationMinutes: Number(avail.slotDurationMinutes) || Number(avail.consultDuration) || undefined,
                     emergencyAvailable: !!avail.emergencyAvailable,
                 };
             });
