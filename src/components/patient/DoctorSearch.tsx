@@ -140,8 +140,6 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
 
     const handleBookingConfirm = async (details: any) => {
         try {
-            console.log('Booking Confirmed:', details);
-
             const { data: { user } } = await supabase.auth.getUser();
 
             if (!user) {
@@ -149,14 +147,15 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
                 return;
             }
 
-            // Construct proper Date object from date and timeSlot
-            let scheduledAt = new Date();
-            if (details.date && details.timeSlot) {
-                const dateStr = details.date.toDateString();
-                scheduledAt = new Date(`${dateStr} ${details.timeSlot}`);
+            const scheduledAt: Date = details.scheduledAt
+                ? new Date(details.scheduledAt)
+                : new Date(`${details.date.toDateString()} ${details.timeSlot}`);
+
+            if (scheduledAt.getTime() <= Date.now()) {
+                toast.error("That time slot has already passed. Please pick another.");
+                return;
             }
 
-            // Use ConsultationService to book
             await ConsultationService.bookConsultation(
                 details.doctor.userId,
                 user.id,
@@ -169,11 +168,16 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
             toast.success("Appointment Booked Successfully!", {
                 description: `Consultation with ${details.doctor.name} scheduled for ${scheduledAt.toLocaleString()}.`
             });
-        } catch (err) {
+        } catch (err: any) {
             console.error("Booking error:", err);
-            toast.error("Failed to book appointment.");
+            if (err?.code === '23505') {
+                toast.error("That time slot was just booked by someone else. Please choose another.");
+            } else {
+                toast.error("Failed to book appointment.");
+            }
         }
     };
+
 
     return (
         <div className="space-y-6">
