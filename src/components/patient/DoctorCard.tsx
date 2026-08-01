@@ -26,6 +26,9 @@ export interface Doctor {
     licenseNumber?: string;
     availableDays?: string[];
     workingHours?: string;
+    workingHoursStart?: string;
+    workingHoursEnd?: string;
+    slotDurationMinutes?: number;
     emergencyAvailable?: boolean;
 }
 
