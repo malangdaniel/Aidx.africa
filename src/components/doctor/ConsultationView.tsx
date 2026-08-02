@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { ConsultationService, LabOrder as ServiceLabOrder } from '@/services/ConsultationService';
+import { ConsultationService, LabOrder as ServiceLabOrder, PastReport } from '@/services/ConsultationService';
 import { PatientRecordService, PatientRecord } from '@/services/PatientRecordService';
 
 interface PrescriptionItem {
