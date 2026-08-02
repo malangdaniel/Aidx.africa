@@ -753,7 +753,7 @@ export default function ConsultationView({ consultationId, patientName, clinical
                 {showRightPanel && (
                     <div className="w-full md:w-80 shrink-0 border-l bg-background flex flex-col h-full overflow-hidden transition-all duration-300">
                         <Tabs defaultValue="notes" className="flex-1 flex flex-col min-h-0 bg-card border-none">
-                            <TabsList className="grid grid-cols-4 bg-muted/20 border-b rounded-none h-11">
+                            <TabsList className="grid grid-cols-5 bg-muted/20 border-b rounded-none h-11">
                                 <TabsTrigger value="notes" className="text-[9px] font-black uppercase tracking-widest data-[state=active]:bg-card">
                                     <ClipboardList className="w-3 h-3 mr-1" />
                                     SOAP
@@ -766,11 +766,16 @@ export default function ConsultationView({ consultationId, patientName, clinical
                                     <Stethoscope className="w-3 h-3 mr-1" />
                                     Labs
                                 </TabsTrigger>
+                                <TabsTrigger value="history" className="text-[9px] font-black uppercase tracking-widest data-[state=active]:bg-card">
+                                    <FileText className="w-3 h-3 mr-1" />
+                                    Past
+                                </TabsTrigger>
                                 <TabsTrigger value="docs" className="text-[9px] font-black uppercase tracking-widest data-[state=active]:bg-card">
                                     <Monitor className="w-3 h-3 mr-1" />
                                     Files
                                 </TabsTrigger>
                             </TabsList>
+
 
                             <div className="flex-1 overflow-hidden relative">
                                 <TabsContent value="notes" className="absolute inset-0 flex flex-col p-0 m-0 data-[state=inactive]:hidden">
