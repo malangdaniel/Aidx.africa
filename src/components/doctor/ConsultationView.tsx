@@ -331,6 +331,37 @@ export default function ConsultationView({ consultationId, patientName, clinical
         setLabOrders(newLabs);
     };
 
+    const collectFields = () => ({
+        notes: note,
+        diagnosis,
+        chiefComplaint,
+        physicalExam,
+        differentialDiagnosis,
+        referral,
+        followUpPlan,
+        symptomChecklist,
+        clinicalSummary: aiClinicalSummary,
+    });
+
+    const toggleSymptom = (symptom: string) => {
+        setSymptomChecklist(prev =>
+            prev.includes(symptom) ? prev.filter(s => s !== symptom) : [...prev, symptom]
+        );
+    };
+
+    const handleSaveDraft = async () => {
+        setIsSavingDraft(true);
+        try {
+            await ConsultationService.saveDraft(consultationId, collectFields());
+            toast.success('Consultation notes saved');
+        } catch (err) {
+            console.error('Error saving draft:', err);
+            toast.error('Failed to save notes');
+        } finally {
+            setIsSavingDraft(false);
+        }
+    };
+
     const handleFinish = async () => {
         if (!patientId) {
             toast.error("Error: Patient ID not found. Cannot finish consultation.");
@@ -342,11 +373,12 @@ export default function ConsultationView({ consultationId, patientName, clinical
             await ConsultationService.completeConsultation(
                 consultationId,
                 patientId,
-                note,
-                diagnosis,
+                collectFields(),
                 prescribedMeds,
                 labOrders.map(l => ({ test_name: l.testName, urgency: l.urgency, reason: l.reason }))
             );
+            setIsFinalized(true);
+
 
             // Notify patient that consultation is complete
             chatChannel?.send({
