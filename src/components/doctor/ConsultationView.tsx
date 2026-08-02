@@ -94,10 +94,20 @@ export default function ConsultationView({ consultationId, patientName, clinical
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
     // Clinical State
+    const [chiefComplaint, setChiefComplaint] = useState('');
     const [physicalExam, setPhysicalExam] = useState('');
     const [diagnosis, setDiagnosis] = useState('');
     const [differentialDiagnosis, setDifferentialDiagnosis] = useState('');
     const [referral, setReferral] = useState('');
+    const [followUpPlan, setFollowUpPlan] = useState('');
+    const [symptomChecklist, setSymptomChecklist] = useState<string[]>([]);
+    const [isSavingDraft, setIsSavingDraft] = useState(false);
+    const [isFinalized, setIsFinalized] = useState(false);
+
+    // Read-only history from previous consultations
+    const [pastReports, setPastReports] = useState<PastReport[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
+
 
     // Prescription State
     const [rxName, setRxName] = useState('');
