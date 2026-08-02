@@ -14,6 +14,35 @@ export interface LabOrder {
     reason: string;
 }
 
+export interface ClinicalFields {
+    notes?: string;
+    diagnosis?: string;
+    chiefComplaint?: string;
+    physicalExam?: string;
+    differentialDiagnosis?: string;
+    referral?: string;
+    followUpPlan?: string;
+    symptomChecklist?: string[];
+    clinicalSummary?: string;
+}
+
+export interface PastReport {
+    id: string;
+    date: string;
+    doctorName: string;
+    diagnosis?: string | null;
+    notes?: string | null;
+    chiefComplaint?: string | null;
+    physicalExam?: string | null;
+    differentialDiagnosis?: string | null;
+    referral?: string | null;
+    followUpPlan?: string | null;
+    symptomChecklist: string[];
+    clinicalSummary?: string | null;
+    medications: { name?: string; dosage?: string; frequency?: string; duration?: string }[];
+}
+
+
 export class ConsultationService {
     // --- CHAT ---
     // Note: consultation_chat_messages table doesn't exist yet.
@@ -76,26 +105,52 @@ export class ConsultationService {
         if (error) throw error;
     }
 
+    /** Persist in-progress clinical fields without finalizing the consultation. */
+    static async saveDraft(consultationId: string, fields: ClinicalFields) {
+        const { error } = await supabase
+            .from('consultations')
+            .update({
+                notes: fields.notes ?? null,
+                diagnosis: fields.diagnosis ?? null,
+                chief_complaint: fields.chiefComplaint ?? null,
+                physical_exam: fields.physicalExam ?? null,
+                differential_diagnosis: fields.differentialDiagnosis ?? null,
+                referral: fields.referral ?? null,
+                follow_up_plan: fields.followUpPlan ?? null,
+                symptom_checklist: fields.symptomChecklist ?? [],
+                clinical_summary: fields.clinicalSummary ?? null,
+            })
+            .eq('id', consultationId);
+
+        if (error) throw error;
+    }
+
     static async completeConsultation(
         consultationId: string,
         patientId: string,
-        notes: string,
-        diagnosis: string,
+        fields: ClinicalFields,
         prescriptions: any[],
         labOrders: LabOrder[]
     ) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Not authenticated");
 
-        // 1. Update Consultation Status & Notes
-        console.log("Completing consultation:", consultationId);
+        // 1. Update consultation with all clinical fields + finalize
         const { error: consultError } = await supabase
             .from('consultations')
             .update({
                 status: 'completed',
-                notes: notes,
-                diagnosis: diagnosis,
-                ended_at: new Date().toISOString()
+                notes: fields.notes ?? null,
+                diagnosis: fields.diagnosis ?? null,
+                chief_complaint: fields.chiefComplaint ?? null,
+                physical_exam: fields.physicalExam ?? null,
+                differential_diagnosis: fields.differentialDiagnosis ?? null,
+                referral: fields.referral ?? null,
+                follow_up_plan: fields.followUpPlan ?? null,
+                symptom_checklist: fields.symptomChecklist ?? [],
+                clinical_summary: fields.clinicalSummary ?? null,
+                ended_at: new Date().toISOString(),
+                finalized_at: new Date().toISOString(),
             })
             .eq('id', consultationId);
 
@@ -106,14 +161,14 @@ export class ConsultationService {
 
         // 2. Create Prescription Record (if any)
         if (prescriptions.length > 0) {
-            console.log("Saving prescriptions:", prescriptions.length);
             const { error: rxError } = await supabase
                 .from('prescriptions')
                 .insert({
                     consultation_id: consultationId,
                     doctor_id: user.id,
                     patient_id: patientId,
-                    prescription_data: { medications: prescriptions }
+                    prescription_data: { medications: prescriptions },
+                    notes: fields.notes ?? null,
                 });
 
             if (rxError) {
@@ -124,9 +179,76 @@ export class ConsultationService {
 
         // 3. Save Lab Orders (if any)
         if (labOrders.length > 0) {
-            console.log("Saving lab orders:", labOrders.length);
             await this.saveLabOrders(consultationId, patientId, labOrders);
         }
     }
 
+    /** Load the saved clinical record for a consultation. */
+    static async getConsultationRecord(consultationId: string) {
+        const { data, error } = await supabase
+            .from('consultations')
+            .select('*')
+            .eq('id', consultationId)
+            .single();
+
+        if (error) throw error;
+        return data;
+    }
+
+    /**
+     * Read-only history of a patient's previous consultations (with prescriptions),
+     * accessible to any doctor who is treating that patient.
+     */
+    static async getPatientHistory(patientId: string, excludeConsultationId?: string): Promise<PastReport[]> {
+        const { data, error } = await supabase
+            .from('consultations')
+            .select('id, doctor_id, scheduled_at, ended_at, created_at, status, notes, diagnosis, chief_complaint, physical_exam, differential_diagnosis, referral, follow_up_plan, symptom_checklist, clinical_summary')
+            .eq('patient_id', patientId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const rows = (data || []).filter(
+            (c: any) => c.id !== excludeConsultationId && (c.status === 'completed' || c.diagnosis || c.notes)
+        );
+        if (rows.length === 0) return [];
+
+        const consultIds = rows.map((r: any) => r.id);
+        const doctorIds = [...new Set(rows.map((r: any) => r.doctor_id))];
+
+        const [{ data: rxData }, { data: docs }] = await Promise.all([
+            supabase
+                .from('prescriptions')
+                .select('consultation_id, prescription_data')
+                .in('consultation_id', consultIds),
+            supabase
+                .from('profiles')
+                .select('user_id, first_name, last_name')
+                .in('user_id', doctorIds),
+        ]);
+
+        const docMap = new Map((docs || []).map((d: any) => [d.user_id, `Dr. ${d.first_name || ''} ${d.last_name || ''}`.trim()]));
+        const rxMap = new Map<string, any[]>();
+        (rxData || []).forEach((r: any) => {
+            const meds = r.prescription_data?.medications || [];
+            rxMap.set(r.consultation_id, [...(rxMap.get(r.consultation_id) || []), ...meds]);
+        });
+
+        return rows.map((r: any) => ({
+            id: r.id,
+            date: r.ended_at || r.scheduled_at || r.created_at,
+            doctorName: docMap.get(r.doctor_id) || 'Doctor',
+            diagnosis: r.diagnosis,
+            notes: r.notes,
+            chiefComplaint: r.chief_complaint,
+            physicalExam: r.physical_exam,
+            differentialDiagnosis: r.differential_diagnosis,
+            referral: r.referral,
+            followUpPlan: r.follow_up_plan,
+            symptomChecklist: Array.isArray(r.symptom_checklist) ? r.symptom_checklist : [],
+            clinicalSummary: r.clinical_summary,
+            medications: rxMap.get(r.id) || [],
+        }));
+    }
 }
+

@@ -231,53 +231,74 @@ export type Database = {
       }
       consultations: {
         Row: {
+          chief_complaint: string | null
           clinical_summary: string | null
           created_at: string
           decision_support: Json | null
           diagnosis: string | null
+          differential_diagnosis: string | null
           doctor_id: string
           ended_at: string | null
+          finalized_at: string | null
+          follow_up_plan: string | null
           id: string
           notes: string | null
           patient_id: string
+          physical_exam: string | null
           price: number
+          referral: string | null
           scheduled_at: string | null
           started_at: string | null
           status: Database["public"]["Enums"]["consultation_status"] | null
+          symptom_checklist: Json
           transcript: Json | null
           updated_at: string
         }
         Insert: {
+          chief_complaint?: string | null
           clinical_summary?: string | null
           created_at?: string
           decision_support?: Json | null
           diagnosis?: string | null
+          differential_diagnosis?: string | null
           doctor_id: string
           ended_at?: string | null
+          finalized_at?: string | null
+          follow_up_plan?: string | null
           id?: string
           notes?: string | null
           patient_id: string
+          physical_exam?: string | null
           price: number
+          referral?: string | null
           scheduled_at?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["consultation_status"] | null
+          symptom_checklist?: Json
           transcript?: Json | null
           updated_at?: string
         }
         Update: {
+          chief_complaint?: string | null
           clinical_summary?: string | null
           created_at?: string
           decision_support?: Json | null
           diagnosis?: string | null
+          differential_diagnosis?: string | null
           doctor_id?: string
           ended_at?: string | null
+          finalized_at?: string | null
+          follow_up_plan?: string | null
           id?: string
           notes?: string | null
           patient_id?: string
+          physical_exam?: string | null
           price?: number
+          referral?: string | null
           scheduled_at?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["consultation_status"] | null
+          symptom_checklist?: Json
           transcript?: Json | null
           updated_at?: string
         }
@@ -1244,6 +1265,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_treating_doctor: {
+        Args: { _doctor_id: string; _patient_id: string }
         Returns: boolean
       }
     }
