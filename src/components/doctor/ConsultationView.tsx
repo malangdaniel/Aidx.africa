@@ -781,11 +781,24 @@ export default function ConsultationView({ consultationId, patientName, clinical
                                 <TabsContent value="notes" className="absolute inset-0 flex flex-col p-0 m-0 data-[state=inactive]:hidden">
                                     <ScrollArea className="flex-1 p-4">
                                         <div className="space-y-6">
+                                            {/* Chief Complaint */}
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Chief Complaint</Label>
+                                                <Input
+                                                    className="text-xs"
+                                                    placeholder="Reason for visit in the patient's words..."
+                                                    value={chiefComplaint}
+                                                    onChange={(e) => setChiefComplaint(e.target.value)}
+                                                />
+                                            </div>
+
                                             {/* SOAP Notes */}
                                             <div className="space-y-3">
                                                 <div className="flex items-center justify-between">
                                                     <Label className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">SOAP Notes</Label>
-                                                    <Badge variant="outline" className="text-[9px] font-bold opacity-60">AUTO-SAVING</Badge>
+                                                    {isFinalized && (
+                                                        <Badge variant="outline" className="text-[9px] font-bold text-green-700 border-green-600/40">FINALIZED</Badge>
+                                                    )}
                                                 </div>
                                                 <Textarea
                                                     placeholder="Subjective: Patient reports...
@@ -831,27 +844,62 @@ Plan: Order ECG, Rx Antacids..."
                                                 </div>
                                             </div>
 
+                                            {/* Referral & Follow-up */}
+                                            <div className="space-y-3 pt-2 border-t border-dashed">
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Referral</Label>
+                                                    <Input
+                                                        className="text-xs"
+                                                        placeholder="Refer to cardiology / specialist..."
+                                                        value={referral}
+                                                        onChange={(e) => setReferral(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Follow-up Plan</Label>
+                                                    <Textarea
+                                                        className="min-h-[70px] text-xs"
+                                                        placeholder="Review in 2 weeks, repeat BP check..."
+                                                        value={followUpPlan}
+                                                        onChange={(e) => setFollowUpPlan(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+
                                             {/* Session Checklist */}
                                             <div className="space-y-3 pt-4 border-t border-dashed">
                                                 <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Symptom Checklist</Label>
                                                 <div className="grid grid-cols-2 gap-2">
-                                                    {['Chest Pain', 'Nausea', 'Shortness of Breath', 'Dizziness', 'Fever', 'Cough'].map(s => (
-                                                        <label key={s} className="flex items-center gap-2 p-2 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group">
-                                                            <div className="w-4 h-4 border-2 rounded border-primary/20 group-hover:border-primary/40 flex items-center justify-center">
-                                                                {/* Simple checkbox UI */}
-                                                            </div>
-                                                            <span className="text-[11px] font-bold text-foreground/70">{s}</span>
-                                                        </label>
-                                                    ))}
+                                                    {['Chest Pain', 'Nausea', 'Shortness of Breath', 'Dizziness', 'Fever', 'Cough'].map(s => {
+                                                        const checked = symptomChecklist.includes(s);
+                                                        return (
+                                                            <button
+                                                                type="button"
+                                                                key={s}
+                                                                onClick={() => toggleSymptom(s)}
+                                                                className={`flex items-center gap-2 p-2 border rounded-lg text-left transition-colors ${checked ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
+                                                            >
+                                                                <div className={`w-4 h-4 border-2 rounded flex items-center justify-center ${checked ? 'bg-primary border-primary' : 'border-primary/20'}`}>
+                                                                    {checked && <Check className="w-3 h-3 text-primary-foreground" />}
+                                                                </div>
+                                                                <span className="text-[11px] font-bold text-foreground/70">{s}</span>
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         </div>
                                     </ScrollArea>
-                                    <div className="p-3 bg-muted/10 border-t flex items-center justify-between shrink-0">
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant="outline" className="text-[9px] h-5 opacity-60">SESSION ID: {consultationId.slice(0, 6)}</Badge>
-                                            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                                        </div>
+                                    <div className="p-3 bg-muted/10 border-t flex items-center justify-between gap-2 shrink-0">
+                                        <Button
+                                            variant="outline"
+                                            className="h-9 px-4 font-black text-[10px] uppercase tracking-widest"
+                                            onClick={handleSaveDraft}
+                                            disabled={isSavingDraft}
+                                        >
+                                            {isSavingDraft ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <ClipboardList className="w-3 h-3 mr-2" />}
+                                            Save
+                                        </Button>
                                         <Button
                                             className="h-9 px-6 bg-green-600 hover:bg-green-700 shadow-xl font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95"
                                             onClick={handleFinish}
@@ -865,12 +913,66 @@ Plan: Order ECG, Rx Antacids..."
                                             ) : (
                                                 <>
                                                     <Check className="w-3 h-3 mr-2" />
-                                                    Finalize
+                                                    {isFinalized ? 'Save & Close' : 'Finalize'}
                                                 </>
                                             )}
                                         </Button>
                                     </div>
                                 </TabsContent>
+
+                                <TabsContent value="history" className="absolute inset-0 flex flex-col p-0 m-0 data-[state=inactive]:hidden">
+                                    <div className="px-4 py-2 border-b bg-muted/10 flex items-center justify-between shrink-0">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Past Reports</span>
+                                        <Badge variant="outline" className="text-[9px]">READ ONLY</Badge>
+                                    </div>
+                                    <ScrollArea className="flex-1 p-4">
+                                        {loadingHistory ? (
+                                            <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+                                        ) : pastReports.length === 0 ? (
+                                            <p className="text-xs text-muted-foreground italic text-center py-10">No previous consultation records for this patient.</p>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {pastReports.map(r => (
+                                                    <Card key={r.id} className="border-muted-foreground/10">
+                                                        <CardHeader className="p-3 pb-2">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <CardTitle className="text-[11px] font-black">{r.diagnosis || 'Consultation'}</CardTitle>
+                                                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+                                                                    {r.date ? new Date(r.date).toLocaleDateString() : ''}
+                                                                </span>
+                                                            </div>
+                                                            <CardDescription className="text-[10px]">{r.doctorName}</CardDescription>
+                                                        </CardHeader>
+                                                        <CardContent className="p-3 pt-0 space-y-2 text-[11px] leading-snug text-muted-foreground">
+                                                            {r.chiefComplaint && <p><span className="font-bold text-foreground">Complaint: </span>{r.chiefComplaint}</p>}
+                                                            {r.notes && <p className="whitespace-pre-wrap"><span className="font-bold text-foreground">Notes: </span>{r.notes}</p>}
+                                                            {r.physicalExam && <p><span className="font-bold text-foreground">Exam: </span>{r.physicalExam}</p>}
+                                                            {r.differentialDiagnosis && <p><span className="font-bold text-foreground">Differential: </span>{r.differentialDiagnosis}</p>}
+                                                            {r.referral && <p><span className="font-bold text-foreground">Referral: </span>{r.referral}</p>}
+                                                            {r.followUpPlan && <p><span className="font-bold text-foreground">Follow-up: </span>{r.followUpPlan}</p>}
+                                                            {r.symptomChecklist.length > 0 && (
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {r.symptomChecklist.map(s => (
+                                                                        <Badge key={s} variant="secondary" className="text-[9px]">{s}</Badge>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {r.medications.length > 0 && (
+                                                                <div className="pt-1 border-t border-dashed">
+                                                                    <span className="font-bold text-foreground">Prescribed: </span>
+                                                                    {r.medications.map((m, i) => (
+                                                                        <span key={i}>{m.name}{m.dosage ? ` ${m.dosage}` : ''}{i < r.medications.length - 1 ? ', ' : ''}</span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </CardContent>
+                                                    </Card>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </ScrollArea>
+                                </TabsContent>
+
 
                                 <TabsContent value="rx" className="absolute inset-0 flex flex-col p-0 m-0 data-[state=inactive]:hidden">
                                     <ScrollArea className="flex-1 p-4">
