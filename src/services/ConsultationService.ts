@@ -14,6 +14,35 @@ export interface LabOrder {
     reason: string;
 }
 
+export interface ClinicalFields {
+    notes?: string;
+    diagnosis?: string;
+    chiefComplaint?: string;
+    physicalExam?: string;
+    differentialDiagnosis?: string;
+    referral?: string;
+    followUpPlan?: string;
+    symptomChecklist?: string[];
+    clinicalSummary?: string;
+}
+
+export interface PastReport {
+    id: string;
+    date: string;
+    doctorName: string;
+    diagnosis?: string | null;
+    notes?: string | null;
+    chiefComplaint?: string | null;
+    physicalExam?: string | null;
+    differentialDiagnosis?: string | null;
+    referral?: string | null;
+    followUpPlan?: string | null;
+    symptomChecklist: string[];
+    clinicalSummary?: string | null;
+    medications: { name?: string; dosage?: string; frequency?: string; duration?: string }[];
+}
+
+
 export class ConsultationService {
     // --- CHAT ---
     // Note: consultation_chat_messages table doesn't exist yet.
