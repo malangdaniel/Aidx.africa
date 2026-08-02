@@ -133,17 +133,23 @@ export default function ConsultationView({ consultationId, patientName, clinical
             if (!consultationId) return;
             try {
                 // 1. Get Consultation Details & Patient ID
-                const { data: consult, error } = await supabase
-                    .from('consultations')
-                    .select('patient_id, decision_support, notes, diagnosis')
-                    .eq('id', consultationId)
-                    .single();
+                const consult: any = await ConsultationService.getConsultationRecord(consultationId);
 
-                if (error) throw error;
                 if (consult?.patient_id) {
                     setPatientId(consult.patient_id);
 
-                    // 2. Fetch Medical Record & Profile
+                    // 2. Restore any previously saved clinical fields (editable)
+                    setNote(consult.notes || '');
+                    setDiagnosis(consult.diagnosis || '');
+                    setChiefComplaint(consult.chief_complaint || '');
+                    setPhysicalExam(consult.physical_exam || '');
+                    setDifferentialDiagnosis(consult.differential_diagnosis || '');
+                    setReferral(consult.referral || '');
+                    setFollowUpPlan(consult.follow_up_plan || '');
+                    setSymptomChecklist(Array.isArray(consult.symptom_checklist) ? consult.symptom_checklist : []);
+                    setIsFinalized(Boolean(consult.finalized_at));
+
+                    // 3. Fetch Medical Record & Profile
                     const [record, profileData] = await Promise.all([
                         PatientRecordService.getRecord(consult.patient_id),
                         PatientRecordService.getPatientProfile(consult.patient_id)
@@ -154,10 +160,20 @@ export default function ConsultationView({ consultationId, patientName, clinical
                         setPatientProfile(profileData);
                     }
 
-                    // 3. Set AI Data if available
-                    if (consult.notes) setAiClinicalSummary(consult.notes);
+                    // 4. Set AI Data if available
+                    if (consult.clinical_summary) setAiClinicalSummary(consult.clinical_summary);
                     if (consult.decision_support) setAiDecisionSupport(consult.decision_support);
+
+                    // 5. Load read-only history from previous consultations
+                    setLoadingHistory(true);
+                    try {
+                        const history = await ConsultationService.getPatientHistory(consult.patient_id, consultationId);
+                        setPastReports(history);
+                    } finally {
+                        setLoadingHistory(false);
+                    }
                 }
+
             } catch (err) {
                 console.error("Error loading consultation details:", err);
             }
