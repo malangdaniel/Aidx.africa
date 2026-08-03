@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Star, MapPin, Clock, GraduationCap, Languages, Building2, Circle, Loader2, Stethoscope } from "lucide-react";
 import { Doctor } from "./DoctorCard";
 import { supabase } from "@/integrations/supabase/client";
+import ReviewDialog from "./ReviewDialog";
 
 interface DoctorProfileOverlayProps {
     doctor: Doctor | null;
@@ -34,6 +35,9 @@ interface ReviewRow {
 export default function DoctorProfileOverlay({ doctor, open, onOpenChange, onBook }: DoctorProfileOverlayProps) {
     const [reviews, setReviews] = useState<ReviewRow[]>([]);
     const [loadingReviews, setLoadingReviews] = useState(false);
+    const [reviewOpen, setReviewOpen] = useState(false);
+    const [canReview, setCanReview] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         const loadReviews = async () => {
@@ -76,6 +80,27 @@ export default function DoctorProfileOverlay({ doctor, open, onOpenChange, onBoo
         };
 
         loadReviews();
+    }, [open, doctor?.userId, reloadKey]);
+
+    useEffect(() => {
+        const checkEligibility = async () => {
+            if (!open || !doctor?.userId) {
+                setCanReview(false);
+                return;
+            }
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                setCanReview(false);
+                return;
+            }
+            const { count } = await supabase
+                .from("consultations")
+                .select("id", { count: "exact", head: true })
+                .eq("patient_id", user.id)
+                .eq("doctor_id", doctor.userId);
+            setCanReview((count ?? 0) > 0);
+        };
+        checkEligibility();
     }, [open, doctor?.userId]);
 
     if (!doctor) return null;
@@ -205,10 +230,22 @@ export default function DoctorProfileOverlay({ doctor, open, onOpenChange, onBoo
 
                         {/* Reviews Section */}
                         <section className="space-y-4">
-                            <h3 className="font-semibold text-lg flex items-center gap-2">
-                                <Star className="w-4 h-4 fill-primary text-primary" />
-                                Patient Reviews
-                            </h3>
+                            <div className="flex items-center justify-between gap-2">
+                                <h3 className="font-semibold text-lg flex items-center gap-2">
+                                    <Star className="w-4 h-4 fill-primary text-primary" />
+                                    Patient Reviews
+                                </h3>
+                                {canReview && (
+                                    <Button size="sm" variant="outline" onClick={() => setReviewOpen(true)}>
+                                        Write a review
+                                    </Button>
+                                )}
+                            </div>
+                            {!canReview && (
+                                <p className="text-xs text-muted-foreground">
+                                    You can leave a review after your first consultation with this doctor.
+                                </p>
+                            )}
                             {loadingReviews ? (
                                 <div className="flex justify-center py-6">
                                     <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -257,6 +294,15 @@ export default function DoctorProfileOverlay({ doctor, open, onOpenChange, onBoo
                     </div>
                 </SheetFooter>
             </SheetContent>
+            {doctor.userId && (
+                <ReviewDialog
+                    open={reviewOpen}
+                    onOpenChange={setReviewOpen}
+                    revieweeId={doctor.userId}
+                    doctorName={doctor.name}
+                    onSubmitted={() => setReloadKey(k => k + 1)}
+                />
+            )}
         </Sheet>
     );
 }

@@ -3,10 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, Video, FileText, Loader2, User } from 'lucide-react';
+import { Calendar, Clock, Video, FileText, Loader2, User, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import PaymentStatusBadge, { getPaymentStatusHint } from '@/components/shared/PaymentStatusBadge';
+import ReviewDialog from './ReviewDialog';
 
 interface Consultation {
     id: string;
@@ -33,6 +34,7 @@ interface ConsultationsListProps {
 export default function ConsultationsList({ onJoinCall }: ConsultationsListProps) {
     const [consultations, setConsultations] = useState<Consultation[]>([]);
     const [loading, setLoading] = useState(true);
+    const [reviewTarget, setReviewTarget] = useState<Consultation | null>(null);
 
     useEffect(() => {
         fetchConsultations();
@@ -207,10 +209,23 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
                                             Join Call
                                         </Button>
                                     ) : (
-                                        <Button size="sm" variant="outline" className="w-full gap-2">
-                                            <FileText className="w-4 h-4" />
-                                            Report
-                                        </Button>
+                                        <>
+                                            <Button size="sm" variant="outline" className="w-full gap-2">
+                                                <FileText className="w-4 h-4" />
+                                                Report
+                                            </Button>
+                                            {consultation.status === 'completed' && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    className="w-full gap-2"
+                                                    onClick={() => setReviewTarget(consultation)}
+                                                >
+                                                    <Star className="w-4 h-4" />
+                                                    Review
+                                                </Button>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             </div>
@@ -218,6 +233,16 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
                     </CardContent>
                 </Card>
             ))}
+
+            {reviewTarget && (
+                <ReviewDialog
+                    open={!!reviewTarget}
+                    onOpenChange={(open) => !open && setReviewTarget(null)}
+                    revieweeId={reviewTarget.doctor_id}
+                    consultationId={reviewTarget.id}
+                    doctorName={`Dr. ${reviewTarget.doctor_profile?.first_name ?? ''} ${reviewTarget.doctor_profile?.last_name ?? ''}`.trim()}
+                />
+            )}
         </div>
     );
 }
