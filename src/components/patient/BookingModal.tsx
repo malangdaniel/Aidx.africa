@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
-import { Video, Phone, MessageSquare, CheckCircle2, Loader2 } from 'lucide-react';
+import { Video, Phone, MessageSquare, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
 import { Doctor } from './DoctorCard';
 import { supabase } from '@/integrations/supabase/client';
+import PaymentStatusBadge from '@/components/shared/PaymentStatusBadge';
 
 interface BookingModalProps {
     doctor: Doctor | null;
@@ -202,14 +203,26 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm }: Boo
                                     <span>Type:</span>
                                     <span className="font-medium text-foreground capitalize">{consultType}</span>
                                 </div>
+                                <div className="flex justify-between items-center">
+                                    <span>Payment:</span>
+                                    <PaymentStatusBadge status="pending" />
+                                </div>
                                 <div className="border-t pt-2 mt-2 flex justify-between font-bold">
-                                    <span>Total:</span>
+                                    <span>Held in escrow:</span>
                                     <span>₦{doctor.price.toLocaleString()}</span>
                                 </div>
+                            </div>
+                            <div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-secondary/40 p-3 text-left text-xs">
+                                <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                                <span>
+                                    Your slot is only confirmed once payment is escrowed. Funds stay in escrow
+                                    and are released to the doctor after the consultation is completed.
+                                </span>
                             </div>
                         </div>
                     </div>
                 )}
+
 
                 <DialogFooter>
                     {step === 1 ? (

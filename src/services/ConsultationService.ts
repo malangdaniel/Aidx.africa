@@ -65,6 +65,7 @@ export class ConsultationService {
     // --- ACTIONS ---
 
     static async bookConsultation(doctorId: string, patientId: string, scheduledAt: Date, price: number, notes?: string) {
+        const paidAt = new Date().toISOString();
         const { data, error } = await supabase
             .from('consultations')
             .insert({
@@ -73,7 +74,11 @@ export class ConsultationService {
                 status: 'scheduled',
                 scheduled_at: scheduledAt.toISOString(),
                 price: price,
-                notes: notes
+                notes: notes,
+                payment_status: 'escrowed',
+                escrow_amount: price,
+                paid_at: paidAt,
+                payment_reference: `ESC-${Date.now().toString(36).toUpperCase()}`,
             })
             .select()
             .single();

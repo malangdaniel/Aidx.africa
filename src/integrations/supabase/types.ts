@@ -239,11 +239,15 @@ export type Database = {
           differential_diagnosis: string | null
           doctor_id: string
           ended_at: string | null
+          escrow_amount: number | null
           finalized_at: string | null
           follow_up_plan: string | null
           id: string
           notes: string | null
+          paid_at: string | null
           patient_id: string
+          payment_reference: string | null
+          payment_status: Database["public"]["Enums"]["consultation_payment_status"]
           physical_exam: string | null
           price: number
           referral: string | null
@@ -263,11 +267,15 @@ export type Database = {
           differential_diagnosis?: string | null
           doctor_id: string
           ended_at?: string | null
+          escrow_amount?: number | null
           finalized_at?: string | null
           follow_up_plan?: string | null
           id?: string
           notes?: string | null
+          paid_at?: string | null
           patient_id: string
+          payment_reference?: string | null
+          payment_status?: Database["public"]["Enums"]["consultation_payment_status"]
           physical_exam?: string | null
           price: number
           referral?: string | null
@@ -287,11 +295,15 @@ export type Database = {
           differential_diagnosis?: string | null
           doctor_id?: string
           ended_at?: string | null
+          escrow_amount?: number | null
           finalized_at?: string | null
           follow_up_plan?: string | null
           id?: string
           notes?: string | null
+          paid_at?: string | null
           patient_id?: string
+          payment_reference?: string | null
+          payment_status?: Database["public"]["Enums"]["consultation_payment_status"]
           physical_exam?: string | null
           price?: number
           referral?: string | null
@@ -1274,6 +1286,12 @@ export type Database = {
     }
     Enums: {
       app_role: "patient" | "doctor" | "pharmacist" | "admin"
+      consultation_payment_status:
+        | "pending"
+        | "escrowed"
+        | "released"
+        | "refunded"
+        | "failed"
       consultation_status: "scheduled" | "ongoing" | "completed" | "cancelled"
       order_status:
         | "pending"
@@ -1413,6 +1431,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["patient", "doctor", "pharmacist", "admin"],
+      consultation_payment_status: [
+        "pending",
+        "escrowed",
+        "released",
+        "refunded",
+        "failed",
+      ],
       consultation_status: ["scheduled", "ongoing", "completed", "cancelled"],
       order_status: [
         "pending",

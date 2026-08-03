@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Clock, Video, FileText, Loader2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import PaymentStatusBadge, { getPaymentStatusHint } from '@/components/shared/PaymentStatusBadge';
 
 interface Consultation {
     id: string;
@@ -13,6 +14,8 @@ interface Consultation {
     status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
     price: number;
     doctor_id: string;
+    payment_status?: string | null;
+    escrow_amount?: number | null;
     doctor_profile?: {
         first_name: string;
         last_name: string;
@@ -47,7 +50,7 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
             const { data, error } = await supabase
                 .from('consultations')
                 .select(`
-                    id, scheduled_at, status, price, doctor_id,
+                    id, scheduled_at, status, price, doctor_id, payment_status, escrow_amount,
                     profiles:doctor_id (first_name, last_name, metadata)
                 `)
                 .eq('patient_id', user.id)
@@ -76,6 +79,8 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
                 status: c.status,
                 price: c.price,
                 doctor_id: c.doctor_id,
+                payment_status: c.payment_status,
+                escrow_amount: c.escrow_amount,
                 doctor_profile: {
                     first_name: c.profiles?.first_name || 'Unknown',
                     last_name: c.profiles?.last_name || 'Doctor',
@@ -161,8 +166,15 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
                                             </p>
                                         </div>
                                     </div>
-                                    {getStatusBadge(consultation.status)}
+                                    <div className="flex flex-col items-end gap-1">
+                                        {getStatusBadge(consultation.status)}
+                                        <PaymentStatusBadge status={consultation.payment_status} />
+                                    </div>
                                 </div>
+
+                                <p className="text-[11px] text-muted-foreground">
+                                    {getPaymentStatusHint(consultation.payment_status)}
+                                </p>
 
                                 <div className="grid grid-cols-2 gap-3 pt-2">
                                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -178,8 +190,10 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
 
                             <div className="bg-muted/30 p-4 flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-3 min-w-[140px] border-t sm:border-t-0 sm:border-l">
                                 <div className="text-center hidden sm:block">
-                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Price</p>
-                                    <p className="text-lg font-bold">₦{consultation.price.toLocaleString()}</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                        {consultation.payment_status === 'escrowed' ? 'In escrow' : 'Price'}
+                                    </p>
+                                    <p className="text-lg font-bold">₦{(consultation.escrow_amount ?? consultation.price).toLocaleString()}</p>
                                 </div>
 
                                 <div className="flex sm:flex-col gap-2 w-full">
