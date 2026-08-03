@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Clock, Video, FileText, Loader2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import ConsultationReport from './ConsultationReport';
 
 interface Consultation {
     id: string;
@@ -30,6 +31,7 @@ interface ConsultationsListProps {
 export default function ConsultationsList({ onJoinCall }: ConsultationsListProps) {
     const [consultations, setConsultations] = useState<Consultation[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedReport, setSelectedReport] = useState<Consultation | null>(null);
 
     useEffect(() => {
         fetchConsultations();
@@ -55,7 +57,6 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
 
             if (error) throw error;
 
-            // Fetch doctor specialties separately (no direct FK from consultations to doctors)
             const doctorIds = [...new Set((data || []).map(c => c.doctor_id))];
             let specialtiesMap = new Map<string, string[]>();
 
@@ -133,77 +134,93 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
     }
 
     return (
-        <div className="space-y-4">
-            {consultations.map((consultation) => (
-                <Card key={consultation.id} className="overflow-hidden hover:shadow-sm transition-shadow">
-                    <CardContent className="p-0">
-                        <div className="flex flex-col sm:flex-row">
-                            <div className="p-4 flex-1 space-y-3">
-                                <div className="flex justify-between items-start">
-                                    <div className="flex gap-3">
-                                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                            {consultation.doctor_profile?.metadata?.avatar_url ? (
-                                                <img
-                                                    src={consultation.doctor_profile.metadata.avatar_url}
-                                                    alt="Doctor"
-                                                    className="w-full h-full rounded-full object-cover"
-                                                />
-                                            ) : (
-                                                <User className="w-6 h-6 text-primary" />
-                                            )}
+        <>
+            <div className="space-y-4">
+                {consultations.map((consultation) => (
+                    <Card key={consultation.id} className="overflow-hidden hover:shadow-sm transition-shadow">
+                        <CardContent className="p-0">
+                            <div className="flex flex-col sm:flex-row">
+                                <div className="p-4 flex-1 space-y-3">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex gap-3">
+                                            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                                {consultation.doctor_profile?.metadata?.avatar_url ? (
+                                                    <img
+                                                        src={consultation.doctor_profile.metadata.avatar_url}
+                                                        alt="Doctor"
+                                                        className="w-full h-full rounded-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <User className="w-6 h-6 text-primary" />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold flex items-center gap-2">
+                                                    Dr. {consultation.doctor_profile?.first_name} {consultation.doctor_profile?.last_name}
+                                                </h3>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {consultation.doctor_profile?.specialties?.[0] || 'Medical Specialist'}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h3 className="font-bold flex items-center gap-2">
-                                                Dr. {consultation.doctor_profile?.first_name} {consultation.doctor_profile?.last_name}
-                                            </h3>
-                                            <p className="text-xs text-muted-foreground">
-                                                {consultation.doctor_profile?.specialties?.[0] || 'Medical Specialist'}
-                                            </p>
+                                        {getStatusBadge(consultation.status)}
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3 pt-2">
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                            <Calendar className="w-4 h-4" />
+                                            <span>{format(new Date(consultation.scheduled_at), 'MMM dd, yyyy')}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                            <Clock className="w-4 h-4" />
+                                            <span>{format(new Date(consultation.scheduled_at), 'hh:mm a')}</span>
                                         </div>
                                     </div>
-                                    {getStatusBadge(consultation.status)}
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3 pt-2">
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <Calendar className="w-4 h-4" />
-                                        <span>{format(new Date(consultation.scheduled_at), 'MMM dd, yyyy')}</span>
+                                <div className="bg-muted/30 p-4 flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-3 min-w-[140px] border-t sm:border-t-0 sm:border-l">
+                                    <div className="text-center hidden sm:block">
+                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Price</p>
+                                        <p className="text-lg font-bold">₦{consultation.price.toLocaleString()}</p>
                                     </div>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <Clock className="w-4 h-4" />
-                                        <span>{format(new Date(consultation.scheduled_at), 'hh:mm a')}</span>
+
+                                    <div className="flex sm:flex-col gap-2 w-full">
+                                        {consultation.status === 'scheduled' || consultation.status === 'ongoing' ? (
+                                            <Button
+                                                size="sm"
+                                                className="w-full gap-2 bg-primary"
+                                                onClick={() => onJoinCall && onJoinCall(consultation)}
+                                            >
+                                                <Video className="w-4 h-4" />
+                                                Join Call
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="w-full gap-2 hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition-colors"
+                                                onClick={() => setSelectedReport(consultation)}
+                                            >
+                                                <FileText className="w-4 h-4" />
+                                                Report
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
 
-                            <div className="bg-muted/30 p-4 flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-3 min-w-[140px] border-t sm:border-t-0 sm:border-l">
-                                <div className="text-center hidden sm:block">
-                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Price</p>
-                                    <p className="text-lg font-bold">₦{consultation.price.toLocaleString()}</p>
-                                </div>
-
-                                <div className="flex sm:flex-col gap-2 w-full">
-                                    {consultation.status === 'scheduled' || consultation.status === 'ongoing' ? (
-                                        <Button
-                                            size="sm"
-                                            className="w-full gap-2 bg-primary"
-                                            onClick={() => onJoinCall && onJoinCall(consultation)}
-                                        >
-                                            <Video className="w-4 h-4" />
-                                            Join Call
-                                        </Button>
-                                    ) : (
-                                        <Button size="sm" variant="outline" className="w-full gap-2">
-                                            <FileText className="w-4 h-4" />
-                                            Report
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            ))}
-        </div>
+            {/* Consultation Report Modal */}
+            {selectedReport && (
+                <ConsultationReport
+                    open={!!selectedReport}
+                    onClose={() => setSelectedReport(null)}
+                    consultation={selectedReport}
+                />
+            )}
+        </>
     );
 }

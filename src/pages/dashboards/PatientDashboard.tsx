@@ -6,8 +6,9 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import BottomNav from '@/components/layout/BottomNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Calendar, Pill, Wallet, Bot, Video, User, Activity } from 'lucide-react';
+import { MessageSquare, Calendar, Pill, Wallet, Bot, Video, Activity, Sparkles } from 'lucide-react';
 import AIChatInterface from '@/components/patient/AIChatInterface';
+import ClinicalAssessmentDashboard from '@/components/patient/ClinicalAssessmentDashboard';
 import DoctorSearch from '@/components/patient/DoctorSearch';
 import MedicationMarketplace from '@/components/patient/MedicationMarketplace';
 import PatientProfile from '@/components/patient/PatientProfile';
@@ -17,12 +18,14 @@ import OrderList from '@/components/patient/OrderList';
 import AiChatHistory from '@/components/patient/AiChatHistory';
 import ConsultationRoom from '@/components/patient/ConsultationRoom';
 import HealthTracker from '@/components/patient/HealthTracker';
+import { ClinicalAssessmentData } from '@/types/clinicalAssessment';
 
 export default function PatientDashboard() {
   const { profile, user } = useAuth();
   const firstName = profile?.first_name || 'Patient';
   const [activeTab, setActiveTab] = useState('ai-chat');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [currentAssessment, setCurrentAssessment] = useState<ClinicalAssessmentData | null>(null);
   const [activeConsultation, setActiveConsultation] = useState<any | null>(null);
   const [preselectedSpecialty, setPreselectedSpecialty] = useState<string | undefined>(undefined);
 
@@ -63,12 +66,16 @@ export default function PatientDashboard() {
   };
 
   const tabs = [
-    { id: 'ai-chat', label: 'AI Chat', icon: Bot },
+    { id: 'ai-chat', label: 'AI Triage', icon: Bot },
     { id: 'consultations', label: 'Doctors', icon: Video },
     { id: 'vitals', label: 'Vitals', icon: Activity },
     { id: 'pharmacy', label: 'Pharmacy', icon: Pill },
   ];
 
+  const handleBookConsultWithSpecialty = (specialty: string) => {
+    setPreselectedSpecialty(specialty);
+    setActiveTab('consultations');
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -80,13 +87,31 @@ export default function PatientDashboard() {
               setSelectedSessionId(null);
               setActiveTab('ai-history');
             }}
-            onBookConsult={(specialist) => {
-              setPreselectedSpecialty(specialist);
-              setActiveTab('consultations');
+            onViewAssessment={(assessmentData) => {
+              setCurrentAssessment(assessmentData);
+              setActiveTab('assessment-dashboard');
             }}
+            onBookConsult={handleBookConsultWithSpecialty}
             onPharmacyRedirect={() => setActiveTab('pharmacy')}
           />
         );
+
+      case 'assessment-dashboard':
+        return currentAssessment ? (
+          <ClinicalAssessmentDashboard
+            assessment={currentAssessment}
+            onBookConsult={handleBookConsultWithSpecialty}
+            onPharmacyRedirect={() => setActiveTab('pharmacy')}
+            onReopenChat={() => setActiveTab('ai-chat')}
+          />
+        ) : (
+          <div className="text-center py-12 space-y-3">
+            <Sparkles className="w-10 h-10 text-primary mx-auto opacity-50" />
+            <p className="text-sm text-muted-foreground">No active assessment available. Please complete an AI consultation first.</p>
+            <Button onClick={() => setActiveTab('ai-chat')}>Start AI Consultation</Button>
+          </div>
+        );
+
       case 'ai-history':
         return (
           <div className="space-y-4">
@@ -98,11 +123,13 @@ export default function PatientDashboard() {
               }}
               onNewChat={() => {
                 setSelectedSessionId(null);
+                setCurrentAssessment(null);
                 setActiveTab('ai-chat');
               }}
             />
           </div>
         );
+
       case 'consultations':
         return (
           <div className="space-y-4">
@@ -110,6 +137,7 @@ export default function PatientDashboard() {
             <DoctorSearch initialSpecialty={preselectedSpecialty} />
           </div>
         );
+
       case 'consultations-list':
         return (
           <div className="space-y-4">
@@ -120,6 +148,7 @@ export default function PatientDashboard() {
             }} />
           </div>
         );
+
       case 'video-consultation':
         return activeConsultation ? (
           <ConsultationRoom
@@ -131,6 +160,7 @@ export default function PatientDashboard() {
             onPharmacyRedirect={() => setActiveTab('pharmacy')}
           />
         ) : null;
+
       case 'orders-list':
         return (
           <div className="space-y-4">
@@ -138,8 +168,10 @@ export default function PatientDashboard() {
             <OrderList />
           </div>
         );
+
       case 'vitals':
         return <HealthTracker />;
+
       case 'pharmacy':
         return (
           <div className="space-y-4">
@@ -147,10 +179,13 @@ export default function PatientDashboard() {
             <MedicationMarketplace />
           </div>
         );
+
       case 'profile':
         return <PatientProfile />;
+
       case 'wallet':
         return <WalletView balance={wallet.balance} escrow={wallet.escrow} />;
+
       default:
         return null;
     }
@@ -163,7 +198,18 @@ export default function PatientDashboard() {
       activeTab={activeTab}
       onTabChange={setActiveTab}
       headerActions={
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
+          {currentAssessment && activeTab !== 'assessment-dashboard' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setActiveTab('assessment-dashboard')}
+              className="h-9 gap-1.5 text-xs border-primary/40 text-primary hover:bg-primary/5"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>View Assessment</span>
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -203,6 +249,7 @@ export default function PatientDashboard() {
               <p className="text-[10px] text-muted-foreground">See history</p>
             </CardContent>
           </Card>
+
           <Card
             className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setActiveTab('consultations-list')}
@@ -216,6 +263,7 @@ export default function PatientDashboard() {
               <p className="text-[10px] text-muted-foreground">Recent visits</p>
             </CardContent>
           </Card>
+
           <Card
             className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setActiveTab('orders-list')}
@@ -229,6 +277,7 @@ export default function PatientDashboard() {
               <p className="text-[10px] text-muted-foreground">Track drugs</p>
             </CardContent>
           </Card>
+
           <Card
             className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setActiveTab('vitals')}
@@ -243,7 +292,6 @@ export default function PatientDashboard() {
             </CardContent>
           </Card>
         </div>
-
 
         {/* Main Content Area */}
         <div className="min-h-[60vh]">
