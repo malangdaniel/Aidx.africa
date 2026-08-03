@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
-import { Video, Phone, MessageSquare, CheckCircle2, Loader2 } from 'lucide-react';
+import { Video, Phone, MessageSquare, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
 import { Doctor } from './DoctorCard';
 import { supabase } from '@/integrations/supabase/client';
+import PaymentStatusBadge from '@/components/shared/PaymentStatusBadge';
 
 interface BookingModalProps {
     doctor: Doctor | null;
