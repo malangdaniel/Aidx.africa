@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
-import { Video, Phone, MessageSquare, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
+import { Video, Phone, MessageSquare, CheckCircle2, Loader2, ShieldCheck, RefreshCw, Clock } from 'lucide-react';
 import { Doctor } from './DoctorCard';
 import { supabase } from '@/integrations/supabase/client';
 import PaymentStatusBadge from '@/components/shared/PaymentStatusBadge';
+import { isDayAvailableForDoctor, formatTime12, formatAvailableDaysList } from '@/lib/doctorAvailability';
 
 interface BookingModalProps {
     doctor: Doctor | null;
