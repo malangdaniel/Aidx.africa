@@ -17,8 +17,6 @@ interface BookingModalProps {
     onConfirm: (bookingDetails: any) => void;
 }
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
 const parseTime = (value: string | undefined, fallback: number) => {
     if (!value) return fallback;
     const m = value.match(/^(\d{1,2}):(\d{2})/);
@@ -34,17 +32,25 @@ const formatSlot = (date: Date) =>
 export default function BookingModal({ doctor, isOpen, onClose, onConfirm }: BookingModalProps) {
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [slots, setSlots] = useState<Date[]>([]);
+    const [bookedCount, setBookedCount] = useState(0);
+    const [dayFull, setDayFull] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [consultType, setConsultType] = useState('video');
     const [step, setStep] = useState(1);
 
     const availableDays: string[] = doctor?.availableDays?.length ? doctor.availableDays : [];
+    const modes = doctor?.consultationModes?.length ? doctor.consultationModes : ['video', 'audio', 'chat'];
 
-    const isDayAvailable = useCallback((d: Date) => {
-        if (!availableDays.length) return true;
-        return availableDays.some(day => day.toLowerCase().startsWith(DAY_NAMES[d.getDay()].slice(0, 3).toLowerCase()));
-    }, [availableDays]);
+    useEffect(() => {
+        if (!modes.includes(consultType)) setConsultType(modes[0]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [doctor?.id]);
+
+    const isDayAvailable = useCallback(
+        (d: Date) => isDayAvailableForDoctor(d, availableDays),
+        [availableDays]
+    );
 
     const loadSlots = useCallback(async () => {
         if (!doctor || !date) return;
@@ -59,10 +65,12 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm }: Boo
             const now = new Date();
 
             const generated: Date[] = [];
-            for (let m = startMin; m + step <= endMin; m += step) {
-                const slot = new Date(base.getTime());
-                slot.setHours(0, m, 0, 0);
-                if (slot.getTime() > now.getTime()) generated.push(slot);
+            if (isDayAvailable(date)) {
+                for (let m = startMin; m + step <= endMin; m += step) {
+                    const slot = new Date(base.getTime());
+                    slot.setHours(0, m, 0, 0);
+                    if (slot.getTime() > now.getTime()) generated.push(slot);
+                }
             }
 
             let booked: number[] = [];
@@ -81,11 +89,27 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm }: Boo
                 }
             }
 
-            setSlots(generated.filter(s => !booked.includes(s.getTime())));
+            setBookedCount(booked.length);
+
+            const stepMs = step * 60 * 1000;
+            // Remove any slot that overlaps an existing booking (not just exact matches)
+            const free = generated.filter(s => {
+                const start = s.getTime();
+                const end = start + stepMs;
+                return !booked.some(b => b < end && b + stepMs > start);
+            });
+
+            const maxPerDay = doctor.maxConsultationsPerDay && doctor.maxConsultationsPerDay > 0
+                ? doctor.maxConsultationsPerDay
+                : null;
+            const remaining = maxPerDay ? Math.max(0, maxPerDay - booked.length) : free.length;
+            setDayFull(!!maxPerDay && remaining === 0 && free.length > 0);
+
+            setSlots(free.slice(0, remaining));
         } finally {
             setLoadingSlots(false);
         }
-    }, [doctor, date]);
+    }, [doctor, date, isDayAvailable]);
 
     useEffect(() => {
         if (isOpen) loadSlots();
