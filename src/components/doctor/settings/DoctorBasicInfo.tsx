@@ -1,5 +1,6 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
@@ -9,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 interface DoctorBasicInfoProps {
   data: {
     professionalTitle: string;
+    about: string;
     profilePhoto: string;
     gender: string;
     country: string;
@@ -96,6 +98,22 @@ export function DoctorBasicInfo({ data, firstName, lastName, onFirstNameChange, 
             onChange={(e) => onLastNameChange(e.target.value)}
           />
         </div>
+      </div>
+
+      {/* About */}
+      <div className="space-y-2">
+        <Label htmlFor="about">About Dr {lastName || ""}</Label>
+        <Textarea
+          id="about"
+          rows={5}
+          maxLength={1200}
+          placeholder="Introduce yourself to patients: your approach to care, focus areas, and experience."
+          value={data.about || ""}
+          onChange={(e) => onChange("about", e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          This appears in the "About" section of your public profile. {(data.about || "").length}/1200
+        </p>
       </div>
 
       {/* Gender and Location */}

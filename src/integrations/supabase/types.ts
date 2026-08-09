@@ -231,53 +231,86 @@ export type Database = {
       }
       consultations: {
         Row: {
+          chief_complaint: string | null
           clinical_summary: string | null
           created_at: string
           decision_support: Json | null
           diagnosis: string | null
+          differential_diagnosis: string | null
           doctor_id: string
           ended_at: string | null
+          escrow_amount: number | null
+          finalized_at: string | null
+          follow_up_plan: string | null
           id: string
           notes: string | null
+          paid_at: string | null
           patient_id: string
+          payment_reference: string | null
+          payment_status: Database["public"]["Enums"]["consultation_payment_status"]
+          physical_exam: string | null
           price: number
+          referral: string | null
           scheduled_at: string | null
           started_at: string | null
           status: Database["public"]["Enums"]["consultation_status"] | null
+          symptom_checklist: Json
           transcript: Json | null
           updated_at: string
         }
         Insert: {
+          chief_complaint?: string | null
           clinical_summary?: string | null
           created_at?: string
           decision_support?: Json | null
           diagnosis?: string | null
+          differential_diagnosis?: string | null
           doctor_id: string
           ended_at?: string | null
+          escrow_amount?: number | null
+          finalized_at?: string | null
+          follow_up_plan?: string | null
           id?: string
           notes?: string | null
+          paid_at?: string | null
           patient_id: string
+          payment_reference?: string | null
+          payment_status?: Database["public"]["Enums"]["consultation_payment_status"]
+          physical_exam?: string | null
           price: number
+          referral?: string | null
           scheduled_at?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["consultation_status"] | null
+          symptom_checklist?: Json
           transcript?: Json | null
           updated_at?: string
         }
         Update: {
+          chief_complaint?: string | null
           clinical_summary?: string | null
           created_at?: string
           decision_support?: Json | null
           diagnosis?: string | null
+          differential_diagnosis?: string | null
           doctor_id?: string
           ended_at?: string | null
+          escrow_amount?: number | null
+          finalized_at?: string | null
+          follow_up_plan?: string | null
           id?: string
           notes?: string | null
+          paid_at?: string | null
           patient_id?: string
+          payment_reference?: string | null
+          payment_status?: Database["public"]["Enums"]["consultation_payment_status"]
+          physical_exam?: string | null
           price?: number
+          referral?: string | null
           scheduled_at?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["consultation_status"] | null
+          symptom_checklist?: Json
           transcript?: Json | null
           updated_at?: string
         }
@@ -1233,6 +1266,12 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      get_doctor_booked_slots: {
+        Args: { _day: string; _doctor_id: string }
+        Returns: {
+          scheduled_at: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1240,9 +1279,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_treating_doctor: {
+        Args: { _doctor_id: string; _patient_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "patient" | "doctor" | "pharmacist" | "admin"
+      consultation_payment_status:
+        | "pending"
+        | "escrowed"
+        | "released"
+        | "refunded"
+        | "failed"
       consultation_status: "scheduled" | "ongoing" | "completed" | "cancelled"
       order_status:
         | "pending"
@@ -1382,6 +1431,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["patient", "doctor", "pharmacist", "admin"],
+      consultation_payment_status: [
+        "pending",
+        "escrowed",
+        "released",
+        "refunded",
+        "failed",
+      ],
       consultation_status: ["scheduled", "ongoing", "completed", "cancelled"],
       order_status: [
         "pending",

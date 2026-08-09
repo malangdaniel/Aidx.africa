@@ -18,6 +18,7 @@ interface DoctorProfileSettingsProps {
 // Default state factory
 const getDefaultBasicInfo = () => ({
   professionalTitle: "",
+  about: "",
   profilePhoto: "",
   gender: "",
   country: "",
@@ -114,7 +115,8 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
           }));
           setBasicInfo(prev => ({
             ...prev,
-            registrationNumber: doctorData.license_number || prev.registrationNumber
+            registrationNumber: doctorData.license_number || prev.registrationNumber,
+            about: prev.about || doctorData.bio || ""
           }));
         }
       } catch (error) {
@@ -184,7 +186,9 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
         license_number: basicInfo.registrationNumber,
         specialties: credentials.specialty ? [credentials.specialty] : [],
         consult_price: parseFloat(availability.consultPrice) || 0,
-        bio: `${basicInfo.professionalTitle} ${firstName} ${lastName} - ${credentials.specialty || "Medical Professional"}`,
+        bio: basicInfo.about?.trim()
+          ? basicInfo.about.trim()
+          : `${basicInfo.professionalTitle} ${firstName} ${lastName} - ${credentials.specialty || "Medical Professional"}`,
         updated_at: new Date().toISOString()
       };
 
