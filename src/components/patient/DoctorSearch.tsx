@@ -106,6 +106,7 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
                     workingHours: `${startHours} - ${endHours}${avail.timezone ? ` (${avail.timezone})` : ''}`,
                     workingHoursStart: startHours,
                     workingHoursEnd: endHours,
+                    maxConsultationsPerDay: Number(avail.maxConsultationsPerDay) || undefined,
                     slotDurationMinutes: Number(avail.slotDurationMinutes) || Number(avail.consultDuration) || 30,
                     emergencyAvailable: !!avail.emergencyAvailable,
                 };
