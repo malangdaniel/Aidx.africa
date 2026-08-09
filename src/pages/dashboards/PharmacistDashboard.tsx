@@ -140,7 +140,12 @@ export default function PharmacistDashboard() {
   };
 
   return (
-    <DashboardLayout title="Pharmacy Dashboard">
+    <DashboardLayout
+      title="Pharmacy Dashboard"
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+    >
       <div className="space-y-4">
         {/* Welcome Banner */}
         <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-4 text-primary-foreground">
