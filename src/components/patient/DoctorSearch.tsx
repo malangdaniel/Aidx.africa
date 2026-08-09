@@ -9,6 +9,7 @@ import DoctorProfileOverlay from './DoctorProfileOverlay';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { ConsultationService } from '@/services/ConsultationService';
+import { computeRealNextAvailable } from '@/lib/doctorAvailability';
 
 interface DoctorSearchProps {
     initialSpecialty?: string;
@@ -75,6 +76,12 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
                 const education = [creds.primaryDegree, ...(creds.postgraduateQualifications || [])]
                     .filter(Boolean).join(', ');
 
+                const startHours = avail.workingHoursStart || '09:00';
+                const endHours = avail.workingHoursEnd || '17:00';
+                const rawDays = avail.availableDays && avail.availableDays.length > 0
+                    ? avail.availableDays
+                    : ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+
                 return {
                     id: d.id, // This is the doctor table ID
                     userId: d.user_id, // Auth user id
@@ -83,9 +90,7 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
                     subSpecialty: creds.subSpecialty || undefined,
                     rating: Number(d.rating) || 0,
                     reviews: d.total_consultations || 0,
-                    nextAvailable: avail.availableDays && avail.availableDays.length > 0
-                        ? avail.availableDays.slice(0, 2).join(', ')
-                        : 'Contact for availability',
+                    nextAvailable: computeRealNextAvailable(rawDays, startHours, endHours),
                     price: Number(avail.consultPrice) || Number(d.consult_price) || 0,
                     imageUrl: basic.profilePhoto || meta.avatar_url || undefined,
                     bio: d.bio || undefined,
@@ -95,15 +100,13 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
                     education: education || undefined,
                     affiliations: creds.currentAffiliations || [],
                     conditionsTreated: expertise.conditionsTreated || [],
-                    consultationModes: avail.consultationModes || [],
+                    consultationModes: avail.consultationModes && avail.consultationModes.length > 0 ? avail.consultationModes : ['video', 'chat', 'audio'],
                     licenseNumber: d.license_number || basic.registrationNumber || undefined,
-                    availableDays: avail.availableDays || [],
-                    workingHours: avail.workingHoursStart && avail.workingHoursEnd
-                        ? `${avail.workingHoursStart} - ${avail.workingHoursEnd}${avail.timezone ? ` (${avail.timezone})` : ''}`
-                        : undefined,
-                    workingHoursStart: avail.workingHoursStart || undefined,
-                    workingHoursEnd: avail.workingHoursEnd || undefined,
-                    slotDurationMinutes: Number(avail.slotDurationMinutes) || Number(avail.consultDuration) || undefined,
+                    availableDays: rawDays,
+                    workingHours: `${startHours} - ${endHours}${avail.timezone ? ` (${avail.timezone})` : ''}`,
+                    workingHoursStart: startHours,
+                    workingHoursEnd: endHours,
+                    slotDurationMinutes: Number(avail.slotDurationMinutes) || Number(avail.consultDuration) || 30,
                     emergencyAvailable: !!avail.emergencyAvailable,
                 };
             });

@@ -49,16 +49,16 @@ const getDefaultExpertise = () => ({
 });
 
 const getDefaultAvailability = () => ({
-  consultationModes: [] as string[],
-  availableDays: [] as string[],
+  consultationModes: ["chat", "audio", "video"],
+  availableDays: ["monday", "tuesday", "wednesday", "thursday", "friday"],
   workingHoursStart: "09:00",
   workingHoursEnd: "17:00",
   timezone: "Africa/Lagos (WAT)",
-  avgResponseTime: "",
+  avgResponseTime: "Within 30 minutes",
   maxConsultationsPerDay: "10",
   emergencyAvailable: false,
   onCallStatus: false,
-  consultPrice: ""
+  consultPrice: "5000"
 });
 
 export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
