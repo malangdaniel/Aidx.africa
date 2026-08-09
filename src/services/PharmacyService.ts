@@ -171,25 +171,41 @@ export const PharmacyService = {
         }));
     },
 
-    addToInventory: async (pharmacyId: string, _drugId: string, price: number, stock: number): Promise<InventoryItem> => {
-        // Since 'drugs' table combines drug details and inventory info, 
-        // 'addToInventory' in this context essentially means "Create or Update a Drug Listing" for this pharmacy.
-        // The original interface passed 'drugId' implying a global drug catalog, but we have a per-pharmacy drugs table.
-        // For this 'production ready' version, we assume we are creating a NEW drug entry or updating an existing one.
-        // However, the signature matches the old mock. If we strictly follow the 'drugs' table schema:
-        // We can't reuse a 'drugId' from another pharmacy easily unless we copy data.
+    getMyPharmacyId: async (): Promise<string | null> => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+        const { data, error } = await supabase
+            .from('pharmacies')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        if (error) throw error;
+        return data?.id ?? null;
+    },
 
-        // For now, let's assume we are just updating stock/price if it exists, or throwing error because creating a new drug requires name/desc.
-        // This function signature is actually insufficient for the current schema if creating new drugs.
-        // I'll update it to be 'updateStock' effectively, or just mock it slightly differently if needed by UI.
-        // But wait, the UI likely calls this to "Add Drug".
-        console.warn("addToInventory implementation limited by schema - treating as update");
-
+    createDrug: async (pharmacyId: string, payload: {
+        name: string;
+        description?: string;
+        category?: string;
+        price: number;
+        stock: number;
+        prescriptionRequired?: boolean;
+        manufacturer?: string;
+        expiryDate?: string | null;
+    }): Promise<InventoryItem> => {
         const { data, error } = await supabase
             .from('drugs')
-            .update({ price, stock_quantity: stock })
-            .eq('id', _drugId)
-            .eq('pharmacy_id', pharmacyId)
+            .insert({
+                pharmacy_id: pharmacyId,
+                name: payload.name,
+                description: payload.description || null,
+                category: payload.category || null,
+                price: payload.price,
+                stock_quantity: payload.stock,
+                prescription_required: payload.prescriptionRequired ?? false,
+                manufacturer: payload.manufacturer || null,
+                expiry_date: payload.expiryDate || null,
+            })
             .select()
             .single();
 
@@ -202,14 +218,45 @@ export const PharmacyService = {
             drug: {
                 id: data.id,
                 name: data.name,
-                description: data.description,
-                category: data.category,
+                description: data.description || "",
+                category: data.category || "General",
+                image: data.image_url,
                 requiresPrescription: data.prescription_required
             },
             price: data.price,
             stock: data.stock_quantity
         };
     },
+
+    updateDrug: async (drugId: string, payload: {
+        name?: string;
+        description?: string;
+        category?: string;
+        price?: number;
+        stock?: number;
+        prescriptionRequired?: boolean;
+        manufacturer?: string;
+        expiryDate?: string | null;
+    }): Promise<void> => {
+        const patch: Record<string, any> = {};
+        if (payload.name !== undefined) patch.name = payload.name;
+        if (payload.description !== undefined) patch.description = payload.description || null;
+        if (payload.category !== undefined) patch.category = payload.category || null;
+        if (payload.price !== undefined) patch.price = payload.price;
+        if (payload.stock !== undefined) patch.stock_quantity = payload.stock;
+        if (payload.prescriptionRequired !== undefined) patch.prescription_required = payload.prescriptionRequired;
+        if (payload.manufacturer !== undefined) patch.manufacturer = payload.manufacturer || null;
+        if (payload.expiryDate !== undefined) patch.expiry_date = payload.expiryDate || null;
+
+        const { error } = await supabase.from('drugs').update(patch).eq('id', drugId);
+        if (error) throw error;
+    },
+
+    deleteDrug: async (drugId: string): Promise<void> => {
+        const { error } = await supabase.from('drugs').delete().eq('id', drugId);
+        if (error) throw error;
+    },
+
 
     checkout: async (userId: string, items: { drugId: string; quantity: number; price: number }[], totalAmount: number, address: string) => {
         // 1. Create Order
