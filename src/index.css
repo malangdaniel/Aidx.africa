@@ -92,23 +92,68 @@
     @apply border-border;
   }
 
+  html {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground tracking-tight;
   }
 }
 
-/* Custom Utilities for Glassmorphism & Modern UI */
+/* Custom Utilities for Glassmorphism, Ambient Lighting & Modern UI */
 @layer utilities {
   .glass-nav {
-    @apply bg-white/80 backdrop-blur-md border-t border-white/20 shadow-lg supports-[backdrop-filter]:bg-white/60;
-  }
-
-  .dark .glass-nav {
-    @apply bg-background/80 border-border/40;
+    @apply bg-background/80 backdrop-blur-xl border-b border-border/40 shadow-sm supports-[backdrop-filter]:bg-background/70;
   }
 
   .glass-card {
-    @apply bg-white/70 backdrop-blur-sm border border-white/20 shadow-sm;
+    @apply bg-card/95 backdrop-blur-md border border-border/60 shadow-sm transition-all duration-300;
+  }
+
+  .glass-card-hover {
+    @apply bg-card/95 backdrop-blur-md border border-border/60 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-300 hover:-translate-y-0.5;
+  }
+
+  .glass-panel {
+    @apply bg-white/70 dark:bg-card/70 backdrop-blur-lg border border-white/20 dark:border-border/40 shadow-sm;
+  }
+
+  .bg-ambient-mesh {
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(10, 46, 43, 0.04) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(244, 98, 58, 0.03) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(207, 232, 226, 0.15) 0px, transparent 50%);
+  }
+
+  .dark .bg-ambient-mesh {
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(207, 232, 226, 0.05) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(244, 98, 58, 0.05) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(10, 46, 43, 0.3) 0px, transparent 50%);
+  }
+
+  .bg-hero-gradient {
+    background: linear-gradient(135deg, hsl(174 65% 11%) 0%, hsl(174 65% 16%) 50%, hsl(165 33% 25%) 100%);
+  }
+
+  .shadow-luxury {
+    box-shadow: 0 10px 30px -10px rgba(10, 46, 43, 0.08), 0 4px 12px -2px rgba(10, 46, 43, 0.03);
+  }
+
+  .dark .shadow-luxury {
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4), 0 4px 12px -2px rgba(0, 0, 0, 0.2);
+  }
+
+  .shadow-glow-primary {
+    box-shadow: 0 0 20px -5px rgba(10, 46, 43, 0.25);
+  }
+
+  .shadow-glow-coral {
+    box-shadow: 0 0 20px -5px rgba(244, 98, 58, 0.35);
   }
 
   .safe-area-pb {
@@ -127,22 +172,38 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-}
 
-/* Mobile-first touch targets */
-@layer base {
+  .scrollbar-custom {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
 
-  button,
-  a,
-  [role="button"] {
-    @apply touch-manipulation;
+  .scrollbar-custom::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 9999px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
   }
 }
 
-/* Smooth scrolling for mobile */
-html {
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
+/* Mobile-first touch targets & click response */
+@layer base {
+  button,
+  a,
+  [role="button"] {
+    @apply touch-manipulation transition-transform active:scale-[0.98];
+  }
 }
 
 /* Prevent horizontal page overflow on small screens */
@@ -164,9 +225,9 @@ html, body, #root {
     max-width: 100%;
     height: auto;
   }
-  /* Tables and any wide content should scroll internally, not push the page */
   main table, main pre {
     display: block;
     overflow-x: auto;
   }
 }
+

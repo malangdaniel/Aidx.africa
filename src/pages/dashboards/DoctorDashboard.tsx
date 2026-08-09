@@ -382,57 +382,74 @@ export default function DoctorDashboard() {
         {/* Welcome Section */}
         {!activeConsultation && !activePatient && (
           <>
-            <div className="bg-gradient-to-br from-primary via-primary/90 to-secondary rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
-              <div className="relative z-10">
-                <h1 className="text-xl font-black tracking-tight mb-1">Welcome back, {doctorName}!</h1>
-                <p className="text-[13px] text-white/80 font-medium">
+            <div className="relative overflow-hidden rounded-2xl bg-hero-gradient p-6 md:p-8 text-primary-foreground shadow-luxury border border-white/10">
+              <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-accent/20 blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-12 -left-12 w-48 h-48 rounded-full bg-secondary/20 blur-3xl pointer-events-none" />
+
+              <div className="relative z-10 space-y-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-[11px] font-medium border border-white/15">
+                  <Stethoscope className="w-3.5 h-3.5 text-accent" />
+                  <span>Clinical Workstation</span>
+                </div>
+                <h1 className="text-xl md:text-2xl font-bold tracking-tight">Welcome back, {doctorName}!</h1>
+                <p className="text-sm text-primary-foreground/80 font-medium max-w-xl">
                   You have <span className="text-white font-bold">{stats.scheduled} session{stats.scheduled !== 1 ? 's' : ''}</span> scheduled.
                 </p>
               </div>
-              <Stethoscope className="absolute right-[-20px] bottom-[-20px] w-48 h-48 text-white/10 -rotate-12" />
+              <Stethoscope className="absolute right-[-20px] bottom-[-20px] w-48 h-48 text-white/5 -rotate-12 pointer-events-none" />
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <Card className="border-muted-foreground/10 shadow-sm">
+            <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
+              <Card className="group hover:border-primary/40 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 bg-card/80 backdrop-blur-sm">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">Total Consults</CardTitle>
+                  <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-200">
+                    <Users className="h-4 w-4 text-primary group-hover:text-primary-foreground" />
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <div className="text-2xl font-bold text-foreground">{stats.totalConsults}</div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Global consultations</p>
+                </CardContent>
+              </Card>
 
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total</CardTitle>
-                  <Users className="h-3.5 w-3.5 text-primary" />
+              <Card className="group hover:border-primary/40 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 bg-card/80 backdrop-blur-sm">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">Active Sessions</CardTitle>
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all duration-200">
+                    <Calendar className="h-4 w-4 text-emerald-600 dark:text-emerald-400 group-hover:text-white" />
+                  </div>
                 </CardHeader>
-                <CardContent className="p-3 pt-0">
-                  <div className="text-2xl font-black">{stats.totalConsults}</div>
-                  <p className="text-[9px] text-muted-foreground font-medium">Global Consults</p>
+                <CardContent className="p-4 pt-0">
+                  <div className="text-2xl font-bold text-foreground">{stats.scheduled + stats.ongoing}</div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Upcoming visits</p>
                 </CardContent>
               </Card>
-              <Card className="border-muted-foreground/10 shadow-sm">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Active</CardTitle>
-                  <Calendar className="h-3.5 w-3.5 text-secondary" />
+
+              <Card className="group hover:border-primary/40 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 bg-card/80 backdrop-blur-sm">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">Settled Earnings</CardTitle>
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all duration-200">
+                    <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400 group-hover:text-white" />
+                  </div>
                 </CardHeader>
-                <CardContent className="p-3 pt-0">
-                  <div className="text-2xl font-black">{stats.scheduled + stats.ongoing}</div>
-                  <p className="text-[9px] text-muted-foreground font-medium">Upcoming</p>
+                <CardContent className="p-4 pt-0">
+                  <div className="text-2xl font-bold text-foreground">₦{formatEarnings(stats.totalEarnings)}</div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Paid earnings</p>
                 </CardContent>
               </Card>
-              <Card className="border-muted-foreground/10 shadow-sm">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Settled</CardTitle>
-                  <DollarSign className="h-3.5 w-3.5 text-green-600" />
+
+              <Card className="group hover:border-primary/40 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 bg-card/80 backdrop-blur-sm">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">Reputation Score</CardTitle>
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all duration-200">
+                    <Star className="h-4 w-4 text-amber-500 fill-amber-500 group-hover:text-white group-hover:fill-white" />
+                  </div>
                 </CardHeader>
-                <CardContent className="p-3 pt-0">
-                  <div className="text-2xl font-black">{formatEarnings(stats.totalEarnings)}</div>
-                  <p className="text-[9px] text-muted-foreground font-medium">Paid Earnings</p>
-                </CardContent>
-              </Card>
-              <Card className="border-muted-foreground/10 shadow-sm">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Rep</CardTitle>
-                  <Star className="h-3.5 w-3.5 text-orange-500 fill-orange-500" />
-                </CardHeader>
-                <CardContent className="p-3 pt-0">
-                  <div className="text-2xl font-black">{stats.rating > 0 ? stats.rating.toFixed(1) : '—'}</div>
-                  <p className="text-[9px] text-muted-foreground font-medium">Excellence Score</p>
+                <CardContent className="p-4 pt-0">
+                  <div className="text-2xl font-bold text-foreground">{stats.rating > 0 ? stats.rating.toFixed(1) : '—'}</div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Excellence rating</p>
                 </CardContent>
               </Card>
             </div>

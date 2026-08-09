@@ -11,19 +11,19 @@ interface MobileHeaderProps {
 
 export function MobileHeader({ onSettingsClick, headerActions, notificationBell }: MobileHeaderProps) {
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-12 items-center justify-between px-4">
-        <img src={sanariLogo} alt="Sanari AI" className="h-7 w-auto" />
-        <div className="flex items-center gap-1">
+    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/85 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70 shadow-2xs">
+      <div className="flex h-14 items-center justify-between px-4">
+        <img src={sanariLogo} alt="Sanari AI" className="h-7 w-auto object-contain" />
+        <div className="flex items-center gap-1.5">
           {notificationBell}
           {headerActions}
           <Button
             variant="ghost"
             size="icon"
             onClick={onSettingsClick}
-            className="h-9 w-9 text-muted-foreground hover:text-foreground"
+            className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/70"
           >
-            <User className="w-5 h-5" />
+            <User className="w-4 h-4 text-primary" />
           </Button>
         </div>
       </div>

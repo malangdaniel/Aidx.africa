@@ -227,68 +227,91 @@ export default function PatientDashboard() {
         </div>
       }
     >
-      <div className="space-y-4">
-        {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-4 text-primary-foreground">
-          <h1 className="text-lg font-bold">Hi, {firstName}!</h1>
-          <p className="text-sm opacity-90">How can I help you today?</p>
+      <div className="space-y-6">
+        {/* Welcome Banner */}
+        <div className="relative overflow-hidden rounded-2xl bg-hero-gradient p-6 md:p-8 text-primary-foreground shadow-luxury border border-white/10">
+          {/* Subtle ambient lighting circles */}
+          <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-accent/20 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-12 -left-12 w-48 h-48 rounded-full bg-secondary/20 blur-3xl pointer-events-none" />
+          
+          <div className="relative z-10 space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-[11px] font-medium border border-white/15">
+              <Sparkles className="w-3 h-3 text-accent animate-pulse" />
+              <span>Sanari AI Triage • Always Online</span>
+            </div>
+            
+            <div className="space-y-1">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight">Welcome back, {firstName}!</h1>
+              <p className="text-sm text-primary-foreground/80 max-w-xl">
+                Describe your symptoms to our AI diagnostic engine or connect with top healthcare specialists.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
           <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors"
+            className="group cursor-pointer hover:border-primary/40 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 bg-card/80 backdrop-blur-sm"
             onClick={() => setActiveTab('ai-history')}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-              <CardTitle className="text-xs font-medium">AI Chats</CardTitle>
-              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+              <CardTitle className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">AI Consultations</CardTitle>
+              <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-200">
+                <MessageSquare className="h-4 w-4 text-primary group-hover:text-primary-foreground" />
+              </div>
             </CardHeader>
-            <CardContent className="p-3 pt-0">
-              <div className="text-xl font-bold text-primary">{stats.aiChats}</div>
-              <p className="text-[10px] text-muted-foreground">See history</p>
+            <CardContent className="p-4 pt-0">
+              <div className="text-2xl font-bold text-foreground">{stats.aiChats}</div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">View chat history →</p>
             </CardContent>
           </Card>
 
           <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors"
+            className="group cursor-pointer hover:border-primary/40 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 bg-card/80 backdrop-blur-sm"
             onClick={() => setActiveTab('consultations-list')}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-              <CardTitle className="text-xs font-medium">Consults</CardTitle>
-              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+              <CardTitle className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">Doctor Appointments</CardTitle>
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all duration-200">
+                <Calendar className="h-4 w-4 text-emerald-600 dark:text-emerald-400 group-hover:text-white" />
+              </div>
             </CardHeader>
-            <CardContent className="p-3 pt-0">
-              <div className="text-xl font-bold text-primary">{stats.consultations}</div>
-              <p className="text-[10px] text-muted-foreground">Recent visits</p>
+            <CardContent className="p-4 pt-0">
+              <div className="text-2xl font-bold text-foreground">{stats.consultations}</div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Manage visits →</p>
             </CardContent>
           </Card>
 
           <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors"
+            className="group cursor-pointer hover:border-primary/40 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 bg-card/80 backdrop-blur-sm"
             onClick={() => setActiveTab('orders-list')}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-              <CardTitle className="text-xs font-medium">Orders</CardTitle>
-              <Pill className="h-3.5 w-3.5 text-muted-foreground" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+              <CardTitle className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">Pharmacy Orders</CardTitle>
+              <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent group-hover:text-white transition-all duration-200">
+                <Pill className="h-4 w-4 text-accent group-hover:text-white" />
+              </div>
             </CardHeader>
-            <CardContent className="p-3 pt-0">
-              <div className="text-xl font-bold text-primary">{stats.orders}</div>
-              <p className="text-[10px] text-muted-foreground">Track drugs</p>
+            <CardContent className="p-4 pt-0">
+              <div className="text-2xl font-bold text-foreground">{stats.orders}</div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Track prescriptions →</p>
             </CardContent>
           </Card>
 
           <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors"
+            className="group cursor-pointer hover:border-primary/40 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 bg-card/80 backdrop-blur-sm"
             onClick={() => setActiveTab('vitals')}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-              <CardTitle className="text-xs font-medium">Vitals</CardTitle>
-              <Activity className="h-3.5 w-3.5 text-rose-500" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+              <CardTitle className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">Health Vitals</CardTitle>
+              <div className="w-8 h-8 rounded-xl bg-rose-500/10 flex items-center justify-center group-hover:bg-rose-500 group-hover:text-white transition-all duration-200">
+                <Activity className="h-4 w-4 text-rose-500 group-hover:text-white" />
+              </div>
             </CardHeader>
-            <CardContent className="p-3 pt-0">
-              <div className="text-xl font-bold text-primary">Track</div>
-              <p className="text-[10px] text-muted-foreground">Health stats</p>
+            <CardContent className="p-4 pt-0">
+              <div className="text-2xl font-bold text-foreground">Track</div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Monitor blood pressure & stats →</p>
             </CardContent>
           </Card>
         </div>
