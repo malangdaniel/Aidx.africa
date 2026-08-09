@@ -141,6 +141,14 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm }: Boo
 
                 {step === 1 && (
                     <div className="space-y-4 py-4">
+                        <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/40 p-3 text-xs">
+                            <Clock className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                            <span>
+                                {doctor.name} consults {formatAvailableDaysList(doctor.availableDays)},{' '}
+                                {formatTime12(doctor.workingHoursStart, '9:00 AM')} – {formatTime12(doctor.workingHoursEnd, '5:00 PM')}
+                                {' '}· {doctor.slotDurationMinutes || 30} min slots. Booked times are hidden automatically.
+                            </span>
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Select Date</Label>
@@ -155,27 +163,50 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm }: Boo
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <Label>Select Time</Label>
+                                <div className="flex items-center justify-between">
+                                    <Label>Select Time</Label>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 px-2 text-xs"
+                                        onClick={loadSlots}
+                                        disabled={loadingSlots}
+                                    >
+                                        <RefreshCw className={`w-3 h-3 mr-1 ${loadingSlots ? 'animate-spin' : ''}`} />
+                                        Refresh
+                                    </Button>
+                                </div>
                                 {loadingSlots ? (
                                     <div className="flex justify-center py-8">
                                         <Loader2 className="w-5 h-5 animate-spin text-primary" />
                                     </div>
                                 ) : slots.length > 0 ? (
-                                    <div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto pr-1">
-                                        {slots.map((slot) => (
-                                            <Button
-                                                key={slot.toISOString()}
-                                                variant={selectedSlot?.getTime() === slot.getTime() ? "default" : "outline"}
-                                                className="text-xs"
-                                                onClick={() => setSelectedSlot(slot)}
-                                            >
-                                                {formatSlot(slot)}
-                                            </Button>
-                                        ))}
-                                    </div>
+                                    <>
+                                        <p className="text-xs text-muted-foreground">
+                                            {slots.length} slot{slots.length === 1 ? '' : 's'} available
+                                            {bookedCount > 0 ? ` · ${bookedCount} already booked` : ''}
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto pr-1">
+                                            {slots.map((slot) => (
+                                                <Button
+                                                    key={slot.toISOString()}
+                                                    variant={selectedSlot?.getTime() === slot.getTime() ? "default" : "outline"}
+                                                    className="text-xs"
+                                                    onClick={() => setSelectedSlot(slot)}
+                                                >
+                                                    {formatSlot(slot)}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    </>
                                 ) : (
                                     <p className="text-sm text-muted-foreground py-4">
-                                        No time slots available for this day. Please pick another date.
+                                        {dayFull
+                                            ? 'This doctor is fully booked for this day. Please pick another date.'
+                                            : !isDayAvailable(date ?? new Date())
+                                                ? 'The doctor does not consult on this day. Please pick another date.'
+                                                : 'No time slots left for this day. Please pick another date.'}
                                     </p>
                                 )}
                             </div>
@@ -184,20 +215,27 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm }: Boo
                         <div className="space-y-2">
                             <Label>Consultation Type</Label>
                             <Tabs value={consultType} onValueChange={setConsultType} className="w-full">
-                                <TabsList className="grid w-full grid-cols-3">
-                                    <TabsTrigger value="video">
-                                        <Video className="w-4 h-4 mr-2" />
-                                        Video
-                                    </TabsTrigger>
-                                    <TabsTrigger value="audio">
-                                        <Phone className="w-4 h-4 mr-2" />
-                                        Audio
-                                    </TabsTrigger>
-                                    <TabsTrigger value="chat">
-                                        <MessageSquare className="w-4 h-4 mr-2" />
-                                        Chat
-                                    </TabsTrigger>
+                                <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${modes.length}, minmax(0, 1fr))` }}>
+                                    {modes.includes('video') && (
+                                        <TabsTrigger value="video">
+                                            <Video className="w-4 h-4 mr-2" />
+                                            Video
+                                        </TabsTrigger>
+                                    )}
+                                    {modes.includes('audio') && (
+                                        <TabsTrigger value="audio">
+                                            <Phone className="w-4 h-4 mr-2" />
+                                            Audio
+                                        </TabsTrigger>
+                                    )}
+                                    {modes.includes('chat') && (
+                                        <TabsTrigger value="chat">
+                                            <MessageSquare className="w-4 h-4 mr-2" />
+                                            Chat
+                                        </TabsTrigger>
+                                    )}
                                 </TabsList>
+
                             </Tabs>
                         </div>
                     </div>
