@@ -258,47 +258,43 @@ export const PharmacyService = {
     },
 
 
-    checkout: async (userId: string, items: { drugId: string; quantity: number; price: number }[], totalAmount: number, address: string) => {
-        // 1. Create Order
-        const { data: order, error: orderError } = await supabase
-            .from('orders')
-            .insert({
-                user_id: userId,
-                total_amount: totalAmount,
-                status: 'pending',
-                delivery_address: address
-            })
-            .select()
-            .single();
+    getWallet: async (): Promise<{ balance: number; escrow: number } | null> => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+        const { data, error } = await supabase
+            .from('wallets')
+            .select('balance, escrow_balance')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        if (error) throw error;
+        if (!data) return null;
+        return { balance: Number(data.balance || 0), escrow: Number(data.escrow_balance || 0) };
+    },
 
-        if (orderError) throw orderError;
+    checkout: async (items: { drugId: string; quantity: number }[], deliveryAddress: string) => {
+        const { data, error } = await supabase.functions.invoke('checkout-order', {
+            body: { items, deliveryAddress, paymentMethod: 'wallet' },
+        });
 
-        // 2. Create Order Items
-        const orderItems = items.map(item => ({
-            order_id: order.id,
-            drug_id: item.drugId,
-            pharmacy_id: '', // TODO: resolve pharmacy_id from drug
-            quantity: item.quantity,
-            unit_price: item.price,
-            total_price: item.price * item.quantity
-        }));
-
-        const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(orderItems);
-
-        if (itemsError) throw itemsError;
-
-        // 3. Update Stock (Best effort)
-        for (const item of items) {
-            const { data: drug } = await supabase.from('drugs').select('stock_quantity').eq('id', item.drugId).single();
-            if (drug) {
-                const newStock = Math.max(0, (drug.stock_quantity || 0) - item.quantity);
-                await supabase.from('drugs').update({ stock_quantity: newStock }).eq('id', item.drugId);
+        if (error) {
+            let details = error.message;
+            const ctx = (error as any)?.context;
+            if (ctx && typeof ctx.text === 'function') {
+                try {
+                    const raw = await ctx.text();
+                    const parsed = JSON.parse(raw);
+                    details = parsed.error || raw;
+                    if (parsed.details?.length) {
+                        details += `: ${parsed.details.map((d: any) => `${d.name} (only ${d.available} left)`).join(', ')}`;
+                    }
+                } catch {
+                    /* keep default message */
+                }
             }
+            throw new Error(details);
         }
 
-        return order;
+        return data as { orderId: string; totalAmount: number; commissionAmount: number; pharmacies: number };
     }
 };
 
