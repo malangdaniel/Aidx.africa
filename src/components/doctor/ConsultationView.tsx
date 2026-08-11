@@ -108,6 +108,8 @@ export default function ConsultationView({ consultationId, patientName, clinical
     const [symptomChecklist, setSymptomChecklist] = useState<string[]>([]);
     const [isSavingDraft, setIsSavingDraft] = useState(false);
     const [isFinalized, setIsFinalized] = useState(false);
+    const [showEndDialog, setShowEndDialog] = useState(false);
+
 
     // Read-only history from previous consultations
     const [pastReports, setPastReports] = useState<PastReport[]>([]);
