@@ -1217,6 +1217,24 @@ Plan: Order ECG, Rx Antacids..."
                     </div>
                 )}
             </div>
+
+            <AlertDialog open={showEndDialog} onOpenChange={setShowEndDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>End this consultation?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            All clinical notes, {prescribedMeds.length} prescription{prescribedMeds.length === 1 ? '' : 's'} and {labOrders.length} lab order{labOrders.length === 1 ? '' : 's'} will be saved to the patient's record. The consultation will be marked as completed.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Keep working</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => { setShowEndDialog(false); handleFinish(); }}>
+                            Save & End
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
+
