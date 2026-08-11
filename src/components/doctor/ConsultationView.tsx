@@ -12,13 +12,18 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
     User, FileText, MessageSquare, Pill, Plus, X, Check, Video,
     MicOff, CameraOff, Clock, CalendarDays, Activity, AlertCircle,
     ShieldCheck, AlertTriangle, Monitor, Share2, ClipboardList,
     Stethoscope, Phone, Timer, Play, Pause, RotateCcw, Siren,
     Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
-    ChevronDown, ChevronUp, Layout, Loader2
+    ChevronDown, ChevronUp, Layout, Loader2, Save, LogOut
 } from 'lucide-react';
+
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { ConsultationService, LabOrder as ServiceLabOrder, PastReport } from '@/services/ConsultationService';
