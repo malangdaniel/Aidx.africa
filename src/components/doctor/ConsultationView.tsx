@@ -12,13 +12,18 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
     User, FileText, MessageSquare, Pill, Plus, X, Check, Video,
     MicOff, CameraOff, Clock, CalendarDays, Activity, AlertCircle,
     ShieldCheck, AlertTriangle, Monitor, Share2, ClipboardList,
     Stethoscope, Phone, Timer, Play, Pause, RotateCcw, Siren,
     Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
-    ChevronDown, ChevronUp, Layout, Loader2
+    ChevronDown, ChevronUp, Layout, Loader2, Save, LogOut
 } from 'lucide-react';
+
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { ConsultationService, LabOrder as ServiceLabOrder, PastReport } from '@/services/ConsultationService';
@@ -103,6 +108,8 @@ export default function ConsultationView({ consultationId, patientName, clinical
     const [symptomChecklist, setSymptomChecklist] = useState<string[]>([]);
     const [isSavingDraft, setIsSavingDraft] = useState(false);
     const [isFinalized, setIsFinalized] = useState(false);
+    const [showEndDialog, setShowEndDialog] = useState(false);
+
 
     // Read-only history from previous consultations
     const [pastReports, setPastReports] = useState<PastReport[]>([]);
@@ -363,10 +370,15 @@ export default function ConsultationView({ consultationId, patientName, clinical
     };
 
     const handleFinish = async () => {
+        if (isFinalized) {
+            onEndConsultation();
+            return;
+        }
         if (!patientId) {
             toast.error("Error: Patient ID not found. Cannot finish consultation.");
             return;
         }
+
         setIsFinishing(true);
         try {
             // Save to database via ConsultationService
@@ -415,7 +427,7 @@ export default function ConsultationView({ consultationId, patientName, clinical
     return (
         <div className="flex flex-col h-[calc(100vh-100px)] animate-in fade-in bg-background/50">
             {/* Session Header */}
-            <div className="flex items-center justify-between px-4 py-2 bg-card border-b shrink-0 shadow-sm z-10">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-card border-b shrink-0 shadow-sm z-10">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20 text-primary">
                         <Timer className="w-4 h-4" />
@@ -481,7 +493,28 @@ export default function ConsultationView({ consultationId, patientName, clinical
                         <Siren className="w-4 h-4" />
                         EMERGENCY
                     </Button>
+                    <div className="w-px h-5 bg-border" />
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-2 px-3 text-[10px] font-black uppercase tracking-widest"
+                        onClick={handleSaveDraft}
+                        disabled={isSavingDraft || isFinishing}
+                    >
+                        {isSavingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        <span className="hidden sm:inline">Save</span>
+                    </Button>
+                    <Button
+                        size="sm"
+                        className="h-8 gap-2 px-3 text-[10px] font-black uppercase tracking-widest"
+                        onClick={() => setShowEndDialog(true)}
+                        disabled={isFinishing}
+                    >
+                        {isFinishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+                        <span className="hidden sm:inline">{isFinalized ? 'Close' : 'End Consult'}</span>
+                    </Button>
                 </div>
+
             </div>
 
             <div className="flex-1 flex overflow-hidden">
@@ -1189,6 +1222,24 @@ Plan: Order ECG, Rx Antacids..."
                     </div>
                 )}
             </div>
+
+            <AlertDialog open={showEndDialog} onOpenChange={setShowEndDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>End this consultation?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            All clinical notes, {prescribedMeds.length} prescription{prescribedMeds.length === 1 ? '' : 's'} and {labOrders.length} lab order{labOrders.length === 1 ? '' : 's'} will be saved to the patient's record. The consultation will be marked as completed.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Keep working</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => { setShowEndDialog(false); handleFinish(); }}>
+                            Save & End
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
+
