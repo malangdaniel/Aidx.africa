@@ -370,10 +370,15 @@ export default function ConsultationView({ consultationId, patientName, clinical
     };
 
     const handleFinish = async () => {
+        if (isFinalized) {
+            onEndConsultation();
+            return;
+        }
         if (!patientId) {
             toast.error("Error: Patient ID not found. Cannot finish consultation.");
             return;
         }
+
         setIsFinishing(true);
         try {
             // Save to database via ConsultationService
