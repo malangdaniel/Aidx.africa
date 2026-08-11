@@ -488,7 +488,28 @@ export default function ConsultationView({ consultationId, patientName, clinical
                         <Siren className="w-4 h-4" />
                         EMERGENCY
                     </Button>
+                    <div className="w-px h-5 bg-border" />
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-2 px-3 text-[10px] font-black uppercase tracking-widest"
+                        onClick={handleSaveDraft}
+                        disabled={isSavingDraft || isFinishing}
+                    >
+                        {isSavingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        <span className="hidden sm:inline">Save</span>
+                    </Button>
+                    <Button
+                        size="sm"
+                        className="h-8 gap-2 px-3 text-[10px] font-black uppercase tracking-widest"
+                        onClick={() => setShowEndDialog(true)}
+                        disabled={isFinishing}
+                    >
+                        {isFinishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+                        <span className="hidden sm:inline">{isFinalized ? 'Close' : 'End Consult'}</span>
+                    </Button>
                 </div>
+
             </div>
 
             <div className="flex-1 flex overflow-hidden">
