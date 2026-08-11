@@ -271,9 +271,78 @@ export const PharmacyService = {
         return { balance: Number(data.balance || 0), escrow: Number(data.escrow_balance || 0) };
     },
 
-    checkout: async (items: { drugId: string; quantity: number }[], deliveryAddress: string) => {
+    getMyPrescriptions: async (): Promise<DoctorPrescription[]> => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return [];
+
+        const { data, error } = await supabase
+            .from('prescriptions')
+            .select('id, created_at, notes, prescription_data, doctor_id, consultation_id')
+            .eq('patient_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(20);
+        if (error) throw error;
+
+        const doctorIds = [...new Set((data ?? []).map((p: any) => p.doctor_id).filter(Boolean))];
+        const nameById = new Map<string, string>();
+        if (doctorIds.length) {
+            const { data: profs } = await supabase
+                .from('profiles')
+                .select('user_id, first_name, last_name')
+                .in('user_id', doctorIds);
+            (profs ?? []).forEach((p: any) =>
+                nameById.set(p.user_id, `Dr. ${[p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown'}`)
+            );
+        }
+
+        return (data ?? []).map((p: any) => {
+            const meds = Array.isArray(p.prescription_data)
+                ? p.prescription_data
+                : Array.isArray(p.prescription_data?.medications)
+                    ? p.prescription_data.medications
+                    : [];
+            return {
+                id: p.id,
+                createdAt: p.created_at,
+                notes: p.notes || '',
+                doctorName: nameById.get(p.doctor_id) || 'Your doctor',
+                medications: meds
+                    .map((m: any) => (typeof m === 'string' ? m : m?.name || m?.drug || ''))
+                    .filter(Boolean),
+            };
+        });
+    },
+
+    uploadPrescriptionImage: async (file: File): Promise<string> => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('You must be signed in to upload a prescription');
+
+        const ext = file.name.split('.').pop() || 'jpg';
+        const path = `${user.id}/${Date.now()}.${ext}`;
+        const { error } = await supabase.storage.from('prescriptions').upload(path, file, { upsert: true });
+        if (error) throw error;
+        return path;
+    },
+
+    getPrescriptionImageUrl: async (path: string): Promise<string | null> => {
+        const { data, error } = await supabase.storage.from('prescriptions').createSignedUrl(path, 3600);
+        if (error) return null;
+        return data?.signedUrl ?? null;
+    },
+
+    checkout: async (
+        items: { drugId: string; quantity: number }[],
+        deliveryAddress: string,
+        prescription?: { prescriptionId?: string | null; prescriptionImagePath?: string | null }
+    ) => {
         const { data, error } = await supabase.functions.invoke('checkout-order', {
-            body: { items, deliveryAddress, paymentMethod: 'wallet' },
+            body: {
+                items,
+                deliveryAddress,
+                paymentMethod: 'wallet',
+                prescriptionId: prescription?.prescriptionId ?? null,
+                prescriptionImageUrl: prescription?.prescriptionImagePath ?? null,
+            },
         });
 
         if (error) {
