@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,23 +6,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import {
-    Video, VideoOff, Mic, MicOff, PhoneOff, Send,
-    User, Loader2, ArrowLeft,
-    CheckCircle2, Clock, Activity, ShieldCheck,
-    Thermometer, Heart,
-    Upload, AlertTriangle, FileDown,
-    Star, ShoppingCart, AlertOctagon,
-    Calendar, Wallet
+    Send,
+    Loader2,
+    CheckCircle2, Clock, Activity,
+    AlertTriangle, Star, ShoppingCart, AlertOctagon,
+    Wallet
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-
-const ICE_SERVERS = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:global.stun.twilio.com:3478' }
-    ],
-};
+import VideoCall from '@/components/common/VideoCall';
 
 interface Message {
     id: string;
@@ -41,11 +33,10 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
     const [status, setStatus] = useState<'waiting' | 'connected' | 'ended'>('waiting');
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
-    const [isMuted, setIsMuted] = useState(false);
-    const [isVideoOff, setIsVideoOff] = useState(false);
     const [duration, setDuration] = useState(0);
     const [rating, setRating] = useState(0);
-    const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+    const [userId, setUserId] = useState<string>('');
+    const [isCallActive, setIsCallActive] = useState(false);
     const [summaryData, setSummaryData] = useState<{
         diagnosis: string | null;
         notes: string | null;
@@ -53,14 +44,16 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
     } | null>(null);
     const [summaryLoading, setSummaryLoading] = useState(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
-    const localVideoRef = useRef<HTMLVideoElement>(null);
-    const remoteVideoRef = useRef<HTMLVideoElement>(null);
-    const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
     const channelRef = useRef<any>(null);
-    const callChannelRef = useRef<any>(null);
-    const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
     const doctorName = `Dr. ${consultation.doctor_profile?.first_name || 'Medical'} ${consultation.doctor_profile?.last_name || 'Specialist'}`;
+
+    // Fetch current user ID for VideoCall component
+    useEffect(() => {
+        supabase.auth.getUser().then(({ data }) => {
+            if (data.user) setUserId(data.user.id);
+        });
+    }, []);
 
     // --- Supabase Realtime: Presence + Chat ---
     useEffect(() => {
@@ -130,167 +123,12 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
         checkStatus();
     }, [consultation.id]);
 
-    // Camera Access Logic
+    // Activate call when doctor joins
     useEffect(() => {
-        if (status === 'connected' && !localStream) {
-            startCamera();
+        if (status === 'connected' && userId) {
+            setIsCallActive(true);
         }
-        return () => {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-        };
-    }, [status]);
-
-    const startCamera = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true
-            });
-            setLocalStream(stream);
-        } catch (err) {
-            console.error(err);
-            toast.error("Could not access camera or microphone. Please check permissions.");
-        }
-    };
-
-    // --- WebRTC Logic ---
-    const initializePeerConnection = (stream: MediaStream) => {
-        const pc = new RTCPeerConnection(ICE_SERVERS);
-        peerConnectionRef.current = pc;
-
-        stream.getTracks().forEach((track) => {
-            pc.addTrack(track, stream);
-        });
-
-        pc.ontrack = (event) => {
-            const [remote] = event.streams;
-            setRemoteStream(remote);
-            if (remoteVideoRef.current) {
-                remoteVideoRef.current.srcObject = remote;
-            }
-        };
-
-        pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                sendSignal({ type: 'candidate', candidate: event.candidate });
-            }
-        };
-
-        pc.onconnectionstatechange = () => {
-            if (pc.connectionState === 'disconnected') {
-                toast.info("Video call disconnected");
-            }
-        };
-    };
-
-    const initializeCallSignaling = () => {
-        const channel = supabase.channel(`call:${consultation.id}`);
-        callChannelRef.current = channel;
-
-        channel
-            .on('broadcast', { event: 'signal' }, async ({ payload }) => {
-                // Ignore own messages? We need userId to filter properly.
-                // Assuming payload includes senderId.
-                const { data: { user } } = await supabase.auth.getUser();
-                if (payload.userId === user?.id) return;
-
-                try {
-                    const pc = peerConnectionRef.current;
-                    if (!pc && payload.type !== 'ready') return;
-
-                    // If we get a signal but have no PC, we might need to lazy init?
-                    // But we likely init PC with local stream. 
-                    // If stream isn't ready, we can't add tracks yet.
-
-                    if (payload.type === 'offer') {
-                        if (!pc) return; // Should refrain until stream ready
-                        await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        sendSignal({ type: 'answer', answer });
-                    } else if (payload.type === 'answer') {
-                        if (!pc) return;
-                        await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
-                    } else if (payload.type === 'candidate') {
-                        if (!pc) return;
-                        await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-                    } else if (payload.type === 'ready') {
-                        // Peer is ready, create offer
-                        createOffer();
-                    }
-                } catch (err) {
-                    console.error('Signaling error:', err);
-                }
-            })
-            .subscribe(async (status) => {
-                if (status === 'SUBSCRIBED') {
-                    // Announce presence 
-                    sendSignal({ type: 'ready' });
-                }
-            });
-    };
-
-    const createOffer = async () => {
-        const pc = peerConnectionRef.current;
-        if (!pc) return;
-        try {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            sendSignal({ type: 'offer', offer });
-        } catch (err) {
-            console.error("Error creating offer", err);
-        }
-    };
-
-    const sendSignal = async (payload: any) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        callChannelRef.current?.send({
-            type: 'broadcast',
-            event: 'signal',
-            payload: { ...payload, userId: user?.id },
-        });
-    };
-
-    useEffect(() => {
-        if (status === 'connected' && localStream && !peerConnectionRef.current) {
-            initializePeerConnection(localStream);
-            initializeCallSignaling();
-        }
-        return () => {
-            // cleanup handled in handleEndCall or unmount
-        };
-    }, [status, localStream]); // waiting for stream
-
-
-    const localVideoCallbackRef = useCallback((el: HTMLVideoElement | null) => {
-        if (el && localStream) {
-            el.srcObject = localStream;
-            el.play().catch(e => console.error("Error playing video:", e));
-        }
-        localVideoRef.current = el;
-    }, [localStream]);
-
-    const toggleMute = () => {
-        if (localStream) {
-            const audioTrack = localStream.getAudioTracks()[0];
-            if (audioTrack) {
-                audioTrack.enabled = !audioTrack.enabled;
-                setIsMuted(!audioTrack.enabled);
-            }
-        }
-    };
-
-    const toggleVideo = () => {
-        if (localStream) {
-            const videoTrack = localStream.getVideoTracks()[0];
-            if (videoTrack) {
-                videoTrack.enabled = !videoTrack.enabled;
-                setIsVideoOff(!videoTrack.enabled);
-            }
-        }
-    };
+    }, [status, userId]);
 
     // Auto-scroll chat
     useEffect(() => {
@@ -381,9 +219,7 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
 
     // End call from patient side
     const handleEndCall = async () => {
-        // Stop media
-        localStream?.getTracks().forEach(track => track.stop());
-        peerConnectionRef.current?.close();
+        setIsCallActive(false);
 
         // Notify doctor
         channelRef.current?.send({
@@ -391,8 +227,6 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
             event: 'patient_left',
             payload: {},
         });
-
-        if (callChannelRef.current) supabase.removeChannel(callChannelRef.current);
 
         await handleConsultationEnded();
     };
@@ -605,82 +439,31 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
                         ₦{consultation.price?.toLocaleString() || '0'}
                     </Badge>
                     <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5 text-red-600 hover:bg-red-50" onClick={handleEndCall}>
-                        <PhoneOff className="w-3.5 h-3.5" />
                         End Session
                     </Button>
                 </div>
             </div>
 
             <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden">
-                {/* Main Video Area */}
+                {/* Main Video Area - using shared VideoCall component */}
                 <div className="flex-1 flex flex-col gap-4">
-                    <div className="relative flex-1 bg-neutral-900 rounded-3xl overflow-hidden border border-border group shadow-2xl shadow-primary/5">
-                        {/* Doctor feed area */}
-                        {!isVideoOff ? (
-                            remoteStream ? (
-                                <video
-                                    ref={remoteVideoRef}
-                                    autoPlay
-                                    playsInline
-                                    className="w-full h-full object-cover animate-in fade-in duration-700"
-                                />
-                            ) : (
-                                <div className="w-full h-full bg-neutral-800 flex flex-col items-center justify-center text-neutral-400 space-y-4">
-                                    <div className="w-20 h-20 rounded-full bg-neutral-700 flex items-center justify-center animate-pulse">
-                                        <Loader2 className="w-10 h-10 animate-spin" />
-                                    </div>
-                                    <p className="text-sm italic">Connecting to doctor...</p>
-                                </div>
-                            )
+                    <div className="relative flex-1 rounded-3xl overflow-hidden border border-border shadow-2xl shadow-primary/5">
+                        {isCallActive && userId ? (
+                            <VideoCall
+                                roomId={consultation.id}
+                                userId={userId}
+                                userName="Patient"
+                                isDoctor={false}
+                                onEndCall={handleEndCall}
+                            />
                         ) : (
-                            <div className="w-full h-full bg-neutral-800 flex flex-col items-center justify-center text-neutral-400 space-y-4">
-                                <div className="w-20 h-20 rounded-full bg-neutral-700 flex items-center justify-center">
-                                    <VideoOff className="w-10 h-10" />
+                            <div className="w-full h-full bg-neutral-900 flex flex-col items-center justify-center text-neutral-400 space-y-4">
+                                <div className="w-20 h-20 rounded-full bg-neutral-700 flex items-center justify-center animate-pulse">
+                                    <Loader2 className="w-10 h-10 animate-spin" />
                                 </div>
-                                <p className="text-sm italic">Video paused</p>
+                                <p className="text-sm italic">Waiting for the call to connect...</p>
                             </div>
                         )}
-
-                        {/* Patient PIP */}
-                        <div className="absolute top-6 left-6 w-32 h-44 bg-neutral-800 rounded-2xl border-2 border-white/20 shadow-2xl overflow-hidden backdrop-blur-md">
-                            {localStream && !isVideoOff ? (
-                                <video
-                                    ref={localVideoCallbackRef}
-                                    autoPlay
-                                    muted
-                                    playsInline
-                                    className="w-full h-full object-cover mirror"
-                                />
-                            ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-white/50 bg-gradient-to-br from-neutral-700 to-neutral-800">
-                                    <User className="w-8 h-8" />
-                                    <p className="text-[10px] mt-2 font-medium">{isVideoOff ? 'Camera Off' : 'Connecting...'}</p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Call Controls */}
-                        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-6 p-4 bg-black/30 backdrop-blur-xl rounded-full border border-white/10 opacity-60 hover:opacity-100 transition-all scale-90 hover:scale-100">
-                            <Button
-                                variant={isMuted ? "destructive" : "secondary"}
-                                size="icon"
-                                className="rounded-full w-12 h-12 shadow-inner"
-                                onClick={toggleMute}
-                            >
-                                {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                            </Button>
-                            <Button variant="outline" size="icon" className="rounded-full w-11 h-11 bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={handleEndCall}>
-                                <PhoneOff className="w-5 h-5 rotate-[135deg]" />
-                            </Button>
-                            <Button
-                                variant={isVideoOff ? "destructive" : "secondary"}
-                                size="icon"
-                                className="rounded-full w-12 h-12 shadow-inner"
-                                onClick={toggleVideo}
-                            >
-                                {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
-                            </Button>
-                        </div>
                     </div>
                 </div>
 
