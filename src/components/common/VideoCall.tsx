@@ -50,6 +50,7 @@ export default function VideoCall({ roomId, userId, isDoctor, onEndCall }: Video
     const makingOffer = useRef(false);
     const ignoreOffer = useRef(false);
     const isSettingRemoteAnswerPending = useRef(false);
+    const pcCreated = useRef(false);
 
     // Using isDoctor to determine "politeness" in Perfect Negotiation
     // Impolite peer (Doctor) initiates, Polite peer (Patient) yields
@@ -76,8 +77,7 @@ export default function VideoCall({ roomId, userId, isDoctor, onEndCall }: Video
             }
             setStatus('waiting');
 
-            initializePeerConnection(stream);
-            initializeSignaling();
+            initializeSignaling(stream);
         } catch (err) {
             console.error('VideoCall: Error accessing media devices:', err);
             toast.error('Could not access camera/microphone. Check permissions.');
@@ -96,7 +96,8 @@ export default function VideoCall({ roomId, userId, isDoctor, onEndCall }: Video
         pc.onnegotiationneeded = async () => {
             try {
                 makingOffer.current = true;
-                await pc.setLocalDescription();
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
                 sendSignal({ type: 'description', description: pc.localDescription });
             } catch (err) {
                 console.error("Negotiation error:", err);
@@ -132,13 +133,28 @@ export default function VideoCall({ roomId, userId, isDoctor, onEndCall }: Video
         };
     };
 
-    const initializeSignaling = () => {
+    const initializeSignaling = (stream: MediaStream) => {
         const channel = supabase.channel(`call:${roomId}`);
         channelRef.current = channel;
 
         channel
             .on('broadcast', { event: 'signal' }, async ({ payload }) => {
                 if (payload.userId === userId) return;
+
+                if (payload.type === 'ping' || payload.type === 'pong') {
+                    if (payload.type === 'ping') {
+                        channel.send({
+                            type: 'broadcast',
+                            event: 'signal',
+                            payload: { type: 'pong', userId },
+                        });
+                    }
+                    if (!pcCreated.current) {
+                        pcCreated.current = true;
+                        initializePeerConnection(stream);
+                    }
+                    return;
+                }
 
                 try {
                     const pc = peerConnectionRef.current;
@@ -178,6 +194,11 @@ export default function VideoCall({ roomId, userId, isDoctor, onEndCall }: Video
             .subscribe((status) => {
                 if (status === 'SUBSCRIBED') {
                     console.log("VideoCall: Subscribed to signaling channel");
+                    channel.send({
+                        type: 'broadcast',
+                        event: 'signal',
+                        payload: { type: 'ping', userId },
+                    });
                 }
             });
     };
