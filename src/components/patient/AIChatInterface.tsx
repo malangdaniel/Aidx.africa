@@ -202,7 +202,7 @@ export default function AIChatInterface({
                         await supabase.from('ai_diagnoses').insert({
                             user_id: user.id,
                             condition: assessmentData.conditions?.[0]?.name || "Assessment Completed",
-                            diagnosis_data: assessmentData,
+                            diagnosis_data: assessmentData as any,
                             rationale: assessmentData.clinicalSummaryText
                         });
                     }

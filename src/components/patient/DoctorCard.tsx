@@ -29,6 +29,7 @@ export interface Doctor {
     workingHoursStart?: string;
     workingHoursEnd?: string;
     slotDurationMinutes?: number;
+    maxConsultationsPerDay?: number;
     emergencyAvailable?: boolean;
 }
 

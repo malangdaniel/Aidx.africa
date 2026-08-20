@@ -843,6 +843,8 @@ export type Database = {
           escrow_amount: number | null
           id: string
           payment_reference: string | null
+          prescription_id: string | null
+          prescription_image_url: string | null
           status: Database["public"]["Enums"]["order_status"] | null
           total_amount: number
           updated_at: string
@@ -855,6 +857,8 @@ export type Database = {
           escrow_amount?: number | null
           id?: string
           payment_reference?: string | null
+          prescription_id?: string | null
+          prescription_image_url?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
           total_amount: number
           updated_at?: string
@@ -867,12 +871,21 @@ export type Database = {
           escrow_amount?: number | null
           id?: string
           payment_reference?: string | null
+          prescription_id?: string | null
+          prescription_image_url?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
           total_amount?: number
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_prescription_id_fkey"
+            columns: ["prescription_id"]
+            isOneToOne: false
+            referencedRelation: "prescriptions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_user_id_profiles_fkey"
             columns: ["user_id"]

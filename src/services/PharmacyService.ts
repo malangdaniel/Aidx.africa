@@ -171,25 +171,41 @@ export const PharmacyService = {
         }));
     },
 
-    addToInventory: async (pharmacyId: string, _drugId: string, price: number, stock: number): Promise<InventoryItem> => {
-        // Since 'drugs' table combines drug details and inventory info, 
-        // 'addToInventory' in this context essentially means "Create or Update a Drug Listing" for this pharmacy.
-        // The original interface passed 'drugId' implying a global drug catalog, but we have a per-pharmacy drugs table.
-        // For this 'production ready' version, we assume we are creating a NEW drug entry or updating an existing one.
-        // However, the signature matches the old mock. If we strictly follow the 'drugs' table schema:
-        // We can't reuse a 'drugId' from another pharmacy easily unless we copy data.
+    getMyPharmacyId: async (): Promise<string | null> => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+        const { data, error } = await supabase
+            .from('pharmacies')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        if (error) throw error;
+        return data?.id ?? null;
+    },
 
-        // For now, let's assume we are just updating stock/price if it exists, or throwing error because creating a new drug requires name/desc.
-        // This function signature is actually insufficient for the current schema if creating new drugs.
-        // I'll update it to be 'updateStock' effectively, or just mock it slightly differently if needed by UI.
-        // But wait, the UI likely calls this to "Add Drug".
-        console.warn("addToInventory implementation limited by schema - treating as update");
-
+    createDrug: async (pharmacyId: string, payload: {
+        name: string;
+        description?: string;
+        category?: string;
+        price: number;
+        stock: number;
+        prescriptionRequired?: boolean;
+        manufacturer?: string;
+        expiryDate?: string | null;
+    }): Promise<InventoryItem> => {
         const { data, error } = await supabase
             .from('drugs')
-            .update({ price, stock_quantity: stock })
-            .eq('id', _drugId)
-            .eq('pharmacy_id', pharmacyId)
+            .insert({
+                pharmacy_id: pharmacyId,
+                name: payload.name,
+                description: payload.description || null,
+                category: payload.category || null,
+                price: payload.price,
+                stock_quantity: payload.stock,
+                prescription_required: payload.prescriptionRequired ?? false,
+                manufacturer: payload.manufacturer || null,
+                expiry_date: payload.expiryDate || null,
+            })
             .select()
             .single();
 
@@ -202,8 +218,9 @@ export const PharmacyService = {
             drug: {
                 id: data.id,
                 name: data.name,
-                description: data.description,
-                category: data.category,
+                description: data.description || "",
+                category: data.category || "General",
+                image: data.image_url,
                 requiresPrescription: data.prescription_required
             },
             price: data.price,
@@ -211,47 +228,142 @@ export const PharmacyService = {
         };
     },
 
-    checkout: async (userId: string, items: { drugId: string; quantity: number; price: number }[], totalAmount: number, address: string) => {
-        // 1. Create Order
-        const { data: order, error: orderError } = await supabase
-            .from('orders')
-            .insert({
-                user_id: userId,
-                total_amount: totalAmount,
-                status: 'pending',
-                delivery_address: address
-            })
-            .select()
-            .single();
+    updateDrug: async (drugId: string, payload: {
+        name?: string;
+        description?: string;
+        category?: string;
+        price?: number;
+        stock?: number;
+        prescriptionRequired?: boolean;
+        manufacturer?: string;
+        expiryDate?: string | null;
+    }): Promise<void> => {
+        const patch: Record<string, any> = {};
+        if (payload.name !== undefined) patch.name = payload.name;
+        if (payload.description !== undefined) patch.description = payload.description || null;
+        if (payload.category !== undefined) patch.category = payload.category || null;
+        if (payload.price !== undefined) patch.price = payload.price;
+        if (payload.stock !== undefined) patch.stock_quantity = payload.stock;
+        if (payload.prescriptionRequired !== undefined) patch.prescription_required = payload.prescriptionRequired;
+        if (payload.manufacturer !== undefined) patch.manufacturer = payload.manufacturer || null;
+        if (payload.expiryDate !== undefined) patch.expiry_date = payload.expiryDate || null;
 
-        if (orderError) throw orderError;
+        const { error } = await supabase.from('drugs').update(patch).eq('id', drugId);
+        if (error) throw error;
+    },
 
-        // 2. Create Order Items
-        const orderItems = items.map(item => ({
-            order_id: order.id,
-            drug_id: item.drugId,
-            pharmacy_id: '', // TODO: resolve pharmacy_id from drug
-            quantity: item.quantity,
-            unit_price: item.price,
-            total_price: item.price * item.quantity
-        }));
+    deleteDrug: async (drugId: string): Promise<void> => {
+        const { error } = await supabase.from('drugs').delete().eq('id', drugId);
+        if (error) throw error;
+    },
 
-        const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(orderItems);
 
-        if (itemsError) throw itemsError;
+    getWallet: async (): Promise<{ balance: number; escrow: number } | null> => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+        const { data, error } = await supabase
+            .from('wallets')
+            .select('balance, escrow_balance')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        if (error) throw error;
+        if (!data) return null;
+        return { balance: Number(data.balance || 0), escrow: Number(data.escrow_balance || 0) };
+    },
 
-        // 3. Update Stock (Best effort)
-        for (const item of items) {
-            const { data: drug } = await supabase.from('drugs').select('stock_quantity').eq('id', item.drugId).single();
-            if (drug) {
-                const newStock = Math.max(0, (drug.stock_quantity || 0) - item.quantity);
-                await supabase.from('drugs').update({ stock_quantity: newStock }).eq('id', item.drugId);
-            }
+    getMyPrescriptions: async (): Promise<DoctorPrescription[]> => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return [];
+
+        const { data, error } = await supabase
+            .from('prescriptions')
+            .select('id, created_at, notes, prescription_data, doctor_id, consultation_id')
+            .eq('patient_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(20);
+        if (error) throw error;
+
+        const doctorIds = [...new Set((data ?? []).map((p: any) => p.doctor_id).filter(Boolean))];
+        const nameById = new Map<string, string>();
+        if (doctorIds.length) {
+            const { data: profs } = await supabase
+                .from('profiles')
+                .select('user_id, first_name, last_name')
+                .in('user_id', doctorIds);
+            (profs ?? []).forEach((p: any) =>
+                nameById.set(p.user_id, `Dr. ${[p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown'}`)
+            );
         }
 
-        return order;
+        return (data ?? []).map((p: any) => {
+            const meds = Array.isArray(p.prescription_data)
+                ? p.prescription_data
+                : Array.isArray(p.prescription_data?.medications)
+                    ? p.prescription_data.medications
+                    : [];
+            return {
+                id: p.id,
+                createdAt: p.created_at,
+                notes: p.notes || '',
+                doctorName: nameById.get(p.doctor_id) || 'Your doctor',
+                medications: meds
+                    .map((m: any) => (typeof m === 'string' ? m : m?.name || m?.drug || ''))
+                    .filter(Boolean),
+            };
+        });
+    },
+
+    uploadPrescriptionImage: async (file: File): Promise<string> => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('You must be signed in to upload a prescription');
+
+        const ext = file.name.split('.').pop() || 'jpg';
+        const path = `${user.id}/${Date.now()}.${ext}`;
+        const { error } = await supabase.storage.from('prescriptions').upload(path, file, { upsert: true });
+        if (error) throw error;
+        return path;
+    },
+
+    getPrescriptionImageUrl: async (path: string): Promise<string | null> => {
+        const { data, error } = await supabase.storage.from('prescriptions').createSignedUrl(path, 3600);
+        if (error) return null;
+        return data?.signedUrl ?? null;
+    },
+
+    checkout: async (
+        items: { drugId: string; quantity: number }[],
+        deliveryAddress: string,
+        prescription?: { prescriptionId?: string | null; prescriptionImagePath?: string | null }
+    ) => {
+        const { data, error } = await supabase.functions.invoke('checkout-order', {
+            body: {
+                items,
+                deliveryAddress,
+                paymentMethod: 'wallet',
+                prescriptionId: prescription?.prescriptionId ?? null,
+                prescriptionImageUrl: prescription?.prescriptionImagePath ?? null,
+            },
+        });
+
+        if (error) {
+            let details = error.message;
+            const ctx = (error as any)?.context;
+            if (ctx && typeof ctx.text === 'function') {
+                try {
+                    const raw = await ctx.text();
+                    const parsed = JSON.parse(raw);
+                    details = parsed.error || raw;
+                    if (parsed.details?.length) {
+                        details += `: ${parsed.details.map((d: any) => `${d.name} (only ${d.available} left)`).join(', ')}`;
+                    }
+                } catch {
+                    /* keep default message */
+                }
+            }
+            throw new Error(details);
+        }
+
+        return data as { orderId: string; totalAmount: number; commissionAmount: number; pharmacies: number };
     }
 };
 
