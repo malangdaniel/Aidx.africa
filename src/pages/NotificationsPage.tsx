@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import SEO from '@/components/seo/SEO';
 import {
     Bell,
     Search,
