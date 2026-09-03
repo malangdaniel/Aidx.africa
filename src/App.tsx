@@ -98,19 +98,24 @@ function ProtectedRoute() {
   }
 
   // Route based on user role
-  switch (profile.role) {
-    case 'patient':
-      return <PatientDashboard />;
-    case 'doctor':
-      return <DoctorDashboard />;
-    case 'pharmacist':
-      return <PharmacistDashboard />;
-    case 'admin':
-      return <AdminDashboard />;
-    default:
-      return <Navigate to="/auth" replace />;
-  }
+  const dashboards: Record<string, JSX.Element> = {
+    patient: <PatientDashboard />,
+    doctor: <DoctorDashboard />,
+    pharmacist: <PharmacistDashboard />,
+    admin: <AdminDashboard />,
+  };
+
+  const dashboard = dashboards[profile.role as string];
+  if (!dashboard) return <Navigate to="/auth" replace />;
+
+  return (
+    <>
+      <DashboardSEO role={profile.role as string} />
+      {dashboard}
+    </>
+  );
 }
+
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
