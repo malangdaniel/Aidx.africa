@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Stethoscope, Pill, User, Eye, EyeOff } from 'lucide-react';
 import sanariLogo from '@/assets/sanari-logo.png';
+import SEO from '@/components/seo/SEO';
 
 export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -326,6 +327,6 @@ export default function AuthPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </main>
   );
 }
