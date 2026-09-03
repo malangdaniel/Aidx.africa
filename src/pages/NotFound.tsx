@@ -1,5 +1,6 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
+import SEO from "@/components/seo/SEO";
 
 const NotFound = () => {
   const location = useLocation();
@@ -9,15 +10,23 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
+      <SEO
+        title="Page Not Found | Sanari AI"
+        description="The page you are looking for does not exist. Return to Sanari AI for AI symptom assessment, online doctor consultations and pharmacy delivery."
+        path={location.pathname}
+        noindex
+      />
       <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">404</h1>
-        <p className="mb-4 text-xl text-gray-600">Oops! Page not found</p>
-        <a href="/" className="text-blue-500 underline hover:text-blue-700">
-          Return to Home
-        </a>
+        <h1 className="mb-4 text-4xl font-bold text-foreground">404 — Page not found</h1>
+        <p className="mb-4 text-xl text-muted-foreground">
+          This page doesn&apos;t exist or has moved.
+        </p>
+        <Link to="/" className="text-primary underline underline-offset-4 hover:opacity-80">
+          Return to Sanari AI home
+        </Link>
       </div>
-    </div>
+    </main>
   );
 };
 
