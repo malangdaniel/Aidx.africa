@@ -59,7 +59,14 @@ export default function NotificationsPage() {
 
     return (
         <DashboardLayout title="Health Notifications">
+            <SEO
+                title="Health Notifications | Sanari AI"
+                description="Your Sanari AI health alerts: vitals trends, consultation reminders and medication order updates."
+                path="/notifications"
+                noindex
+            />
             <div className="max-w-4xl mx-auto space-y-6 pb-20">
+
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
