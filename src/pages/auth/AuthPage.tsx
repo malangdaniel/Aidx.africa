@@ -118,14 +118,28 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
+    <main className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
+      <SEO
+        title="Sign In or Sign Up | Sanari AI Telemedicine"
+        description="Create your Sanari AI account to get AI symptom assessment, book online doctor consultations and order medication delivery in Nigeria."
+        path="/auth"
+        noindex
+      />
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+        <header className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <img src={sanariLogo} alt="Sanari AI" className="h-16 w-auto" />
+            <img
+              src={sanariLogo}
+              alt="Sanari AI logo — AI healthcare, online doctor consultations and pharmacy delivery"
+              className="h-16 w-auto"
+              width={256}
+              height={64}
+            />
           </div>
+          <h1 className="sr-only">Sanari AI — Sign in to your healthcare account</h1>
           <p className="text-muted-foreground">Healthcare AI Assistant Platform</p>
-        </div>
+        </header>
+
 
         <Card>
           <CardHeader>
