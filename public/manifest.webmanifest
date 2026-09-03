@@ -1,0 +1,17 @@
+{
+  "name": "Sanari AI — Ask · Assess · Act",
+  "short_name": "Sanari AI",
+  "description": "AI symptom assessment, online doctor consultations and pharmacy delivery in Nigeria.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBFAF7",
+  "theme_color": "#0A2E2B",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
