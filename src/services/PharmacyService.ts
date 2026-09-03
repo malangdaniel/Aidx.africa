@@ -23,6 +23,14 @@ export interface Drug {
     requiresPrescription: boolean;
 }
 
+export interface DoctorPrescription {
+    id: string;
+    createdAt: string;
+    notes: string;
+    doctorName: string;
+    medications: string[];
+}
+
 export interface InventoryItem {
     id: string; // effectively the drug record ID in this schema
     pharmacyId: string;
