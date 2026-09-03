@@ -13,7 +13,7 @@ export function MobileHeader({ onSettingsClick, headerActions, notificationBell 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/85 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70 shadow-2xs">
       <div className="flex h-14 items-center justify-between px-4">
-        <img src={sanariLogo} alt="Sanari AI" className="h-7 w-auto object-contain" />
+        <img src={sanariLogo} alt="Sanari AI — AI healthcare and telemedicine" className="h-7 w-auto object-contain" width={140} height={28} />
         <div className="flex items-center gap-1.5">
           {notificationBell}
           {headerActions}
