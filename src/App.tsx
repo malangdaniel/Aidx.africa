@@ -13,6 +13,32 @@ import AdminDashboard from "./pages/dashboards/AdminDashboard";
 import NotificationsPage from "./pages/NotificationsPage";
 import NotFound from "./pages/NotFound";
 import { DevRoleSwitcher } from "@/components/dev/DevRoleSwitcher";
+import SEO from "@/components/seo/SEO";
+
+const DASHBOARD_SEO: Record<string, { title: string; description: string }> = {
+  patient: {
+    title: "Patient Dashboard | Sanari AI",
+    description: "Check symptoms with AI, book online doctor consultations, track vitals and order medication delivery.",
+  },
+  doctor: {
+    title: "Doctor Dashboard | Sanari AI",
+    description: "Manage telemedicine consultations, patient records, prescriptions and your availability on Sanari AI.",
+  },
+  pharmacist: {
+    title: "Pharmacy Dashboard | Sanari AI",
+    description: "Manage pharmacy inventory, verify prescriptions and fulfil medication delivery orders on Sanari AI.",
+  },
+  admin: {
+    title: "Admin Dashboard | Sanari AI",
+    description: "Platform administration for Sanari AI telemedicine, pharmacy and payment operations.",
+  },
+};
+
+function DashboardSEO({ role }: { role: string }) {
+  const meta = DASHBOARD_SEO[role] ?? DASHBOARD_SEO.patient;
+  return <SEO title={meta.title} description={meta.description} path="/" noindex />;
+}
+
 
 const queryClient = new QueryClient();
 
@@ -72,19 +98,24 @@ function ProtectedRoute() {
   }
 
   // Route based on user role
-  switch (profile.role) {
-    case 'patient':
-      return <PatientDashboard />;
-    case 'doctor':
-      return <DoctorDashboard />;
-    case 'pharmacist':
-      return <PharmacistDashboard />;
-    case 'admin':
-      return <AdminDashboard />;
-    default:
-      return <Navigate to="/auth" replace />;
-  }
+  const dashboards: Record<string, JSX.Element> = {
+    patient: <PatientDashboard />,
+    doctor: <DoctorDashboard />,
+    pharmacist: <PharmacistDashboard />,
+    admin: <AdminDashboard />,
+  };
+
+  const dashboard = dashboards[profile.role as string];
+  if (!dashboard) return <Navigate to="/auth" replace />;
+
+  return (
+    <>
+      <DashboardSEO role={profile.role as string} />
+      {dashboard}
+    </>
+  );
 }
+
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

@@ -1,8 +1,12 @@
 User-agent: Googlebot
 Allow: /
+Disallow: /auth
+Disallow: /notifications
 
 User-agent: Bingbot
 Allow: /
+Disallow: /auth
+Disallow: /notifications
 
 User-agent: Twitterbot
 Allow: /
@@ -12,3 +16,7 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /auth
+Disallow: /notifications
+
+Sitemap: https://doc-pharm-ai.lovable.app/sitemap.xml

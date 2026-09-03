@@ -483,7 +483,7 @@ export default function MedicalHistoryView() {
                             <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
                                 {previewUrl ? (
                                     <div className="relative">
-                                        <img src={previewUrl} alt="Lab result preview" className="max-h-40 mx-auto rounded" />
+                                        <img src={previewUrl} alt="Preview of uploaded lab result document" loading="lazy" className="max-h-40 mx-auto rounded" />
                                         <Button
                                             variant="destructive"
                                             size="icon"

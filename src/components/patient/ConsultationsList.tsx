@@ -154,7 +154,7 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
                                                 {consultation.doctor_profile?.metadata?.avatar_url ? (
                                                     <img
                                                         src={consultation.doctor_profile.metadata.avatar_url}
-                                                        alt="Doctor"
+                                                        alt="Consulting doctor profile photo"
                                                         className="w-full h-full rounded-full object-cover"
                                                     />
                                                 ) : (

@@ -59,7 +59,7 @@ export default function DashboardLayout({
         <div className="container flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2.5">
-              <img src={sanariLogo} alt="Sanari AI" className="h-8 w-auto object-contain transition-transform hover:scale-105" />
+              <img src={sanariLogo} alt="Sanari AI — AI healthcare and telemedicine" className="h-8 w-auto object-contain transition-transform hover:scale-105" width={160} height={32} />
             </div>
             {title && (
               <div className="flex items-center gap-2">

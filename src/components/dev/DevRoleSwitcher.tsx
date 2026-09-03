@@ -22,7 +22,7 @@ export function DevRoleSwitcher({ onSelectRole }: DevRoleSwitcherProps) {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center pb-4">
           <div className="flex justify-center mb-3">
-            <img src={sanariLogo} alt="Sanari AI" className="h-10 w-auto" />
+            <img src={sanariLogo} alt="Sanari AI logo" className="h-10 w-auto" width={200} height={40} />
           </div>
           <div className="mx-auto mb-2 px-2.5 py-0.5 bg-destructive/10 text-destructive text-[10px] font-semibold rounded-full w-fit uppercase tracking-wide">
             Dev Mode
