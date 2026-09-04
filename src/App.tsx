@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AuthPage from "./pages/auth/AuthPage";
+import Landing from "./pages/Landing";
 import PatientDashboard from "./pages/dashboards/PatientDashboard";
 import DoctorDashboard from "./pages/dashboards/DoctorDashboard";
 import PharmacistDashboard from "./pages/dashboards/PharmacistDashboard";
@@ -85,7 +86,7 @@ function ProtectedRoute() {
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Landing />;
   }
 
   // Handle case where profile is still loading or null but user is set (rare but possible during registration)

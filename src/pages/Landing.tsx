@@ -13,7 +13,7 @@ import {
   Truck,
   Video,
 } from "lucide-react";
-import SEO, { SITE_URL } from "@/components/seo/SEO";
+import SEO from "@/components/seo/SEO";
 import Reveal from "@/components/landing/Reveal";
 import { Button } from "@/components/ui/button";
 import {
