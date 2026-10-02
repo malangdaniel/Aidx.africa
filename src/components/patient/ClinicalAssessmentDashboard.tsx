@@ -23,12 +23,11 @@ import {
   Info,
   HeartPulse
 } from 'lucide-react';
-import { toast } from 'sonner';
 
 interface ClinicalAssessmentDashboardProps {
   assessment: ClinicalAssessmentData;
   onBookConsult: (specialty: string) => void;
-  onPharmacyRedirect?: () => void;
+  onPharmacyRedirect?: (medicationName: string) => void;
   onReopenChat?: () => void;
 }
 

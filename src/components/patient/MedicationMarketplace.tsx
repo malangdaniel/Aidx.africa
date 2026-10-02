@@ -165,7 +165,7 @@ export default function MedicationMarketplace({ initialSearchTerm }: MedicationM
                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                         className="flex-1 min-w-0"
                     />
-                    <Button onClick={handleSearch} disabled={loading} className="shrink-0">
+                    <Button onClick={() => void handleSearch()} disabled={loading} className="shrink-0">
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                         <span className="ml-2 hidden sm:inline">Search</span>
                     </Button>

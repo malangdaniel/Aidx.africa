@@ -98,7 +98,7 @@ export default function PatientDashboard() {
               setActiveTab('assessment-dashboard');
             }}
             onBookConsult={handleBookConsultWithSpecialty}
-            onPharmacyRedirect={handleFindMedication}
+            onPharmacyRedirect={() => setActiveTab('pharmacy')}
           />
         );
 

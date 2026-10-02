@@ -22,7 +22,7 @@ interface AIChatInterfaceProps {
     onConsultationComplete?: () => void;
     onViewAssessment?: (data: ClinicalAssessmentData) => void;
     onBookConsult?: (specialist: string) => void;
-    onPharmacyRedirect?: () => void;
+    onPharmacyRedirect?: (medicationName: string) => void;
 }
 
 export default function AIChatInterface({
