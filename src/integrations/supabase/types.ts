@@ -72,6 +72,7 @@ export type Database = {
           likelihood: number | null
           rationale: string | null
           recommendations: Json | null
+          session_id: string | null
           severity: Database["public"]["Enums"]["severity_level"] | null
           user_id: string
         }
@@ -85,6 +86,7 @@ export type Database = {
           likelihood?: number | null
           rationale?: string | null
           recommendations?: Json | null
+          session_id?: string | null
           severity?: Database["public"]["Enums"]["severity_level"] | null
           user_id: string
         }
@@ -98,6 +100,7 @@ export type Database = {
           likelihood?: number | null
           rationale?: string | null
           recommendations?: Json | null
+          session_id?: string | null
           severity?: Database["public"]["Enums"]["severity_level"] | null
           user_id?: string
         }

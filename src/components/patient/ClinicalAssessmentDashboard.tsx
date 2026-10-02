@@ -23,12 +23,11 @@ import {
   Info,
   HeartPulse
 } from 'lucide-react';
-import { toast } from 'sonner';
 
 interface ClinicalAssessmentDashboardProps {
   assessment: ClinicalAssessmentData;
   onBookConsult: (specialty: string) => void;
-  onPharmacyRedirect?: () => void;
+  onPharmacyRedirect?: (medicationName: string) => void;
   onReopenChat?: () => void;
 }
 
@@ -43,24 +42,12 @@ export default function ClinicalAssessmentDashboard({
     assessment.conditions?.[0]?.id || null
   );
   const [completedSelfCare, setCompletedSelfCare] = useState<Record<number, boolean>>({});
-  const [addedMeds, setAddedMeds] = useState<Record<string, boolean>>({});
-
   const toggleConditionExpand = (id: string) => {
     setExpandedConditionId(prev => (prev === id ? null : id));
   };
 
   const toggleSelfCareItem = (idx: number) => {
     setCompletedSelfCare(prev => ({ ...prev, [idx]: !prev[idx] }));
-  };
-
-  const handleAddToCart = (medName: string, id: string) => {
-    setAddedMeds(prev => ({ ...prev, [id]: true }));
-    toast.success(`${medName} added to your cart!`, {
-      action: onPharmacyRedirect ? {
-        label: "View Cart",
-        onClick: onPharmacyRedirect
-      } : undefined
-    });
   };
 
   // Risk Color Mapping
@@ -376,7 +363,6 @@ export default function ClinicalAssessmentDashboard({
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2">
                 {assessment.treatment.otcMedications.map((med) => {
-                  const isAdded = Boolean(addedMeds[med.id]);
                   return (
                     <Card key={med.id} className="border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/20 dark:bg-indigo-950/10 flex flex-col justify-between">
                       <CardHeader className="p-4 pb-2">
@@ -407,12 +393,12 @@ export default function ClinicalAssessmentDashboard({
                           </div>
                           <Button
                             size="sm"
-                            variant={isAdded ? "secondary" : "default"}
-                            onClick={() => handleAddToCart(med.name, med.id)}
+                            variant="default"
+                            onClick={() => onPharmacyRedirect?.(med.name)}
                             className="gap-1.5"
                           >
                             <ShoppingBag className="w-3.5 h-3.5" />
-                            {isAdded ? "Added" : "Add to Cart"}
+                            Find at a pharmacy
                           </Button>
                         </div>
                       </CardContent>
