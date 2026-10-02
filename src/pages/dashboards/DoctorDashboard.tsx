@@ -21,6 +21,14 @@ interface UpcomingConsultation {
   status: string;
 }
 
+interface Review {
+  id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  reviewerName: string;
+}
+
 interface DoctorStats {
   scheduled: number;
   ongoing: number;
@@ -41,6 +49,7 @@ export default function DoctorDashboard() {
   const [activePatient, setActivePatient] = useState<{ id: string } | null>(null);
 
   const [upcoming, setUpcoming] = useState<UpcomingConsultation[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [stats, setStats] = useState<DoctorStats>({
     scheduled: 0, ongoing: 0, completed: 0, cancelled: 0,
     totalEarnings: 0, pendingPayouts: 0, rating: 0, totalConsults: 0,
@@ -148,6 +157,31 @@ export default function DoctorDashboard() {
       });
 
       setUpcoming(mappedUpcoming);
+
+      // Fetch reviews
+      const { data: reviewsData } = await supabase
+        .from('reviews')
+        .select(`
+          id, rating, comment, created_at, reviewer_id,
+          profiles:reviewer_id (first_name, last_name)
+        `)
+        .eq('reviewee_id', user.id)
+        .order('created_at', { ascending: false });
+
+      const mappedReviews: Review[] = (reviewsData || []).map((r: any) => {
+        // Handle potential array or object for joined table
+        const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles || {};
+        const fName = profile.first_name || 'Anonymous';
+        const lName = profile.last_name || 'Patient';
+        return {
+          id: r.id,
+          rating: r.rating,
+          comment: r.comment,
+          created_at: r.created_at,
+          reviewerName: `${fName} ${lName}`.trim(),
+        };
+      });
+      setReviews(mappedReviews);
     } catch (error) {
       console.error('Error fetching doctor dashboard data:', error);
     } finally {
@@ -343,6 +377,31 @@ export default function DoctorDashboard() {
                 </p>
               </CardContent>
             </Card>
+
+            {reviews.length > 0 && (
+              <div className="space-y-4 mt-6">
+                <h3 className="font-bold text-md">Recent Reviews</h3>
+                {reviews.map((review) => (
+                  <Card key={review.id} className="bg-card">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-semibold text-sm">{review.reviewerName}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(review.created_at).toLocaleDateString()}</p>
+                        </div>
+                        <div className="flex items-center">
+                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                          <span className="ml-1 text-sm font-bold">{review.rating.toFixed(1)}</span>
+                        </div>
+                      </div>
+                      {review.comment && (
+                        <p className="text-sm text-muted-foreground mt-2 italic">"{review.comment}"</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         );
 
