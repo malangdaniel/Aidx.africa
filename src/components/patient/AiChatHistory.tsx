@@ -2,20 +2,24 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Bot, MessageSquare, Calendar, ChevronRight, Loader2, Trash2 } from 'lucide-react';
+import { Bot, MessageSquare, Calendar, ChevronRight, Loader2, Trash2, Stethoscope, Pill } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { toast } from 'sonner';
+import { ClinicalAssessmentData } from '@/types/clinicalAssessment';
 
 interface ChatSession {
     session_id: string;
     title: string;
     created_at: string;
     message_count: number;
+    assessment?: ClinicalAssessmentData;
 }
 
 interface AiChatHistoryProps {
     onSelectSession: (sessionId: string) => void;
     onNewChat: () => void;
+    onFindMedication: (medicationName: string) => void;
+    onFindDoctor: (specialty: string) => void;
 }
 
 const MOCK_SESSIONS: ChatSession[] = [
@@ -39,7 +43,7 @@ const MOCK_SESSIONS: ChatSession[] = [
     }
 ];
 
-export default function AiChatHistory({ onSelectSession, onNewChat }: AiChatHistoryProps) {
+export default function AiChatHistory({ onSelectSession, onNewChat, onFindMedication, onFindDoctor }: AiChatHistoryProps) {
     const [sessions, setSessions] = useState<ChatSession[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -64,6 +68,21 @@ export default function AiChatHistory({ onSelectSession, onNewChat }: AiChatHist
 
             if (error) throw error;
 
+            const { data: diagnoses, error: diagnosesError } = await supabase
+                .from('ai_diagnoses')
+                .select('session_id, diagnosis_data, created_at')
+                .eq('user_id', user.id)
+                .not('session_id', 'is', null)
+                .order('created_at', { ascending: false });
+
+            if (diagnosesError) throw diagnosesError;
+            const assessmentsBySession = new Map<string, ClinicalAssessmentData>();
+            diagnoses?.forEach((diagnosis) => {
+                if (diagnosis.session_id && !assessmentsBySession.has(diagnosis.session_id)) {
+                    assessmentsBySession.set(diagnosis.session_id, diagnosis.diagnosis_data as unknown as ClinicalAssessmentData);
+                }
+            });
+
             if (data && data.length > 0) {
                 const sessionMap = new Map<string, ChatSession>();
 
@@ -75,11 +94,12 @@ export default function AiChatHistory({ onSelectSession, onNewChat }: AiChatHist
                             session_id: chat.session_id,
                             title: chat.title || 'New Conversation',
                             created_at: chat.created_at,
-                            message_count: 1
+                            message_count: 1,
+                            assessment: assessmentsBySession.get(chat.session_id)
                         });
                     } else {
-                        const existing = sessionMap.get(chat.session_id)!;
-                        existing.message_count += 1;
+                        const existing = sessionMap.get(chat.session_id);
+                        if (existing) existing.message_count += 1;
                     }
                 });
 
@@ -153,13 +173,9 @@ export default function AiChatHistory({ onSelectSession, onNewChat }: AiChatHist
             ) : (
                 <div className="grid gap-3">
                     {sessions.map((session) => (
-                        <Card
-                            key={session.session_id}
-                            className="cursor-pointer hover:border-primary/50 transition-colors group"
-                            onClick={() => onSelectSession(session.session_id)}
-                        >
+                        <Card key={session.session_id} className="hover:border-primary/50 transition-colors group">
                             <CardContent className="p-4 flex items-center justify-between">
-                                <div className="flex items-center gap-4">
+                                <button type="button" className="flex items-center gap-4 min-w-0 text-left" onClick={() => onSelectSession(session.session_id)}>
                                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                                         <MessageSquare className="w-5 h-5" />
                                     </div>
@@ -173,7 +189,7 @@ export default function AiChatHistory({ onSelectSession, onNewChat }: AiChatHist
                                             <span>{session.message_count} messages</span>
                                         </div>
                                     </div>
-                                </div>
+                                </button>
                                 <div className="flex items-center gap-2">
                                     <Button
                                         variant="ghost"
@@ -186,6 +202,24 @@ export default function AiChatHistory({ onSelectSession, onNewChat }: AiChatHist
                                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
                                 </div>
                             </CardContent>
+                            {session.assessment && (
+                                <CardContent className="px-4 pt-0 pb-4">
+                                    <div className="flex flex-wrap gap-2 border-t pt-3" aria-label="Recommended care actions">
+                                        {session.assessment.specialistReferral?.specialty && (
+                                            <Button size="sm" variant="outline" onClick={() => onFindDoctor(session.assessment?.specialistReferral.specialty ?? '')}>
+                                                <Stethoscope className="mr-2 h-4 w-4" />
+                                                Find {session.assessment.specialistReferral.specialty} doctors
+                                            </Button>
+                                        )}
+                                        {session.assessment.treatment?.otcMedications?.map((medication) => (
+                                            <Button key={medication.id} size="sm" variant="outline" onClick={() => onFindMedication(medication.name)}>
+                                                <Pill className="mr-2 h-4 w-4" />
+                                                Find {medication.name}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            )}
                         </Card>
                     ))}
                 </div>

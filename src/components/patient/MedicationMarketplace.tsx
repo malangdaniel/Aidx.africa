@@ -22,7 +22,11 @@ interface CartItem {
 
 const naira = (n: number) => `₦${n.toLocaleString('en-NG', { maximumFractionDigits: 2 })}`;
 
-export default function MedicationMarketplace() {
+interface MedicationMarketplaceProps {
+    initialSearchTerm?: string;
+}
+
+export default function MedicationMarketplace({ initialSearchTerm }: MedicationMarketplaceProps) {
     const { user } = useAuth();
     const [searchTerm, setSearchTerm] = useState("");
     const [results, setResults] = useState<{ item: InventoryItem; pharmacy: Pharmacy; distance?: number }[]>([]);
@@ -52,13 +56,13 @@ export default function MedicationMarketplace() {
         if (user) loadWallet();
     }, [user]);
 
-    const handleSearch = async () => {
-        if (!searchTerm.trim()) return;
+    const handleSearch = async (term = searchTerm) => {
+        if (!term.trim()) return;
 
         setLoading(true);
         setHasSearched(true);
         try {
-            const data = await PharmacyService.searchDrugs(searchTerm, userLocation);
+            const data = await PharmacyService.searchDrugs(term, userLocation);
             setResults(data);
         } catch (error) {
             console.error("Search failed", error);
@@ -67,6 +71,12 @@ export default function MedicationMarketplace() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (!initialSearchTerm?.trim()) return;
+        setSearchTerm(initialSearchTerm);
+        void handleSearch(initialSearchTerm);
+    }, [initialSearchTerm]);
 
     const addToCart = (item: InventoryItem, pharmacy: Pharmacy) => {
         setCart(prev => {

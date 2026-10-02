@@ -169,7 +169,7 @@ export default function AIChatInterface({
             const isReady = responseText.toLowerCase().includes("assessment complete") || userMsgCount >= 4;
 
             if (isReady && !isAssessmentReady) {
-                triggerAssessmentGeneration(updatedMessages);
+                triggerAssessmentGeneration(updatedMessages, currentSessionId);
             }
 
         } catch (error) {
@@ -184,7 +184,7 @@ export default function AIChatInterface({
         }
     };
 
-    const triggerAssessmentGeneration = async (chatMessages: Message[]) => {
+    const triggerAssessmentGeneration = async (chatMessages: Message[], assessmentSessionId: string) => {
         setIsGeneratingAssessment(true);
         const fullHistory = chatMessages.map(m => `${m.role}: ${m.content}`).join('\n');
 
@@ -201,6 +201,7 @@ export default function AIChatInterface({
                     if (user) {
                         await supabase.from('ai_diagnoses').insert({
                             user_id: user.id,
+                            session_id: assessmentSessionId,
                             condition: assessmentData.conditions?.[0]?.name || "Assessment Completed",
                             diagnosis_data: assessmentData as any,
                             rationale: assessmentData.clinicalSummaryText

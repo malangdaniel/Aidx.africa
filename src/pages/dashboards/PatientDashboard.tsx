@@ -28,6 +28,7 @@ export default function PatientDashboard() {
   const [currentAssessment, setCurrentAssessment] = useState<ClinicalAssessmentData | null>(null);
   const [activeConsultation, setActiveConsultation] = useState<any | null>(null);
   const [preselectedSpecialty, setPreselectedSpecialty] = useState<string | undefined>(undefined);
+  const [pharmacySearchTerm, setPharmacySearchTerm] = useState('');
 
   const [stats, setStats] = useState({ aiChats: 0, consultations: 0, orders: 0 });
   const [wallet, setWallet] = useState({ balance: 0, escrow: 0 });
@@ -77,6 +78,11 @@ export default function PatientDashboard() {
     setActiveTab('consultations');
   };
 
+  const handleFindMedication = (medicationName: string) => {
+    setPharmacySearchTerm(medicationName);
+    setActiveTab('pharmacy');
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'ai-chat':
@@ -92,7 +98,7 @@ export default function PatientDashboard() {
               setActiveTab('assessment-dashboard');
             }}
             onBookConsult={handleBookConsultWithSpecialty}
-            onPharmacyRedirect={() => setActiveTab('pharmacy')}
+            onPharmacyRedirect={handleFindMedication}
           />
         );
 
@@ -101,7 +107,7 @@ export default function PatientDashboard() {
           <ClinicalAssessmentDashboard
             assessment={currentAssessment}
             onBookConsult={handleBookConsultWithSpecialty}
-            onPharmacyRedirect={() => setActiveTab('pharmacy')}
+            onPharmacyRedirect={handleFindMedication}
             onReopenChat={() => setActiveTab('ai-chat')}
           />
         ) : (
@@ -117,6 +123,8 @@ export default function PatientDashboard() {
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">AI Assistant History</h2>
             <AiChatHistory
+              onFindMedication={handleFindMedication}
+              onFindDoctor={handleBookConsultWithSpecialty}
               onSelectSession={(id) => {
                 setSelectedSessionId(id);
                 setActiveTab('ai-chat');
@@ -176,7 +184,7 @@ export default function PatientDashboard() {
         return (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Pharmacy</h2>
-            <MedicationMarketplace />
+            <MedicationMarketplace initialSearchTerm={pharmacySearchTerm} />
           </div>
         );
 
