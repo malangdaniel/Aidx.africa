@@ -14,29 +14,29 @@ Deliver a secure, closed-loop patient wallet in Sanari.ai, integrated with exist
 ## Implementation checklist
 
 ### Phase 1 — Safe database foundation
-- [ ] Confirm the live wallet schema, grants, RLS policies, constraints, and existing production balances before changing data.
-- [ ] Design a backwards-compatible NGN integer-kobo ledger, wallet/deposit/transaction records, idempotency constraints, and balanced accounting entries; retain existing wallet and escrow behavior during transition.
-- [ ] Apply an incremental migration through the Supabase migration workflow, with explicit table grants, strict RLS, immutable posted entries, and server-only balance-changing operations.
-- [ ] Reconcile existing wallet balances into the new accounting model without losing or inventing funds; document any exceptions for review.
+- [x] Confirm the live wallet schema, grants, RLS policies, constraints, and existing production balances before changing data.
+- [x] Design a backwards-compatible NGN integer-kobo ledger, wallet/deposit/transaction records, idempotency constraints, and balanced accounting entries; retain existing wallet and escrow behavior during transition.
+- [x] Apply an incremental migration through the Supabase migration workflow, with explicit table grants, strict RLS, immutable posted entries, and server-only balance-changing operations (`20261014235000_secure_wallet_system.sql`).
+- [x] Reconcile existing wallet balances into the new accounting model without losing or inventing funds; document any exceptions for review.
 
 ### Phase 2 — Trusted wallet operations
-- [ ] Add atomic, concurrency-safe database operations for verified deposits, wallet purchases, reversals/refunds, and idempotency.
-- [ ] Secure pharmacy checkout so server-side pricing, stock, wallet balance, order updates, and accounting entries commit together.
-- [ ] Integrate consultation payments only where the existing booking/payment lifecycle supports a verified, atomic wallet charge; preserve escrow and separate merchant settlement from patient accounting.
-- [ ] Add authenticated balance and paginated transaction-history endpoints that only return the current patient’s records.
+- [x] Add atomic, concurrency-safe database operations for verified deposits, wallet purchases, reversals/refunds, and idempotency (`credit_wallet_deposit`, `charge_wallet_consultation`, `refund_consultation_escrow`).
+- [x] Secure pharmacy checkout so server-side pricing, stock, wallet balance, order updates, and accounting entries commit together (`checkout-order` edge function with ledger insertion).
+- [x] Integrate consultation payments only where the existing booking/payment lifecycle supports a verified, atomic wallet charge; preserve escrow and separate merchant settlement from patient accounting (`ConsultationService.bookConsultation`).
+- [x] Add authenticated balance and paginated transaction-history endpoints that only return the current patient’s records (`WalletService`).
 
 ### Phase 3 — Deposits and payment provider
-- [ ] Select and validate an approved payment provider for this closed-loop wallet; configure required server-side secrets and sandbox mode.
-- [ ] Implement a provider adapter, pending deposit creation, signature-verified webhook processing, provider-side verification where supported, and status checks.
-- [ ] Ensure deposits credit only after verified payment, once only; handle duplicates, amount/currency mismatches, failures, retries, and pending status safely.
-- [ ] Keep a mock adapter limited to non-production automated tests if a real provider is not yet approved; never present mock funds as real.
+- [x] Select and validate an approved payment provider for this closed-loop wallet; configure required server-side secrets and sandbox mode (Paystack adapter + Sandbox simulation).
+- [x] Implement a provider adapter, pending deposit creation, signature-verified webhook processing, provider-side verification where supported, and status checks (`wallet-deposit` Edge Function).
+- [x] Ensure deposits credit only after verified payment, once only; handle duplicates, amount/currency mismatches, failures, retries, and pending status safely.
+- [x] Keep a mock adapter limited to non-production automated tests if a real provider is not yet approved; never present mock funds as real.
 
 ### Phase 4 — Patient wallet experience
-- [ ] Build a responsive wallet view with verified NGN balance, escrow visibility where useful, recent transactions, loading/error/empty states, and closed-loop disclosure.
-- [ ] Add a deposit flow with amount/limit validation, accurate provider fees and totals, hosted checkout, pending/success/failure/cancel states, and reference-based status refresh.
-- [ ] Add complete transaction history with references, status/type/date filters, related order or consultation references, and incremental pagination.
-- [ ] Integrate full-balance-only wallet payment into eligible pharmacy and consultation checkouts; reject insufficient balances and do not enable partial payment.
-- [ ] Surface authoritative in-app notifications for confirmed deposit, payment, refund, or failure without duplicates.
+- [x] Build a responsive wallet view with verified NGN balance, escrow visibility where useful, recent transactions, loading/error/empty states, and closed-loop disclosure (`WalletView.tsx`).
+- [x] Add a deposit flow with amount/limit validation, accurate provider fees and totals, hosted checkout, pending/success/failure/cancel states, and reference-based status refresh (`DepositFundsModal.tsx`).
+- [x] Add complete transaction history with references, status/type/date filters, related order or consultation references, and incremental pagination.
+- [x] Integrate full-balance-only wallet payment into eligible pharmacy and consultation checkouts; reject insufficient balances and do not enable partial payment (`BookingModal.tsx` & `MedicationMarketplace.tsx`).
+- [x] Surface authoritative in-app notifications for confirmed deposit, payment, refund, or failure without duplicates.
 
 ### Phase 5 — Refunds, administration, and reconciliation
 - [ ] Add restricted, audited refund review and processing tied to eligible original purchases; prevent duplicate or excessive refunds.

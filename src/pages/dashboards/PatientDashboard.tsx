@@ -192,7 +192,7 @@ export default function PatientDashboard() {
         return <PatientProfile />;
 
       case 'wallet':
-        return <WalletView balance={wallet.balance} escrow={wallet.escrow} />;
+        return <WalletView balance={wallet.balance} escrow={wallet.escrow} onRefresh={fetchStats} />;
 
       default:
         return null;

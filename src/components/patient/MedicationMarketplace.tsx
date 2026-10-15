@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import DepositFundsModal from "./DepositFundsModal";
 
 interface CartItem {
     inventoryItem: InventoryItem;
@@ -40,6 +41,7 @@ export default function MedicationMarketplace({ initialSearchTerm }: MedicationM
     const [shippingAddress, setShippingAddress] = useState("");
     const [wallet, setWallet] = useState<{ balance: number; escrow: number } | null>(null);
     const [lastOrderId, setLastOrderId] = useState<string | null>(null);
+    const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
 
     // Default user location (Lagos) — used only for distance sorting
     const userLocation = { lat: 6.5244, lng: 3.3792 };
@@ -276,9 +278,21 @@ export default function MedicationMarketplace({ initialSearchTerm }: MedicationM
                                     <span className="font-semibold">{wallet ? naira(wallet.balance) : '—'}</span>
                                 </div>
                                 {insufficientFunds && (
-                                    <p className="text-xs text-destructive">
-                                        Insufficient balance. Top up your wallet to complete this order.
-                                    </p>
+                                    <div className="space-y-1.5 pt-1">
+                                        <p className="text-xs text-destructive">
+                                            Insufficient balance to complete this order.
+                                        </p>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setIsDepositModalOpen(true)}
+                                            className="w-full text-xs gap-1.5 h-8 font-semibold"
+                                        >
+                                            <Plus className="w-3.5 h-3.5" />
+                                            Top up Wallet
+                                        </Button>
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -304,6 +318,13 @@ export default function MedicationMarketplace({ initialSearchTerm }: MedicationM
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                <DepositFundsModal
+                    isOpen={isDepositModalOpen}
+                    onClose={() => setIsDepositModalOpen(false)}
+                    onDepositSuccess={loadWallet}
+                    initialAmount={Math.max(500, Math.ceil(cartTotal - (wallet?.balance || 0)))}
+                />
             </div>
 
             {lastOrderId && (

@@ -4,11 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
-import { Video, Phone, MessageSquare, CheckCircle2, Loader2, ShieldCheck, RefreshCw, Clock } from 'lucide-react';
+import { Video, Phone, MessageSquare, CheckCircle2, Loader2, ShieldCheck, RefreshCw, Clock, Wallet, AlertCircle, Plus } from 'lucide-react';
 import { Doctor } from './DoctorCard';
 import { supabase } from '@/integrations/supabase/client';
 import PaymentStatusBadge from '@/components/shared/PaymentStatusBadge';
 import { isDayAvailableForDoctor, formatTime12, formatAvailableDaysList } from '@/lib/doctorAvailability';
+import { WalletService } from '@/services/WalletService';
+import DepositFundsModal from './DepositFundsModal';
 
 interface BookingModalProps {
     doctor: Doctor | null;
@@ -38,9 +40,30 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm }: Boo
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [consultType, setConsultType] = useState('video');
     const [step, setStep] = useState(1);
+    const [walletBalance, setWalletBalance] = useState<number | null>(null);
+    const [loadingWallet, setLoadingWallet] = useState(false);
+    const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
 
     const availableDays: string[] = doctor?.availableDays?.length ? doctor.availableDays : [];
     const modes = doctor?.consultationModes?.length ? doctor.consultationModes : ['video', 'audio', 'chat'];
+
+    const fetchWallet = useCallback(async () => {
+        setLoadingWallet(true);
+        try {
+            const w = await WalletService.getWallet();
+            setWalletBalance(w ? w.balance : 0);
+        } catch (e) {
+            console.error("Failed to fetch wallet for booking:", e);
+        } finally {
+            setLoadingWallet(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchWallet();
+        }
+    }, [isOpen, fetchWallet]);
 
     useEffect(() => {
         if (!modes.includes(consultType)) setConsultType(modes[0]);
@@ -267,25 +290,59 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm }: Boo
                                     <span className="font-medium text-foreground capitalize">{consultType}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span>Payment:</span>
-                                    <PaymentStatusBadge status="pending" />
+                                    <span>Payment Source:</span>
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                                        <Wallet className="w-3.5 h-3.5" />
+                                        <span>Patient Wallet</span>
+                                    </div>
                                 </div>
-                                <div className="border-t pt-2 mt-2 flex justify-between font-bold">
-                                    <span>Held in escrow:</span>
-                                    <span>₦{doctor.price.toLocaleString()}</span>
+                                <div className="border-t pt-2 mt-2 space-y-1.5">
+                                    <div className="flex justify-between text-xs text-muted-foreground">
+                                        <span>Your Wallet Balance:</span>
+                                        <span className="font-semibold text-foreground">
+                                            {loadingWallet ? 'Checking...' : `₦${(walletBalance ?? 0).toLocaleString()}`}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between font-bold text-sm">
+                                        <span>Consultation Fee:</span>
+                                        <span className="text-primary">₦{doctor.price.toLocaleString()}</span>
+                                    </div>
                                 </div>
                             </div>
+
+                            {/* Insufficient Funds Warning */}
+                            {walletBalance !== null && walletBalance < doctor.price && (
+                                <div className="mt-3 p-3 rounded-lg border border-destructive/30 bg-destructive/5 text-left text-xs space-y-2">
+                                    <div className="flex items-start gap-2 text-destructive font-semibold">
+                                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                                        <span>Insufficient Wallet Balance</span>
+                                    </div>
+                                    <p className="text-muted-foreground text-[11px]">
+                                        You need an additional ₦{(doctor.price - walletBalance).toLocaleString()} in your patient wallet to book this session.
+                                    </p>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="default"
+                                        onClick={() => setIsDepositModalOpen(true)}
+                                        className="w-full text-xs gap-1.5 font-semibold"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        Add Funds to Wallet
+                                    </Button>
+                                </div>
+                            )}
+
                             <div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-secondary/40 p-3 text-left text-xs">
                                 <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
                                 <span>
-                                    Your slot is only confirmed once payment is escrowed. Funds stay in escrow
-                                    and are released to the doctor after the consultation is completed.
+                                    Your slot is confirmed once payment is escrowed. Funds stay securely in escrow
+                                    and are only released to the doctor after the consultation is completed.
                                 </span>
                             </div>
                         </div>
                     </div>
                 )}
-
 
                 <DialogFooter>
                     {step === 1 ? (
@@ -299,11 +356,25 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm }: Boo
                     ) : (
                         <div className="flex w-full gap-2">
                             <Button variant="outline" className="flex-1" onClick={() => setStep(1)}>Back</Button>
-                            <Button className="flex-1" onClick={handleConfirm}>Confirm & Pay</Button>
+                            <Button
+                                className="flex-1 gap-1.5"
+                                onClick={handleConfirm}
+                                disabled={walletBalance !== null && walletBalance < doctor.price}
+                            >
+                                <ShieldCheck className="w-4 h-4" />
+                                Confirm & Escrow
+                            </Button>
                         </div>
                     )}
                 </DialogFooter>
             </DialogContent>
+
+            <DepositFundsModal
+                isOpen={isDepositModalOpen}
+                onClose={() => setIsDepositModalOpen(false)}
+                onDepositSuccess={fetchWallet}
+                initialAmount={Math.max(500, doctor.price - (walletBalance || 0))}
+            />
         </Dialog>
     );
 }

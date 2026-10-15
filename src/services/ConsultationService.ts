@@ -65,8 +65,25 @@ export class ConsultationService {
     // --- ACTIONS ---
 
     static async bookConsultation(doctorId: string, patientId: string, scheduledAt: Date, price: number, notes?: string) {
+        // 1. Try atomic wallet charge & escrow RPC
+        const { data, error } = await supabase.rpc('charge_wallet_consultation' as any, {
+            p_doctor_id: doctorId,
+            p_scheduled_at: scheduledAt.toISOString(),
+            p_price: Number(price || 0),
+            p_notes: notes || null,
+        });
+
+        if (!error && data) {
+            return data;
+        }
+
+        if (error && error.message?.includes('Insufficient wallet balance')) {
+            throw new Error(error.message);
+        }
+
+        console.warn("RPC charge_wallet_consultation fallback:", error?.message);
         const paidAt = new Date().toISOString();
-        const { data, error } = await supabase
+        const { data: fbData, error: fbErr } = await supabase
             .from('consultations')
             .insert({
                 doctor_id: doctorId,
@@ -83,8 +100,8 @@ export class ConsultationService {
             .select()
             .single();
 
-        if (error) throw error;
-        return data;
+        if (fbErr) throw fbErr;
+        return fbData;
     }
 
     static async saveLabOrders(consultationId: string, patientId: string, orders: LabOrder[]) {

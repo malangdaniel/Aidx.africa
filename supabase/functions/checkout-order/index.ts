@@ -171,17 +171,39 @@ Deno.serve(async (req) => {
     }
 
     // Move funds to escrow
+    const newBalance = Math.round((Number(wallet.balance ?? 0) - totalAmount) * 100) / 100;
+    const newEscrow = Math.round((Number(wallet.escrow_balance ?? 0) + totalAmount) * 100) / 100;
     const { error: walletUpdateErr } = await admin
       .from("wallets")
       .update({
-        balance: Number(wallet.balance ?? 0) - totalAmount,
-        escrow_balance: Number(wallet.escrow_balance ?? 0) + totalAmount,
+        balance: newBalance,
+        escrow_balance: newEscrow,
       })
       .eq("id", wallet.id);
     if (walletUpdateErr) {
       await rollback();
       throw walletUpdateErr;
     }
+
+    // Record in immutable ledger
+    await admin.from("wallet_transactions").insert({
+      user_id: userId,
+      wallet_id: wallet.id,
+      amount: -totalAmount,
+      amount_kobo: -Math.round(totalAmount * 100),
+      balance_after: newBalance,
+      balance_after_kobo: Math.round(newBalance * 100),
+      type: "pharmacy_order",
+      status: "completed",
+      reference: `ESC-ORD-${order.id.slice(0, 8).toUpperCase()}`,
+      idempotency_key: `IDEM-ORD-${order.id}`,
+      description: `Pharmacy medication order payment (held in escrow)`,
+      metadata: {
+        order_id: order.id,
+        items_count: items.length,
+        pharmacies_count: byPharmacy.size,
+      },
+    });
 
     // History trail
     await admin.from("order_history").insert([
