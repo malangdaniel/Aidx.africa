@@ -1334,9 +1334,10 @@ export type Database = {
       }
       update_pharmacy_order_status: {
         Args: {
+          _actor_id: string
           _child_order_id: string
           _new_tracking_status: string
-          _reason?: string
+          _reason: string
         }
         Returns: Json
       }
