@@ -187,32 +187,41 @@ export type Database = {
       child_orders: {
         Row: {
           created_at: string
+          delivery_fee: number
+          discount_amount: number
           id: string
           parent_order_id: string
           pharmacy_id: string
           status: Database["public"]["Enums"]["order_status"] | null
           total_amount: number
           tracking_number: string | null
+          tracking_status: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          delivery_fee?: number
+          discount_amount?: number
           id?: string
           parent_order_id: string
           pharmacy_id: string
           status?: Database["public"]["Enums"]["order_status"] | null
           total_amount: number
           tracking_number?: string | null
+          tracking_status?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          delivery_fee?: number
+          discount_amount?: number
           id?: string
           parent_order_id?: string
           pharmacy_id?: string
           status?: Database["public"]["Enums"]["order_status"] | null
           total_amount?: number
           tracking_number?: string | null
+          tracking_status?: string
           updated_at?: string
         }
         Relationships: [
@@ -386,6 +395,7 @@ export type Database = {
           category: string | null
           created_at: string
           description: string | null
+          dosage_instructions: string | null
           expiry_date: string | null
           id: string
           image_url: string | null
@@ -395,12 +405,14 @@ export type Database = {
           prescription_required: boolean | null
           price: number
           stock_quantity: number | null
+          strength: string | null
           updated_at: string
         }
         Insert: {
           category?: string | null
           created_at?: string
           description?: string | null
+          dosage_instructions?: string | null
           expiry_date?: string | null
           id?: string
           image_url?: string | null
@@ -410,12 +422,14 @@ export type Database = {
           prescription_required?: boolean | null
           price: number
           stock_quantity?: number | null
+          strength?: string | null
           updated_at?: string
         }
         Update: {
           category?: string | null
           created_at?: string
           description?: string | null
+          dosage_instructions?: string | null
           expiry_date?: string | null
           id?: string
           image_url?: string | null
@@ -425,6 +439,7 @@ export type Database = {
           prescription_required?: boolean | null
           price?: number
           stock_quantity?: number | null
+          strength?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -747,6 +762,7 @@ export type Database = {
           notes: string | null
           order_id: string | null
           status: Database["public"]["Enums"]["order_status"]
+          tracking_status: string | null
         }
         Insert: {
           child_order_id?: string | null
@@ -756,6 +772,7 @@ export type Database = {
           notes?: string | null
           order_id?: string | null
           status: Database["public"]["Enums"]["order_status"]
+          tracking_status?: string | null
         }
         Update: {
           child_order_id?: string | null
@@ -765,6 +782,7 @@ export type Database = {
           notes?: string | null
           order_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
+          tracking_status?: string | null
         }
         Relationships: [
           {
@@ -786,7 +804,10 @@ export type Database = {
       order_items: {
         Row: {
           created_at: string
+          dosage_instructions_snapshot: string | null
           drug_id: string
+          drug_name_snapshot: string | null
+          drug_strength_snapshot: string | null
           id: string
           order_id: string
           pharmacy_id: string
@@ -796,7 +817,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dosage_instructions_snapshot?: string | null
           drug_id: string
+          drug_name_snapshot?: string | null
+          drug_strength_snapshot?: string | null
           id?: string
           order_id: string
           pharmacy_id: string
@@ -806,7 +830,10 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dosage_instructions_snapshot?: string | null
           drug_id?: string
+          drug_name_snapshot?: string | null
+          drug_strength_snapshot?: string | null
           id?: string
           order_id?: string
           pharmacy_id?: string
@@ -843,9 +870,11 @@ export type Database = {
           commission_amount: number | null
           created_at: string
           delivery_address: string | null
+          delivery_instructions: string | null
           escrow_amount: number | null
           id: string
           payment_reference: string | null
+          payment_status: string
           prescription_id: string | null
           prescription_image_url: string | null
           status: Database["public"]["Enums"]["order_status"] | null
@@ -857,9 +886,11 @@ export type Database = {
           commission_amount?: number | null
           created_at?: string
           delivery_address?: string | null
+          delivery_instructions?: string | null
           escrow_amount?: number | null
           id?: string
           payment_reference?: string | null
+          payment_status?: string
           prescription_id?: string | null
           prescription_image_url?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
@@ -871,9 +902,11 @@ export type Database = {
           commission_amount?: number | null
           created_at?: string
           delivery_address?: string | null
+          delivery_instructions?: string | null
           escrow_amount?: number | null
           id?: string
           payment_reference?: string | null
+          payment_status?: string
           prescription_id?: string | null
           prescription_image_url?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
@@ -1298,6 +1331,14 @@ export type Database = {
       is_treating_doctor: {
         Args: { _doctor_id: string; _patient_id: string }
         Returns: boolean
+      }
+      update_pharmacy_order_status: {
+        Args: {
+          _child_order_id: string
+          _new_tracking_status: string
+          _reason?: string
+        }
+        Returns: Json
       }
     }
     Enums: {
