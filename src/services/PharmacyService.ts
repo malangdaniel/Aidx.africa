@@ -341,7 +341,7 @@ export const PharmacyService = {
     checkout: async (
         items: { drugId: string; quantity: number }[],
         deliveryAddress: string,
-        prescription?: { prescriptionId?: string | null; prescriptionImagePath?: string | null }
+        prescription?: { prescriptionId?: string | null; prescriptionImagePath?: string | null; deliveryInstructions?: string | null }
     ) => {
         const { data, error } = await supabase.functions.invoke('checkout-order', {
             body: {
@@ -350,6 +350,7 @@ export const PharmacyService = {
                 paymentMethod: 'wallet',
                 prescriptionId: prescription?.prescriptionId ?? null,
                 prescriptionImageUrl: prescription?.prescriptionImagePath ?? null,
+                deliveryInstructions: prescription?.deliveryInstructions ?? null,
             },
         });
 
@@ -372,6 +373,20 @@ export const PharmacyService = {
         }
 
         return data as { orderId: string; totalAmount: number; commissionAmount: number; pharmacies: number };
+    },
+
+    updatePharmacyOrderStatus: async (childOrderId: string, status: string, reason = '') => {
+        const { data, error } = await supabase.functions.invoke('update-pharmacy-order-status', {
+            body: { childOrderId, status, reason },
+        });
+        if (error) throw error;
+        return data;
+    },
+
+    getPrescriptionImageUrl: async (path: string): Promise<string | null> => {
+        const { data, error } = await supabase.storage.from('prescriptions').createSignedUrl(path, 600);
+        if (error) return null;
+        return data?.signedUrl ?? null;
     }
 };
 

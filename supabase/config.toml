@@ -6,3 +6,6 @@ verify_jwt = true
 [functions.wallet-deposit]
 verify_jwt = false
 
+[functions.update-pharmacy-order-status]
+verify_jwt = false
+
