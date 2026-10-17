@@ -999,6 +999,7 @@ export type Database = {
           id: string
           license_number: string | null
           location: unknown
+          phone: string | null
           rating: number | null
           total_orders: number | null
           updated_at: string
@@ -1011,6 +1012,7 @@ export type Database = {
           id?: string
           license_number?: string | null
           location?: unknown
+          phone?: string | null
           rating?: number | null
           total_orders?: number | null
           updated_at?: string
@@ -1023,6 +1025,7 @@ export type Database = {
           id?: string
           license_number?: string | null
           location?: unknown
+          phone?: string | null
           rating?: number | null
           total_orders?: number | null
           updated_at?: string
