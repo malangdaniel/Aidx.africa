@@ -40,12 +40,16 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => null);
     const items: CheckoutItem[] = Array.isArray(body?.items) ? body.items : [];
     const deliveryAddress = String(body?.deliveryAddress ?? "").trim();
+    const deliveryInstructions = String(body?.deliveryInstructions ?? "").trim();
+    const prescriptionId = typeof body?.prescriptionId === "string" ? body.prescriptionId : null;
+    const prescriptionImageUrl = typeof body?.prescriptionImageUrl === "string" ? body.prescriptionImageUrl : null;
     const paymentMethod = body?.paymentMethod === "wallet" ? "wallet" : "wallet";
 
     if (items.length === 0) return json({ error: "Cart is empty" }, 400);
     if (deliveryAddress.length < 5 || deliveryAddress.length > 500) {
       return json({ error: "A valid delivery address is required" }, 400);
     }
+    if (deliveryInstructions.length > 500) return json({ error: "Delivery instructions are too long" }, 400);
     for (const it of items) {
       if (!it?.drugId || !Number.isInteger(it.quantity) || it.quantity < 1 || it.quantity > 100) {
         return json({ error: "Invalid cart item" }, 400);
@@ -61,7 +65,7 @@ Deno.serve(async (req) => {
 
     const { data: drugs, error: drugErr } = await admin
       .from("drugs")
-      .select("id, name, price, stock_quantity, pharmacy_id, prescription_required")
+      .select("id, name, strength, dosage_instructions, price, stock_quantity, pharmacy_id, prescription_required")
       .in("id", drugIds);
     if (drugErr) throw drugErr;
     if (!drugs || drugs.length !== drugIds.length) return json({ error: "Some products are no longer available" }, 400);
@@ -117,6 +121,10 @@ Deno.serve(async (req) => {
         commission_amount: commissionAmount,
         status: "paid",
         delivery_address: deliveryAddress,
+        delivery_instructions: deliveryInstructions || null,
+        payment_status: "escrowed",
+        prescription_id: prescriptionId,
+        prescription_image_url: prescriptionImageUrl,
         payment_reference: `wallet_${crypto.randomUUID()}`,
       })
       .select()
@@ -136,6 +144,9 @@ Deno.serve(async (req) => {
         quantity: l.quantity,
         unit_price: l.unitPrice,
         total_price: l.totalPrice,
+        drug_name_snapshot: l.drug.name,
+        drug_strength_snapshot: l.drug.strength,
+        dosage_instructions_snapshot: l.drug.dosage_instructions,
       })),
     );
     if (itemsErr) {
@@ -155,7 +166,8 @@ Deno.serve(async (req) => {
           parent_order_id: order.id,
           pharmacy_id: pharmacyId,
           total_amount: amount,
-          status: "paid",
+        status: "paid",
+        tracking_status: "order_placed",
         })),
       )
       .select();
@@ -211,6 +223,7 @@ Deno.serve(async (req) => {
       ...(childOrders ?? []).map((c: { id: string }) => ({
         child_order_id: c.id,
         status: "paid" as const,
+        tracking_status: "order_placed",
         notes: "Awaiting pharmacy confirmation",
         created_by: userId,
       })),
