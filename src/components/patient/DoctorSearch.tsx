@@ -13,14 +13,16 @@ import { computeRealNextAvailable } from '@/lib/doctorAvailability';
 
 interface DoctorSearchProps {
     initialSpecialty?: string;
+    onBookingSuccess?: () => void;
 }
 
-export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
+export default function DoctorSearch({ initialSpecialty, onBookingSuccess }: DoctorSearchProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [specialtyFilter, setSpecialtyFilter] = useState(initialSpecialty || 'all');
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
     const [selectedProfileDoctor, setSelectedProfileDoctor] = useState<Doctor | null>(null);
     const [isBookingOpen, setIsBookingOpen] = useState(false);
+    const [isBooking, setIsBooking] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     // Real Data State
@@ -144,6 +146,7 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
 
     const handleBookingConfirm = async (details: any) => {
         try {
+            setIsBooking(true);
             const { data: { user } } = await supabase.auth.getUser();
 
             if (!user) {
@@ -172,13 +175,12 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
             toast.success("Appointment Booked Successfully!", {
                 description: `Consultation with ${details.doctor.name} scheduled for ${scheduledAt.toLocaleString()}.`
             });
+            onBookingSuccess?.();
         } catch (err: any) {
             console.error("Booking error:", err);
-            if (err?.code === '23505') {
-                toast.error("That time slot was just booked by someone else. Please choose another.");
-            } else {
-                toast.error("Failed to book appointment.");
-            }
+            toast.error(err?.message || "Failed to book appointment.");
+        } finally {
+            setIsBooking(false);
         }
     };
 
@@ -243,6 +245,7 @@ export default function DoctorSearch({ initialSpecialty }: DoctorSearchProps) {
                 isOpen={isBookingOpen}
                 onClose={() => setIsBookingOpen(false)}
                 onConfirm={handleBookingConfirm}
+                isSubmitting={isBooking}
             />
 
             <DoctorProfileOverlay

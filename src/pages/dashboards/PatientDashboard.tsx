@@ -142,7 +142,7 @@ export default function PatientDashboard() {
         return (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Find a Doctor</h2>
-            <DoctorSearch initialSpecialty={preselectedSpecialty} />
+            <DoctorSearch initialSpecialty={preselectedSpecialty} onBookingSuccess={fetchStats} />
           </div>
         );
 
@@ -184,7 +184,13 @@ export default function PatientDashboard() {
         return (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Pharmacy</h2>
-            <MedicationMarketplace initialSearchTerm={pharmacySearchTerm} />
+            <MedicationMarketplace
+              initialSearchTerm={pharmacySearchTerm}
+              onOrderSuccess={(_orderId) => {
+                fetchStats();
+                setActiveTab('orders-list');
+              }}
+            />
           </div>
         );
 

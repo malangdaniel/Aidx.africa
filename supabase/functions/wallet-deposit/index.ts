@@ -25,6 +25,7 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const paystackSecret = Deno.env.get("PAYSTACK_SECRET_KEY") ?? "";
+    const allowSandbox = Deno.env.get("ALLOW_SANDBOX_DEPOSITS") === "true";
 
     const admin = createClient(supabaseUrl, serviceKey);
 
@@ -32,29 +33,31 @@ Deno.serve(async (req) => {
     const path = url.pathname.replace(/^\/wallet-deposit/, "") || "/";
 
     // -------------------------------------------------------------
-    // 1. Webhook endpoint (Signature verified)
+    // 1. Webhook endpoint (Signature verified BEFORE database work)
     // -------------------------------------------------------------
     if (path === "/webhook" || req.headers.has("x-paystack-signature")) {
       const signature = req.headers.get("x-paystack-signature");
       const rawBody = await req.text();
 
-      if (paystackSecret && signature) {
-        // Validate HMAC SHA512
-        const key = await crypto.subtle.importKey(
-          "raw",
-          new TextEncoder().encode(paystackSecret),
-          { name: "HMAC", hash: "SHA-512" },
-          false,
-          ["sign"]
-        );
-        const signed = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
-        const hash = Array.from(new Uint8Array(signed))
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join("");
+      if (!paystackSecret || !signature) {
+        return json({ error: "Missing webhook signature or provider secret" }, 401);
+      }
 
-        if (hash !== signature) {
-          return json({ error: "Invalid webhook signature" }, 401);
-        }
+      // Validate HMAC SHA512
+      const key = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(paystackSecret),
+        { name: "HMAC", hash: "SHA-512" },
+        false,
+        ["sign"]
+      );
+      const signed = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+      const hash = Array.from(new Uint8Array(signed))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+
+      if (hash !== signature) {
+        return json({ error: "Invalid webhook signature" }, 401);
       }
 
       let payload: any;
@@ -72,6 +75,22 @@ Deno.serve(async (req) => {
 
         if (currency !== "NGN") {
           return json({ error: "Unsupported currency" }, 400);
+        }
+
+        // Validate stored deposit amount
+        const { data: deposit, error: depErr } = await admin
+          .from("wallet_deposits")
+          .select("amount_kobo, status")
+          .eq("reference", reference)
+          .maybeSingle();
+
+        if (depErr || !deposit) {
+          return json({ error: "Deposit reference not found" }, 404);
+        }
+
+        if (Number(deposit.amount_kobo) !== amountPaidKobo) {
+          console.error(`Amount mismatch for ${reference}: expected ${deposit.amount_kobo}, got ${amountPaidKobo}`);
+          return json({ error: "Amount mismatch" }, 400);
         }
 
         const { data: creditResult, error: creditErr } = await admin.rpc(
@@ -148,6 +167,15 @@ Deno.serve(async (req) => {
       const callbackUrl = body?.callbackUrl || `${url.origin}/patient-dashboard?tab=wallet&ref=${reference}`;
 
       // Insert pending deposit record
+      const provider = paystackSecret ? "paystack" : (allowSandbox ? "sandbox" : "paystack");
+
+      if (!paystackSecret && !allowSandbox) {
+        return json(
+          { error: "Payment gateway is not configured. Please contact administration." },
+          503
+        );
+      }
+
       const { data: depositRecord, error: depositErr } = await admin
         .from("wallet_deposits")
         .insert({
@@ -160,7 +188,7 @@ Deno.serve(async (req) => {
           currency: "NGN",
           status: "pending",
           reference: reference,
-          provider: paystackSecret ? "paystack" : "sandbox",
+          provider: provider,
           metadata: {
             user_email: user.email,
             callback_url: callbackUrl,
@@ -215,14 +243,14 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Sandbox / Test Mode when no Paystack key is set yet
+      // Sandbox / Test Mode ONLY when ALLOW_SANDBOX_DEPOSITS is 'true'
       return json({
         success: true,
         reference: reference,
         amount: amount,
         currency: "NGN",
         isSandbox: true,
-        sandboxNotice: "Paystack provider credentials not configured. Operating in test sandbox mode.",
+        sandboxNotice: "Operating in test sandbox mode (ALLOW_SANDBOX_DEPOSITS=true).",
       });
     }
 
@@ -233,7 +261,7 @@ Deno.serve(async (req) => {
       const reference = String(body?.reference ?? "").trim();
       if (!reference) return json({ error: "Deposit reference is required" }, 400);
 
-      // Fetch deposit
+      // Fetch deposit strictly for authenticated user
       const { data: deposit, error: depErr } = await admin
         .from("wallet_deposits")
         .select("*")
@@ -255,8 +283,8 @@ Deno.serve(async (req) => {
         });
       }
 
+      // If Paystack is configured, always verify with Paystack
       if (paystackSecret && deposit.provider === "paystack") {
-        // Verify with Paystack API
         const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
           headers: { Authorization: `Bearer ${paystackSecret}` },
         });
@@ -268,6 +296,17 @@ Deno.serve(async (req) => {
             status: verifyData.data?.status || "pending",
             message: verifyData.message || "Payment has not succeeded yet",
           });
+        }
+
+        // Validate currency and amount
+        if (verifyData.data.currency !== "NGN") {
+          return json({ error: "Invalid payment currency. Expected NGN." }, 400);
+        }
+
+        const paidKobo = Number(verifyData.data.amount ?? 0);
+        if (paidKobo !== Number(deposit.amount_kobo)) {
+          console.error(`Paystack amount mismatch for ${reference}: expected ${deposit.amount_kobo}, got ${paidKobo}`);
+          return json({ error: "Payment amount does not match expected deposit amount" }, 400);
         }
 
         // Credit deposit via atomic function
@@ -289,8 +328,8 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Sandbox simulation mode verification
-      if (deposit.provider === "sandbox" || !paystackSecret) {
+      // Sandbox simulation mode verification: ONLY when ALLOW_SANDBOX_DEPOSITS is 'true'
+      if (allowSandbox && (deposit.provider === "sandbox" || !paystackSecret)) {
         const { data: creditResult, error: creditErr } = await admin.rpc("credit_wallet_deposit", {
           p_deposit_reference: reference,
           p_provider_ref: `SANDBOX-${reference}`,
@@ -310,7 +349,12 @@ Deno.serve(async (req) => {
         });
       }
 
-      return json({ error: "Unable to verify deposit" }, 400);
+      // In production without sandbox enabled, reject unverified deposits
+      if (!paystackSecret) {
+        return json({ error: "Payment provider is not configured and sandbox mode is disabled." }, 503);
+      }
+
+      return json({ error: "Unable to verify deposit with payment provider" }, 400);
     }
 
     return json({ error: `Unknown action '${action}'` }, 400);

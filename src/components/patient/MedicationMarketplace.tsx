@@ -23,11 +23,14 @@ interface CartItem {
 
 const naira = (n: number) => `₦${n.toLocaleString('en-NG', { maximumFractionDigits: 2 })}`;
 
+import { DoctorPrescription } from "@/services/PharmacyService";
+
 interface MedicationMarketplaceProps {
     initialSearchTerm?: string;
+    onOrderSuccess?: (orderId: string) => void;
 }
 
-export default function MedicationMarketplace({ initialSearchTerm }: MedicationMarketplaceProps) {
+export default function MedicationMarketplace({ initialSearchTerm, onOrderSuccess }: MedicationMarketplaceProps) {
     const { user } = useAuth();
     const [searchTerm, setSearchTerm] = useState("");
     const [results, setResults] = useState<{ item: InventoryItem; pharmacy: Pharmacy; distance?: number }[]>([]);
@@ -39,6 +42,13 @@ export default function MedicationMarketplace({ initialSearchTerm }: MedicationM
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [isCheckingOut, setIsCheckingOut] = useState(false);
     const [shippingAddress, setShippingAddress] = useState("");
+    const [deliveryInstructions, setDeliveryInstructions] = useState("");
+    const [prescriptions, setPrescriptions] = useState<DoctorPrescription[]>([]);
+    const [selectedPrescriptionId, setSelectedPrescriptionId] = useState("");
+    const [uploadedImagePath, setUploadedImagePath] = useState<string | null>(null);
+    const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+    const [uploadingPrescription, setUploadingPrescription] = useState(false);
+
     const [wallet, setWallet] = useState<{ balance: number; escrow: number } | null>(null);
     const [lastOrderId, setLastOrderId] = useState<string | null>(null);
     const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
@@ -54,9 +64,28 @@ export default function MedicationMarketplace({ initialSearchTerm }: MedicationM
         }
     };
 
+    const loadPrescriptions = async () => {
+        try {
+            const rxList = await PharmacyService.getMyPrescriptions();
+            setPrescriptions(rxList);
+        } catch (e) {
+            console.error("Failed to load prescriptions", e);
+        }
+    };
+
     useEffect(() => {
-        if (user) loadWallet();
+        if (user) {
+            loadWallet();
+            loadPrescriptions();
+        }
     }, [user]);
+
+    useEffect(() => {
+        if (isCartOpen && user) {
+            loadPrescriptions();
+            loadWallet();
+        }
+    }, [isCartOpen, user]);
 
     const handleSearch = async (term = searchTerm) => {
         if (!term.trim()) return;
@@ -119,6 +148,26 @@ export default function MedicationMarketplace({ initialSearchTerm }: MedicationM
     const rxItems = cart.filter(c => c.inventoryItem.drug.requiresPrescription);
     const insufficientFunds = wallet !== null && cartTotal > wallet.balance;
 
+    const handlePrescriptionUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            setUploadingPrescription(true);
+            const path = await PharmacyService.uploadPrescriptionImage(file);
+            setUploadedImagePath(path);
+            setUploadedFileName(file.name);
+            setSelectedPrescriptionId("");
+            toast.success("Prescription uploaded successfully");
+        } catch (err: any) {
+            console.error("Prescription upload error:", err);
+            toast.error(err?.message || "Failed to upload prescription");
+        } finally {
+            setUploadingPrescription(false);
+        }
+    };
+
+    const rxMissing = rxItems.length > 0 && !selectedPrescriptionId && !uploadedImagePath;
+
     const handleCheckout = async () => {
         if (!user) {
             toast.error("Please sign in to checkout");
@@ -128,12 +177,21 @@ export default function MedicationMarketplace({ initialSearchTerm }: MedicationM
             toast.error("Please enter a valid delivery address");
             return;
         }
+        if (rxMissing) {
+            toast.error("A prescription is required for prescription-only items in your cart.");
+            return;
+        }
 
         try {
             setIsCheckingOut(true);
             const result = await PharmacyService.checkout(
                 cart.map(c => ({ drugId: c.inventoryItem.drugId, quantity: c.quantity })),
-                shippingAddress.trim()
+                shippingAddress.trim(),
+                {
+                    prescriptionId: selectedPrescriptionId || null,
+                    prescriptionImagePath: uploadedImagePath || null,
+                    deliveryInstructions: deliveryInstructions.trim() || null,
+                }
             );
 
             setLastOrderId(result.orderId);
@@ -144,10 +202,14 @@ export default function MedicationMarketplace({ initialSearchTerm }: MedicationM
             );
             setCart([]);
             setShippingAddress("");
+            setDeliveryInstructions("");
+            setSelectedPrescriptionId("");
+            setUploadedImagePath(null);
+            setUploadedFileName(null);
             setIsCartOpen(false);
             loadWallet();
-            // refresh availability shown on screen
             if (searchTerm.trim()) handleSearch();
+            onOrderSuccess?.(result.orderId);
         } catch (error) {
             console.error("Checkout failed", error);
             toast.error(error instanceof Error ? error.message : "Failed to place order.");
@@ -231,18 +293,76 @@ export default function MedicationMarketplace({ initialSearchTerm }: MedicationM
                                 </ScrollArea>
 
                                 {rxItems.length > 0 && (
-                                    <div className="flex items-start gap-2 rounded-md border border-accent/40 bg-accent/10 p-2 text-xs">
-                                        <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0 text-accent" />
-                                        <span>
-                                            {rxItems.length} item{rxItems.length > 1 ? 's' : ''} require a prescription. The pharmacy will verify it before dispatch.
-                                        </span>
+                                    <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+                                        <div className="flex items-start gap-2 text-amber-800 dark:text-amber-400 font-semibold">
+                                            <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
+                                            <span>Prescription Required ({rxItems.length} item{rxItems.length > 1 ? 's' : ''})</span>
+                                        </div>
+                                        <p className="text-muted-foreground text-[11px]">
+                                            Select an existing prescription from your past consultations or upload a valid prescription image or PDF.
+                                        </p>
+
+                                        {prescriptions.length > 0 && (
+                                            <div className="space-y-1">
+                                                <Label className="text-[11px] font-medium text-foreground">
+                                                    Option A: Select from consultation history
+                                                </Label>
+                                                <select
+                                                    className="w-full text-xs p-2 rounded-md border border-input bg-background text-foreground"
+                                                    value={selectedPrescriptionId}
+                                                    onChange={(e) => {
+                                                        setSelectedPrescriptionId(e.target.value);
+                                                        if (e.target.value) {
+                                                            setUploadedImagePath(null);
+                                                            setUploadedFileName(null);
+                                                        }
+                                                    }}
+                                                >
+                                                    <option value="">-- Choose past consultation prescription --</option>
+                                                    {prescriptions.map((p) => (
+                                                        <option key={p.id} value={p.id}>
+                                                            {p.doctorName} ({new Date(p.createdAt).toLocaleDateString()}) - {p.medications.join(', ')}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-1">
+                                            <Label className="text-[11px] font-medium text-foreground">
+                                                {prescriptions.length > 0 ? "Option B: Upload prescription image or PDF" : "Upload prescription image or PDF"}
+                                            </Label>
+                                            <Input
+                                                type="file"
+                                                accept="image/*,.pdf"
+                                                disabled={uploadingPrescription}
+                                                onChange={handlePrescriptionUpload}
+                                                className="text-xs h-8 file:text-xs"
+                                            />
+                                            {uploadingPrescription && (
+                                                <p className="text-[11px] text-primary flex items-center gap-1 mt-1">
+                                                    <Loader2 className="w-3 h-3 animate-spin" /> Uploading prescription...
+                                                </p>
+                                            )}
+                                            {uploadedFileName && (
+                                                <p className="text-[11px] text-emerald-600 flex items-center gap-1 mt-1 font-medium">
+                                                    <CheckCircle2 className="w-3.5 h-3.5" /> Uploaded: {uploadedFileName}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {rxMissing && (
+                                            <p className="text-[11px] font-medium text-destructive">
+                                                * You must select or upload a prescription to complete this order.
+                                            </p>
+                                        )}
                                     </div>
                                 )}
 
                                 <Separator />
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="delivery-address">Delivery address</Label>
+                                    <Label htmlFor="delivery-address">Delivery address *</Label>
                                     <Textarea
                                         id="delivery-address"
                                         placeholder="House number, street, area, city"
@@ -250,6 +370,17 @@ export default function MedicationMarketplace({ initialSearchTerm }: MedicationM
                                         maxLength={500}
                                         rows={2}
                                         onChange={(e) => setShippingAddress(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="delivery-instructions">Delivery instructions (Optional)</Label>
+                                    <Input
+                                        id="delivery-instructions"
+                                        placeholder="Gate code, call upon arrival, landmark..."
+                                        value={deliveryInstructions}
+                                        maxLength={200}
+                                        onChange={(e) => setDeliveryInstructions(e.target.value)}
                                     />
                                 </div>
 
@@ -301,7 +432,7 @@ export default function MedicationMarketplace({ initialSearchTerm }: MedicationM
                             <Button
                                 className="w-full"
                                 onClick={handleCheckout}
-                                disabled={cart.length === 0 || isCheckingOut || insufficientFunds}
+                                disabled={cart.length === 0 || isCheckingOut || insufficientFunds || rxMissing || shippingAddress.trim().length < 5 || uploadingPrescription}
                             >
                                 {isCheckingOut ? (
                                     <>

@@ -3,12 +3,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, Video, FileText, Loader2, User, Star } from 'lucide-react';
+import { Calendar, Clock, Video, FileText, Loader2, User, Star, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import ConsultationReport from './ConsultationReport';
 import PaymentStatusBadge, { getPaymentStatusHint } from '@/components/shared/PaymentStatusBadge';
 import ReviewDialog from './ReviewDialog';
+import { WalletService } from '@/services/WalletService';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 interface Consultation {
     id: string;
@@ -37,10 +48,33 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
     const [loading, setLoading] = useState(true);
     const [selectedReport, setSelectedReport] = useState<Consultation | null>(null);
     const [reviewTarget, setReviewTarget] = useState<Consultation | null>(null);
+    const [cancelTarget, setCancelTarget] = useState<Consultation | null>(null);
+    const [cancelReason, setCancelReason] = useState('');
+    const [isCancelling, setIsCancelling] = useState(false);
 
     useEffect(() => {
         fetchConsultations();
     }, []);
+
+    const handleConfirmCancel = async () => {
+        if (!cancelTarget) return;
+        setIsCancelling(true);
+        try {
+            const data: any = await WalletService.refundConsultation(cancelTarget.id, cancelReason.trim() || undefined);
+            const refundAmount = typeof data === 'number'
+                ? data
+                : (data?.amount ?? data?.refund_amount ?? (cancelTarget.escrow_amount ?? cancelTarget.price));
+            toast.success(`Consultation cancelled. ₦${Number(refundAmount).toLocaleString()} refunded to your wallet.`);
+            setCancelTarget(null);
+            setCancelReason('');
+            fetchConsultations();
+        } catch (err: any) {
+            console.error('Error cancelling consultation:', err);
+            toast.error(err.message || 'Failed to cancel consultation.');
+        } finally {
+            setIsCancelling(false);
+        }
+    };
 
     const fetchConsultations = async () => {
         setLoading(true);
@@ -202,14 +236,30 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
 
                                     <div className="flex sm:flex-col gap-2 w-full">
                                         {consultation.status === 'scheduled' || consultation.status === 'ongoing' ? (
-                                            <Button
-                                                size="sm"
-                                                className="w-full gap-2 bg-primary"
-                                                onClick={() => onJoinCall && onJoinCall(consultation)}
-                                            >
-                                                <Video className="w-4 h-4" />
-                                                Join Call
-                                            </Button>
+                                            <>
+                                                <Button
+                                                    size="sm"
+                                                    className="w-full gap-2 bg-primary"
+                                                    onClick={() => onJoinCall && onJoinCall(consultation)}
+                                                >
+                                                    <Video className="w-4 h-4" />
+                                                    Join Call
+                                                </Button>
+                                                {consultation.status === 'scheduled' && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="w-full gap-1.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                        onClick={() => {
+                                                            setCancelTarget(consultation);
+                                                            setCancelReason('');
+                                                        }}
+                                                    >
+                                                        <XCircle className="w-3.5 h-3.5" />
+                                                        Cancel
+                                                    </Button>
+                                                )}
+                                            </>
                                         ) : (
                                             <>
                                                 <Button
@@ -259,6 +309,48 @@ export default function ConsultationsList({ onJoinCall }: ConsultationsListProps
                     consultationId={reviewTarget.id}
                     doctorName={`Dr. ${reviewTarget.doctor_profile?.first_name ?? ''} ${reviewTarget.doctor_profile?.last_name ?? ''}`.trim()}
                 />
+            )}
+
+            {cancelTarget && (
+                <Dialog open={!!cancelTarget} onOpenChange={(open) => !open && !isCancelling && setCancelTarget(null)}>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>Cancel Consultation</DialogTitle>
+                            <DialogDescription>
+                                Are you sure you want to cancel your consultation with Dr. {cancelTarget.doctor_profile?.first_name} {cancelTarget.doctor_profile?.last_name}?
+                                {' '}₦{(cancelTarget.escrow_amount ?? cancelTarget.price).toLocaleString()} held in escrow will be immediately refunded to your wallet balance.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-2 py-2">
+                            <Label htmlFor="cancel-reason">Reason for cancellation (optional)</Label>
+                            <Textarea
+                                id="cancel-reason"
+                                placeholder="Let the doctor know why you need to cancel..."
+                                value={cancelReason}
+                                onChange={(e) => setCancelReason(e.target.value)}
+                                rows={3}
+                            />
+                        </div>
+                        <DialogFooter className="gap-2 sm:gap-0">
+                            <Button
+                                variant="outline"
+                                onClick={() => setCancelTarget(null)}
+                                disabled={isCancelling}
+                            >
+                                Keep Consultation
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                onClick={handleConfirmCancel}
+                                disabled={isCancelling}
+                                className="gap-2"
+                            >
+                                {isCancelling && <Loader2 className="w-4 h-4 animate-spin" />}
+                                Confirm Cancel & Refund
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             )}
         </>
     );

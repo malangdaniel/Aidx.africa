@@ -325,8 +325,8 @@ export const PharmacyService = {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('You must be signed in to upload a prescription');
 
-        const ext = file.name.split('.').pop() || 'jpg';
-        const path = `${user.id}/${Date.now()}.${ext}`;
+        const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const path = `${user.id}/${Date.now()}-${cleanName}`;
         const { error } = await supabase.storage.from('prescriptions').upload(path, file, { upsert: true });
         if (error) throw error;
         return path;
@@ -343,50 +343,29 @@ export const PharmacyService = {
         deliveryAddress: string,
         prescription?: { prescriptionId?: string | null; prescriptionImagePath?: string | null; deliveryInstructions?: string | null }
     ) => {
-        const { data, error } = await supabase.functions.invoke('checkout-order', {
-            body: {
-                items,
-                deliveryAddress,
-                paymentMethod: 'wallet',
-                prescriptionId: prescription?.prescriptionId ?? null,
-                prescriptionImageUrl: prescription?.prescriptionImagePath ?? null,
-                deliveryInstructions: prescription?.deliveryInstructions ?? null,
-            },
+        const { data, error } = await (supabase.rpc as any)('place_pharmacy_order', {
+            p_items: items,
+            p_delivery_address: deliveryAddress,
+            p_delivery_instructions: prescription?.deliveryInstructions || null,
+            p_prescription_id: prescription?.prescriptionId || null,
+            p_prescription_image_url: prescription?.prescriptionImagePath || null,
         });
 
         if (error) {
-            let details = error.message;
-            const ctx = (error as any)?.context;
-            if (ctx && typeof ctx.text === 'function') {
-                try {
-                    const raw = await ctx.text();
-                    const parsed = JSON.parse(raw);
-                    details = parsed.error || raw;
-                    if (parsed.details?.length) {
-                        details += `: ${parsed.details.map((d: any) => `${d.name} (only ${d.available} left)`).join(', ')}`;
-                    }
-                } catch {
-                    /* keep default message */
-                }
-            }
-            throw new Error(details);
+            throw new Error(error.message || 'Failed to place order');
         }
 
-        return data as { orderId: string; totalAmount: number; commissionAmount: number; pharmacies: number };
+        return data as { orderId: string; totalAmount: number; commissionAmount: number; pharmacies: number; paymentMethod: string };
     },
 
     updatePharmacyOrderStatus: async (childOrderId: string, status: string, reason = '') => {
-        const { data, error } = await supabase.functions.invoke('update-pharmacy-order-status', {
-            body: { childOrderId, status, reason },
+        const { data, error } = await (supabase.rpc as any)('pharmacy_set_order_status', {
+            p_child_order_id: childOrderId,
+            p_new_status: status,
+            p_reason: reason || null,
         });
-        if (error) throw error;
+        if (error) throw new Error(error.message || 'Failed to update order status');
         return data;
-    },
-
-    getPrescriptionImageUrl: async (path: string): Promise<string | null> => {
-        const { data, error } = await supabase.storage.from('prescriptions').createSignedUrl(path, 600);
-        if (error) return null;
-        return data?.signedUrl ?? null;
     }
 };
 

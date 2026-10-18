@@ -106,7 +106,16 @@ export default function ReviewDialog({
             onSubmitted?.();
         } catch (e: any) {
             console.error('Review error:', e);
-            toast.error(e.message || 'Failed to save review.');
+            const isPermissionError =
+                e?.code === '42501' ||
+                e?.message?.toLowerCase?.().includes('policy') ||
+                e?.message?.toLowerCase?.().includes('permission') ||
+                e?.message?.toLowerCase?.().includes('consulted');
+            if (isPermissionError) {
+                toast.error('You can only review a doctor you have consulted');
+            } else {
+                toast.error(e?.message || 'Failed to save review.');
+            }
         } finally {
             setSaving(false);
         }

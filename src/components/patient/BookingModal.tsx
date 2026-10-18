@@ -17,6 +17,7 @@ interface BookingModalProps {
     isOpen: boolean;
     onClose: () => void;
     onConfirm: (bookingDetails: any) => void;
+    isSubmitting?: boolean;
 }
 
 const parseTime = (value: string | undefined, fallback: number) => {
@@ -31,7 +32,7 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
 const formatSlot = (date: Date) =>
     date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-export default function BookingModal({ doctor, isOpen, onClose, onConfirm }: BookingModalProps) {
+export default function BookingModal({ doctor, isOpen, onClose, onConfirm, isSubmitting }: BookingModalProps) {
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [slots, setSlots] = useState<Date[]>([]);
     const [bookedCount, setBookedCount] = useState(0);
@@ -359,10 +360,19 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm }: Boo
                             <Button
                                 className="flex-1 gap-1.5"
                                 onClick={handleConfirm}
-                                disabled={walletBalance !== null && walletBalance < doctor.price}
+                                disabled={isSubmitting || (walletBalance !== null && walletBalance < doctor.price)}
                             >
-                                <ShieldCheck className="w-4 h-4" />
-                                Confirm & Escrow
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Booking...
+                                    </>
+                                ) : (
+                                    <>
+                                        <ShieldCheck className="w-4 h-4" />
+                                        Confirm & Escrow
+                                    </>
+                                )}
                             </Button>
                         </div>
                     )}

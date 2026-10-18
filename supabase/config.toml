@@ -1,7 +1,5 @@
 project_id = "hixxslbiovywojzzveqz"
 
-[functions.checkout-order]
-verify_jwt = true
 
 [functions.wallet-deposit]
 verify_jwt = false

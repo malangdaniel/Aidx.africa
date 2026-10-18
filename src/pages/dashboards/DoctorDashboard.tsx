@@ -6,11 +6,25 @@ import BottomNav from '@/components/layout/BottomNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Stethoscope, DollarSign, Calendar, Star, Users, TrendingUp, Loader2, UserCog } from 'lucide-react';
+import { Stethoscope, DollarSign, Calendar, Star, Users, TrendingUp, Loader2, UserCog, XCircle, Wallet, Brain } from 'lucide-react';
 import ConsultationView from '@/components/doctor/ConsultationView';
 import PatientList from '@/components/doctor/PatientList';
 import PatientDetail from '@/components/doctor/PatientDetail';
 import { DoctorProfileSettings } from '@/components/doctor/settings/DoctorProfileSettings';
+import { toast } from 'sonner';
+import { WalletService } from '@/services/WalletService';
+import WithdrawalScreen from '@/components/shared/WithdrawalScreen';
+import DoctorAiReviewTab from '@/components/doctor/DoctorAiReviewTab';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 interface UpcomingConsultation {
   id: string;
@@ -55,6 +69,26 @@ export default function DoctorDashboard() {
     totalEarnings: 0, pendingPayouts: 0, rating: 0, totalConsults: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [cancelTarget, setCancelTarget] = useState<UpcomingConsultation | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleDoctorCancelConsultation = async () => {
+    if (!cancelTarget) return;
+    setIsCancelling(true);
+    try {
+      await WalletService.refundConsultation(cancelTarget.id, cancelReason.trim() || 'Doctor cancelled appointment');
+      toast.success('Consultation cancelled and escrow refunded to patient.');
+      setCancelTarget(null);
+      setCancelReason('');
+      fetchDashboardData();
+    } catch (err: any) {
+      console.error('Error cancelling consultation:', err);
+      toast.error(err.message || 'Failed to cancel consultation.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   useEffect(() => {
     if (user) fetchDashboardData();
@@ -194,6 +228,8 @@ export default function DoctorDashboard() {
     { id: 'patients', label: 'Patients', icon: Users },
     { id: 'earnings', label: 'Earnings', icon: DollarSign },
     { id: 'reviews', label: 'Reviews', icon: Star },
+    { id: 'withdrawal', label: 'Withdraw', icon: Wallet },
+    { id: 'ai_review', label: 'AI Review', icon: Brain },
   ];
 
 
@@ -265,15 +301,30 @@ export default function DoctorDashboard() {
                         <h4 className="font-bold text-sm truncate">{session.patientName}</h4>
                         <p className="text-[11px] text-muted-foreground">{session.reason} • {session.time}</p>
                       </div>
-                      <Button
-                        size="sm"
-                        variant={idx === 0 ? 'default' : 'outline'}
-                        onClick={() => setActiveConsultation({ id: session.id, name: session.patientName })}
-                        className="rounded-full h-8 px-4"
-                        disabled={session.status !== 'scheduled' && session.status !== 'ongoing'}
-                      >
-                        {session.status === 'ongoing' ? 'Resume' : 'Start'}
-                      </Button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          size="sm"
+                          variant={idx === 0 ? 'default' : 'outline'}
+                          onClick={() => setActiveConsultation({ id: session.id, name: session.patientName })}
+                          className="rounded-full h-8 px-4"
+                          disabled={session.status !== 'scheduled' && session.status !== 'ongoing'}
+                        >
+                          {session.status === 'ongoing' ? 'Resume' : 'Start'}
+                        </Button>
+                        {session.status === 'scheduled' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setCancelTarget(session);
+                              setCancelReason('');
+                            }}
+                            className="rounded-full h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10 text-xs"
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -419,6 +470,20 @@ export default function DoctorDashboard() {
           </div>
         );
 
+      case 'withdrawal':
+        return (
+          <div className="animate-in fade-in duration-500">
+            <WithdrawalScreen />
+          </div>
+        );
+
+      case 'ai_review':
+        return (
+          <div className="animate-in fade-in duration-500">
+            <DoctorAiReviewTab />
+          </div>
+        );
+
       default:
         return null;
     }
@@ -521,6 +586,38 @@ export default function DoctorDashboard() {
       </div>
 
       <BottomNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {cancelTarget && (
+        <Dialog open={!!cancelTarget} onOpenChange={(open) => !open && !isCancelling && setCancelTarget(null)}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Cancel Consultation</DialogTitle>
+              <DialogDescription>
+                Cancel session with {cancelTarget.patientName}? The escrow funds will be immediately refunded to the patient's wallet.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="doc-cancel-reason">Reason for cancellation</Label>
+              <Textarea
+                id="doc-cancel-reason"
+                placeholder="Doctor unavailable, emergency reschedule, etc."
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setCancelTarget(null)} disabled={isCancelling}>
+                Keep Session
+              </Button>
+              <Button variant="destructive" onClick={handleDoctorCancelConsultation} disabled={isCancelling} className="gap-2">
+                {isCancelling && <Loader2 className="w-4 h-4 animate-spin" />}
+                Confirm Cancellation
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </DashboardLayout>
   );
 }

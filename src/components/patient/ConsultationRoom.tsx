@@ -43,6 +43,8 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
         prescriptions: any[];
     } | null>(null);
     const [summaryLoading, setSummaryLoading] = useState(false);
+    const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+    const [ratingSubmitted, setRatingSubmitted] = useState(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const channelRef = useRef<any>(null);
 
@@ -233,22 +235,44 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
 
     // Submit rating
     const handleSubmitRating = async () => {
-        if (rating === 0) return;
+        if (rating === 0 || isSubmittingRating) return;
+        setIsSubmittingRating(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            if (!user) {
+                toast.error('You must be signed in to submit a rating.');
+                return;
+            }
 
-            await supabase.from('reviews').insert({
+            const { error } = await supabase.from('reviews').insert({
                 reviewer_id: user.id,
                 reviewee_id: consultation.doctor_id,
                 consultation_id: consultation.id,
                 rating,
                 comment: null,
             });
+
+            if (error) {
+                const isPermission =
+                    error.code === '42501' ||
+                    error.message?.toLowerCase().includes('policy') ||
+                    error.message?.toLowerCase().includes('permission') ||
+                    error.message?.toLowerCase().includes('consulted');
+                if (isPermission) {
+                    toast.error('You can only review a doctor you have consulted');
+                } else {
+                    toast.error(error.message || 'Could not submit rating.');
+                }
+                return;
+            }
+
             toast.success('Thank you for your feedback!');
-        } catch (err) {
+            setRatingSubmitted(true);
+        } catch (err: any) {
             console.error('Error submitting review:', err);
-            toast.error('Could not submit rating.');
+            toast.error(err?.message || 'Could not submit rating.');
+        } finally {
+            setIsSubmittingRating(false);
         }
     };
 
@@ -392,8 +416,16 @@ export default function ConsultationRoom({ consultation, onEnd, onPharmacyRedire
                                     </button>
                                 ))}
                             </div>
-                            {rating > 0 && (
-                                <Button size="sm" onClick={handleSubmitRating}>Submit Rating</Button>
+                            {rating > 0 && !ratingSubmitted && (
+                                <Button size="sm" onClick={handleSubmitRating} disabled={isSubmittingRating}>
+                                    {isSubmittingRating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                    Submit Rating
+                                </Button>
+                            )}
+                            {ratingSubmitted && (
+                                <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
+                                    Rating submitted
+                                </Badge>
                             )}
                             <p className="text-[10px] text-muted-foreground italic">Your feedback helps improve our healthcare services</p>
                         </div>

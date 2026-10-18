@@ -3,10 +3,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingCart, Package, AlertTriangle, TrendingUp, Star } from 'lucide-react';
+import { ShoppingCart, Package, AlertTriangle, TrendingUp, Star, Wallet } from 'lucide-react';
 import OrderManagement from '@/components/pharmacist/OrderManagement';
 import InventoryManagement from '@/components/pharmacist/InventoryManagement';
 import BottomNav from '@/components/layout/BottomNav';
+import WithdrawalScreen from '@/components/shared/WithdrawalScreen';
 
 export default function PharmacistDashboard() {
   const { user } = useAuth();
@@ -59,6 +60,7 @@ export default function PharmacistDashboard() {
     { id: 'alerts', label: 'Alerts', icon: AlertTriangle },
     { id: 'analytics', label: 'Stats', icon: TrendingUp },
     { id: 'reviews', label: 'Reviews', icon: Star },
+    { id: 'withdrawal', label: 'Withdraw', icon: Wallet },
   ];
 
   const formatRevenue = (amount: number) => {
@@ -132,6 +134,12 @@ export default function PharmacistDashboard() {
                 <p>No reviews yet. Complete orders to receive reviews.</p>
               </CardContent>
             </Card>
+          </div>
+        );
+      case 'withdrawal':
+        return (
+          <div className="animate-in fade-in duration-500">
+            <WithdrawalScreen />
           </div>
         );
       default:
