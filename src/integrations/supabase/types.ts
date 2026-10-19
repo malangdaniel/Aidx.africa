@@ -68,10 +68,16 @@ export type Database = {
           confidence_percentage: number | null
           created_at: string
           diagnosis_data: Json
+          doctor_agreed: boolean | null
+          flag_reason: string | null
+          flagged: boolean
           id: string
           likelihood: number | null
           rationale: string | null
           recommendations: Json | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           session_id: string | null
           severity: Database["public"]["Enums"]["severity_level"] | null
           user_id: string
@@ -82,10 +88,16 @@ export type Database = {
           confidence_percentage?: number | null
           created_at?: string
           diagnosis_data: Json
+          doctor_agreed?: boolean | null
+          flag_reason?: string | null
+          flagged?: boolean
           id?: string
           likelihood?: number | null
           rationale?: string | null
           recommendations?: Json | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           session_id?: string | null
           severity?: Database["public"]["Enums"]["severity_level"] | null
           user_id: string
@@ -96,10 +108,16 @@ export type Database = {
           confidence_percentage?: number | null
           created_at?: string
           diagnosis_data?: Json
+          doctor_agreed?: boolean | null
+          flag_reason?: string | null
+          flagged?: boolean
           id?: string
           likelihood?: number | null
           rationale?: string | null
           recommendations?: Json | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           session_id?: string | null
           severity?: Database["public"]["Enums"]["severity_level"] | null
           user_id?: string
@@ -120,6 +138,39 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_role: string | null
+          created_at: string
+          details: Json
+          entity_id: string | null
+          entity_type: string | null
+          id: number
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_role?: string | null
+          created_at?: string
+          details?: Json
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: never
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_role?: string | null
+          created_at?: string
+          details?: Json
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: never
+        }
+        Relationships: []
       }
       cart_items: {
         Row: {
@@ -192,6 +243,7 @@ export type Database = {
           id: string
           parent_order_id: string
           pharmacy_id: string
+          settlement_status: string
           status: Database["public"]["Enums"]["order_status"] | null
           total_amount: number
           tracking_number: string | null
@@ -205,6 +257,7 @@ export type Database = {
           id?: string
           parent_order_id: string
           pharmacy_id: string
+          settlement_status?: string
           status?: Database["public"]["Enums"]["order_status"] | null
           total_amount: number
           tracking_number?: string | null
@@ -218,6 +271,7 @@ export type Database = {
           id?: string
           parent_order_id?: string
           pharmacy_id?: string
+          settlement_status?: string
           status?: Database["public"]["Enums"]["order_status"] | null
           total_amount?: number
           tracking_number?: string | null
@@ -1041,6 +1095,54 @@ export type Database = {
           },
         ]
       }
+      platform_revenue: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          source_id: string
+          source_type: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          source_id: string
+          source_type: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          source_id?: string
+          source_type?: string
+        }
+        Relationships: []
+      }
+      platform_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       prescriptions: {
         Row: {
           consultation_id: string
@@ -1107,12 +1209,15 @@ export type Database = {
           last_name: string | null
           metadata: Json | null
           phone: string | null
+          rejection_reason: string | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
           user_id: string
           verification_status:
             | Database["public"]["Enums"]["verification_status"]
             | null
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           blood_group?: string | null
@@ -1124,12 +1229,15 @@ export type Database = {
           last_name?: string | null
           metadata?: Json | null
           phone?: string | null
+          rejection_reason?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id: string
           verification_status?:
             | Database["public"]["Enums"]["verification_status"]
             | null
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           blood_group?: string | null
@@ -1141,12 +1249,15 @@ export type Database = {
           last_name?: string | null
           metadata?: Json | null
           phone?: string | null
+          rejection_reason?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id?: string
           verification_status?:
             | Database["public"]["Enums"]["verification_status"]
             | null
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: []
       }
@@ -1191,6 +1302,75 @@ export type Database = {
           },
           {
             foreignKeyName: "reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          against_user_id: string | null
+          assigned_to: string | null
+          category: string
+          consultation_id: string | null
+          created_at: string
+          description: string
+          id: string
+          order_id: string | null
+          priority: string
+          reporter_id: string
+          resolution_note: string | null
+          resolved_at: string | null
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          against_user_id?: string | null
+          assigned_to?: string | null
+          category: string
+          consultation_id?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          order_id?: string | null
+          priority?: string
+          reporter_id: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          status?: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          against_user_id?: string | null
+          assigned_to?: string | null
+          category?: string
+          consultation_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          order_id?: string | null
+          priority?: string
+          reporter_id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          status?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_consultation_id_fkey"
+            columns: ["consultation_id"]
+            isOneToOne: false
+            referencedRelation: "consultations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
@@ -1274,27 +1454,154 @@ export type Database = {
           },
         ]
       }
+      wallet_deposits: {
+        Row: {
+          amount: number
+          amount_kobo: number
+          completed_at: string | null
+          created_at: string
+          currency: string
+          fee: number
+          id: string
+          metadata: Json | null
+          provider: string
+          provider_checkout_url: string | null
+          provider_reference: string | null
+          reference: string
+          status: string
+          total_amount: number
+          user_id: string
+          wallet_id: string
+        }
+        Insert: {
+          amount: number
+          amount_kobo: number
+          completed_at?: string | null
+          created_at?: string
+          currency?: string
+          fee?: number
+          id?: string
+          metadata?: Json | null
+          provider?: string
+          provider_checkout_url?: string | null
+          provider_reference?: string | null
+          reference: string
+          status?: string
+          total_amount: number
+          user_id: string
+          wallet_id: string
+        }
+        Update: {
+          amount?: number
+          amount_kobo?: number
+          completed_at?: string | null
+          created_at?: string
+          currency?: string
+          fee?: number
+          id?: string
+          metadata?: Json | null
+          provider?: string
+          provider_checkout_url?: string | null
+          provider_reference?: string | null
+          reference?: string
+          status?: string
+          total_amount?: number
+          user_id?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_deposits_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          amount_kobo: number
+          balance_after: number
+          balance_after_kobo: number
+          created_at: string
+          description: string
+          id: string
+          idempotency_key: string | null
+          metadata: Json | null
+          reference: string
+          seq: number
+          status: string
+          type: string
+          user_id: string
+          wallet_id: string
+        }
+        Insert: {
+          amount: number
+          amount_kobo: number
+          balance_after: number
+          balance_after_kobo: number
+          created_at?: string
+          description: string
+          id?: string
+          idempotency_key?: string | null
+          metadata?: Json | null
+          reference: string
+          seq?: never
+          status?: string
+          type: string
+          user_id: string
+          wallet_id: string
+        }
+        Update: {
+          amount?: number
+          amount_kobo?: number
+          balance_after?: number
+          balance_after_kobo?: number
+          created_at?: string
+          description?: string
+          id?: string
+          idempotency_key?: string | null
+          metadata?: Json | null
+          reference?: string
+          seq?: never
+          status?: string
+          type?: string
+          user_id?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wallets: {
         Row: {
-          balance: number | null
+          balance: number
           created_at: string
-          escrow_balance: number | null
+          escrow_balance: number
           id: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          balance?: number | null
+          balance?: number
           created_at?: string
-          escrow_balance?: number | null
+          escrow_balance?: number
           id?: string
           updated_at?: string
           user_id: string
         }
         Update: {
-          balance?: number | null
+          balance?: number
           created_at?: string
-          escrow_balance?: number | null
+          escrow_balance?: number
           id?: string
           updated_at?: string
           user_id?: string
@@ -1309,11 +1616,229 @@ export type Database = {
           },
         ]
       }
+      withdrawals: {
+        Row: {
+          account_name: string
+          account_number: string
+          amount: number
+          bank_name: string
+          id: string
+          payment_reference: string | null
+          processed_at: string | null
+          processed_by: string | null
+          rejection_reason: string | null
+          requested_at: string
+          status: string
+          user_id: string
+          wallet_id: string
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          amount: number
+          bank_name: string
+          id?: string
+          payment_reference?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          rejection_reason?: string | null
+          requested_at?: string
+          status?: string
+          user_id: string
+          wallet_id: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          amount?: number
+          bank_name?: string
+          id?: string
+          payment_reference?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          rejection_reason?: string | null
+          requested_at?: string
+          status?: string
+          user_id?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawals_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      _ledger: {
+        Args: {
+          p_amount: number
+          p_balance_after: number
+          p_desc: string
+          p_meta?: Json
+          p_ref: string
+          p_type: string
+          p_user_id: string
+          p_wallet_id: string
+        }
+        Returns: undefined
+      }
+      _lock_wallet: {
+        Args: { p_user_id: string }
+        Returns: {
+          balance: number
+          created_at: string
+          escrow_balance: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_grant_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      admin_list_consultations: {
+        Args: { p_limit?: number; p_offset?: number; p_status?: string }
+        Returns: {
+          created_at: string
+          doctor_name: string
+          id: string
+          patient_name: string
+          payment_status: string
+          price: number
+          scheduled_at: string
+          status: string
+        }[]
+      }
+      admin_list_flagged_diagnoses: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: {
+          condition: string
+          confidence_percentage: number
+          created_at: string
+          doctor_agreed: boolean
+          flag_reason: string
+          id: string
+          reviewed_at: string
+          severity: string
+        }[]
+      }
+      admin_list_orders: {
+        Args: { p_limit?: number; p_offset?: number; p_status?: string }
+        Returns: {
+          buyer_name: string
+          child_order_id: string
+          created_at: string
+          has_rx_items: boolean
+          order_id: string
+          pharmacy_name: string
+          settlement_status: string
+          status: string
+          total_amount: number
+          tracking_status: string
+        }[]
+      }
+      admin_list_users: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_role?: string
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          business_name: string
+          created_at: string
+          email: string
+          full_name: string
+          license_number: string
+          role: string
+          user_id: string
+          verification_status: string
+        }[]
+      }
+      admin_list_withdrawals: {
+        Args: { p_limit?: number; p_offset?: number; p_status?: string }
+        Returns: {
+          account_name: string
+          account_number: string
+          amount: number
+          bank_name: string
+          id: string
+          name: string
+          payment_reference: string
+          requested_at: string
+          role: string
+          status: string
+          user_id: string
+        }[]
+      }
+      admin_overview: { Args: { p_days?: number }; Returns: Json }
+      admin_process_withdrawal: {
+        Args: {
+          p_action: string
+          p_reason?: string
+          p_reference?: string
+          p_withdrawal_id: string
+        }
+        Returns: Json
+      }
+      admin_set_verification: {
+        Args: {
+          p_reason?: string
+          p_status: Database["public"]["Enums"]["verification_status"]
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      admin_update_setting: {
+        Args: { p_key: string; p_value: Json }
+        Returns: Json
+      }
+      admin_update_ticket: {
+        Args: {
+          p_assigned_to?: string
+          p_note?: string
+          p_priority?: string
+          p_status?: string
+          p_ticket_id: string
+        }
+        Returns: Json
+      }
+      charge_wallet_consultation: {
+        Args: {
+          p_doctor_id: string
+          p_notes?: string
+          p_price: number
+          p_scheduled_at: string
+        }
+        Returns: Json
+      }
+      credit_wallet_deposit: {
+        Args: {
+          p_deposit_reference: string
+          p_metadata?: Json
+          p_provider_ref?: string
+        }
+        Returns: Json
+      }
       get_current_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
@@ -1324,6 +1849,14 @@ export type Database = {
           scheduled_at: string
         }[]
       }
+      get_setting_bool: {
+        Args: { p_default: boolean; p_key: string }
+        Returns: boolean
+      }
+      get_setting_numeric: {
+        Args: { p_default: number; p_key: string }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1331,9 +1864,68 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: { Args: never; Returns: boolean }
       is_treating_doctor: {
         Args: { _doctor_id: string; _patient_id: string }
         Returns: boolean
+      }
+      log_audit: {
+        Args: {
+          p_action: string
+          p_details?: Json
+          p_entity_id?: string
+          p_entity_type?: string
+        }
+        Returns: undefined
+      }
+      owns_order: { Args: { _order_id: string }; Returns: boolean }
+      pharmacy_serves_customer: {
+        Args: { _customer_id: string }
+        Returns: boolean
+      }
+      pharmacy_serves_order: { Args: { _order_id: string }; Returns: boolean }
+      pharmacy_set_order_status: {
+        Args: {
+          p_child_order_id: string
+          p_new_status: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
+      place_pharmacy_order: {
+        Args: {
+          p_delivery_address: string
+          p_delivery_instructions?: string
+          p_items: Json
+          p_prescription_id?: string
+          p_prescription_image_url?: string
+        }
+        Returns: Json
+      }
+      refund_consultation_escrow: {
+        Args: { p_consultation_id: string; p_reason?: string }
+        Returns: Json
+      }
+      request_withdrawal: {
+        Args: {
+          p_account_name: string
+          p_account_number: string
+          p_amount: number
+          p_bank_name: string
+        }
+        Returns: Json
+      }
+      review_ai_diagnosis: {
+        Args: { p_agreed: boolean; p_diagnosis_id: string; p_notes?: string }
+        Returns: Json
+      }
+      settle_child_order: {
+        Args: { p_child_order_id: string }
+        Returns: undefined
+      }
+      settle_consultation: {
+        Args: { p_consultation_id: string }
+        Returns: undefined
       }
       update_pharmacy_order_status: {
         Args: {
