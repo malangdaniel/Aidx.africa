@@ -1,5 +1,6 @@
 # Pharmacy Orders & Live Tracking
 
+- [ ] Review newest wallet-deposit upload against the no-sandbox-crediting requirement and replace the function exactly if compliant.
 - [ ] Apply safe Supabase schema/RLS changes for separate payment status, delivery details, item snapshots, auditable pharmacy status transitions, prescription access, and Realtime.
 - [ ] Add a trusted pharmacy status endpoint backed by atomic transition validation and history recording.
 - [ ] Build pharmacy order filters, detail view, and allowed actions with required reasons.
