@@ -1,15 +1,9 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ClinicalAssessmentData } from "@/types/clinicalAssessment";
+import { callAiProxy, ProxyContents } from "./aiProxy";
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-
-if (!API_KEY) {
-    console.error("Missing Gemini API Key in environment variables!");
-}
-
-const genAI = new GoogleGenerativeAI(API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
+// ---------------------------------------------------------------------------
+// System prompt (kept here, sent as systemInstruction to the proxy)
+// ---------------------------------------------------------------------------
 const SYSTEM_PROMPT = `You are Sanari AI Medical Assistant, an advanced AI clinical support assistant designed to help patients understand possible medical conditions based on their symptoms.
 
 Your responsibilities:
@@ -100,162 +94,155 @@ const STRUCTURED_ASSESSMENT_PROMPT = `Based on the following conversation betwee
 
 IMPORTANT: Return ONLY valid JSON. No markdown backticks, no markdown text. Do NOT include any laboratory test or investigation recommendations.`;
 
+// ---------------------------------------------------------------------------
+// Public types
+// ---------------------------------------------------------------------------
 export interface ChatMessage {
     role: "user" | "model";
     parts: { text: string }[];
 }
 
-export const sendMessageToAI = async (history: ChatMessage[], messageAttributes: string): Promise<string> => {
+// ---------------------------------------------------------------------------
+// sendMessageToAI
+// ---------------------------------------------------------------------------
+export const sendMessageToAI = async (
+    history: ChatMessage[],
+    messageText: string
+): Promise<string> => {
     try {
-        const chat = model.startChat({
-            history: [
-                { role: "user", parts: [{ text: SYSTEM_PROMPT }] },
-                { role: "model", parts: [{ text: "Understood. I am Sanari AI, ready to assist patients with their symptoms safely and professionally through structured triage." }] },
-                ...history
-            ],
+        const contents: ProxyContents[] = [
+            ...history,
+            { role: "user", parts: [{ text: messageText }] },
+        ];
+
+        return await callAiProxy({
+            contents,
+            systemInstruction: SYSTEM_PROMPT,
             generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
         });
-
-        const result = await chat.sendMessage(messageAttributes);
-        const response = await result.response;
-        return response.text();
     } catch (error) {
-        console.error("Gemini API Error details:", error);
+        console.error("AI proxy error:", error);
         return "I apologize, but I'm having trouble connecting to my medical database right now. Please try again in a moment.";
     }
 };
 
-export const generateDiagnosis = async (conversationHistory: string): Promise<ClinicalAssessmentData | null> => {
+// ---------------------------------------------------------------------------
+// generateDiagnosis
+// ---------------------------------------------------------------------------
+export const generateDiagnosis = async (
+    conversationHistory: string
+): Promise<ClinicalAssessmentData | null> => {
     try {
-        const prompt = `${STRUCTURED_ASSESSMENT_PROMPT}\n\nConversation History:\n${conversationHistory}`;
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-        const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const userMessage = `${STRUCTURED_ASSESSMENT_PROMPT}\n\nConversation History:\n${conversationHistory}`;
+
+        const text = await callAiProxy({
+            contents: [{ role: "user", parts: [{ text: userMessage }] }],
+        });
+
+        const cleanText = text
+            .replace(/```json/g, "")
+            .replace(/```/g, "")
+            .trim();
+
         const parsed = JSON.parse(cleanText) as ClinicalAssessmentData;
         return sanitizeClinicalAssessment(parsed);
     } catch (error) {
         console.error("Error creating structured clinical assessment:", error);
-        return getFallbackAssessment(conversationHistory);
+        return null;
     }
 };
 
-function sanitizeClinicalAssessment(data: any): ClinicalAssessmentData {
+// ---------------------------------------------------------------------------
+// sanitizeClinicalAssessment
+//
+// Patient-safety rule: missing conditions → return null (caller treats as
+// failure). Harmless display-only fields may keep safe defaults.
+// ---------------------------------------------------------------------------
+function sanitizeClinicalAssessment(
+    data: any
+): ClinicalAssessmentData | null {
+    // Critical fields: conditions must be present and non-empty
+    if (!Array.isArray(data.conditions) || data.conditions.length === 0) {
+        return null;
+    }
+
+    // riskLevel, confidence, and redFlags must come from the AI
+    if (
+        !data.riskLevel ||
+        typeof data.confidence !== "number" ||
+        !Array.isArray(data.redFlags) ||
+        data.redFlags.length === 0
+    ) {
+        return null;
+    }
+
     return {
         summary: {
-            patientSummary: data.summary?.patientSummary || "Reported symptoms evaluation",
-            symptomsReported: Array.isArray(data.summary?.symptomsReported) ? data.summary.symptomsReported : ["Fever", "Headache", "Fatigue"],
-            duration: data.summary?.duration || "2-3 days",
-            symptomCount: data.summary?.symptomsReported?.length || 3,
-            assessmentDurationMinutes: data.summary?.assessmentDurationMinutes || 3,
-            date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            patientSummary:
+                data.summary?.patientSummary || "Reported symptoms evaluation",
+            symptomsReported: Array.isArray(data.summary?.symptomsReported)
+                ? data.summary.symptomsReported
+                : [],
+            duration: data.summary?.duration || "Unknown",
+            symptomCount: data.summary?.symptomsReported?.length ?? 0,
+            assessmentDurationMinutes:
+                data.summary?.assessmentDurationMinutes || 0,
+            date: new Date().toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+            }),
         },
-        riskLevel: data.riskLevel || 'Moderate',
-        confidence: typeof data.confidence === 'number' ? data.confidence : 86,
-        clinicalSummaryText: data.clinicalSummaryText || "Patient presents with acute onset symptoms. Initial evaluation indicates a self-limiting viral presentation, but clinical monitoring is advised.",
-        conditions: Array.isArray(data.conditions) && data.conditions.length > 0 ? data.conditions.map((c: any, idx: number) => ({
+        riskLevel: data.riskLevel,
+        confidence: data.confidence,
+        clinicalSummaryText: data.clinicalSummaryText || "",
+        conditions: data.conditions.map((c: any, idx: number) => ({
             id: c.id || `c-${idx}`,
-            name: c.name || "Viral Upper Respiratory Infection",
-            matchPercentage: c.matchPercentage || (88 - idx * 15),
-            confidenceLevel: c.confidenceLevel || (idx === 0 ? "High" : "Moderate"),
-            severity: c.severity || "Moderate",
-            supportingSymptoms: Array.isArray(c.supportingSymptoms) ? c.supportingSymptoms : ["Fever", "Headache"],
-            rationale: c.rationale || "Symptoms began suddenly and strongly align with acute viral presentation.",
+            name: c.name,
+            matchPercentage: c.matchPercentage,
+            confidenceLevel: c.confidenceLevel,
+            severity: c.severity,
+            supportingSymptoms: Array.isArray(c.supportingSymptoms)
+                ? c.supportingSymptoms
+                : [],
+            rationale: c.rationale || "",
             expandedDetails: {
-                clinicalRationale: c.expandedDetails?.clinicalRationale || "Acute febrile illness presentation with constitutional symptoms. Pattern matches endemic viral pathogens.",
-                supportingFindings: Array.isArray(c.expandedDetails?.supportingFindings) ? c.expandedDetails.supportingFindings : ["Sudden symptom onset", "Fever reported"],
-                symptomsAgainst: Array.isArray(c.expandedDetails?.symptomsAgainst) ? c.expandedDetails.symptomsAgainst : ["No focal rash", "No severe localized pain"],
-                typicalProgression: c.expandedDetails?.typicalProgression || "Most patients experience resolution within 5 to 7 days under symptomatic self-care.",
-                whenToSeekUrgentCare: c.expandedDetails?.whenToSeekUrgentCare || "Consult immediate emergency care if breathing difficulty, chest pain, or high fever (>39.5°C) occurs."
-            }
-        })) : [
-            {
-                id: 'c1',
-                name: 'Viral Upper Respiratory Infection',
-                matchPercentage: 87,
-                confidenceLevel: 'High',
-                severity: 'Moderate',
-                supportingSymptoms: ['Fever', 'Chills', 'Headache', 'Body aches'],
-                rationale: 'Symptoms began suddenly and strongly match common acute viral infections.',
-                expandedDetails: {
-                    clinicalRationale: 'Clinical presentation features acute constitutional symptoms secondary to viral immune response.',
-                    supportingFindings: ['Rapid symptom onset', 'Generalized myalgia & fever'],
-                    symptomsAgainst: ['Absence of lower respiratory crackles'],
-                    typicalProgression: 'Expected resolution within 5 to 7 days with adequate hydration and rest.',
-                    whenToSeekUrgentCare: 'Seek urgent care if dyspnea or high fever unresponsive to antipyretics develops.'
-                }
+                clinicalRationale: c.expandedDetails?.clinicalRationale || "",
+                supportingFindings: Array.isArray(
+                    c.expandedDetails?.supportingFindings
+                )
+                    ? c.expandedDetails.supportingFindings
+                    : [],
+                symptomsAgainst: Array.isArray(c.expandedDetails?.symptomsAgainst)
+                    ? c.expandedDetails.symptomsAgainst
+                    : [],
+                typicalProgression:
+                    c.expandedDetails?.typicalProgression || "",
+                whenToSeekUrgentCare:
+                    c.expandedDetails?.whenToSeekUrgentCare || "",
             },
-            {
-                id: 'c2',
-                name: 'Acute Malaria (Uncomplicated)',
-                matchPercentage: 65,
-                confidenceLevel: 'Moderate',
-                severity: 'Moderate',
-                supportingSymptoms: ['Fever', 'Chills', 'Headache'],
-                rationale: 'Endemic malaria considerations for acute febrile illness in region.',
-                expandedDetails: {
-                    clinicalRationale: 'Paroxysmal fever with shivering in malaria-endemic regions warrants clinical consideration.',
-                    supportingFindings: ['Cyclic fever spikes', 'Generalized fatigue'],
-                    symptomsAgainst: ['No jaundice or dark urine reported'],
-                    typicalProgression: 'Requires rapid diagnostic confirmation and targeted antimalarial therapy if confirmed.',
-                    whenToSeekUrgentCare: 'Immediate medical evaluation advised if vomiting, dark urine, or extreme lethargy develops.'
-                }
-            }
-        ],
+        })),
         treatment: {
-            selfCareChecklist: Array.isArray(data.treatment?.selfCareChecklist) && data.treatment.selfCareChecklist.length > 0
-                ? data.treatment.selfCareChecklist
-                : [
-                    "Rest adequately and limit heavy physical exertion",
-                    "Maintain hydration with plenty of water and warm fluids",
-                    "Eat light, easily digestible meals",
-                    "Monitor body temperature every 6 to 8 hours",
-                    "Seek prompt clinical care if red flag symptoms develop"
-                ],
-            otcMedications: Array.isArray(data.treatment?.otcMedications) && data.treatment.otcMedications.length > 0
-                ? data.treatment.otcMedications
-                : [
-                    {
-                        id: 'm1',
-                        name: 'Paracetamol 500mg',
-                        strength: '500mg',
-                        purpose: 'Fever & Body Aches',
-                        dosage: '500-1000 mg every 6-8 hours',
-                        warnings: 'Do not exceed 4000 mg in 24 hours.',
-                        price: 850,
-                        formattedPrice: '₦850',
-                        inStock: true
-                    },
-                    {
-                        id: 'm2',
-                        name: 'Vitamin C + Zinc Effervescent',
-                        strength: '1000mg',
-                        purpose: 'Immune Support',
-                        dosage: '1 tablet daily dissolved in water',
-                        warnings: 'Take with food to prevent gastric discomfort.',
-                        price: 1500,
-                        formattedPrice: '₦1,500',
-                        inStock: true
-                    }
-                ]
+            selfCareChecklist:
+                Array.isArray(data.treatment?.selfCareChecklist) &&
+                data.treatment.selfCareChecklist.length > 0
+                    ? data.treatment.selfCareChecklist
+                    : [],
+            otcMedications:
+                Array.isArray(data.treatment?.otcMedications) &&
+                data.treatment.otcMedications.length > 0
+                    ? data.treatment.otcMedications
+                    : [],
         },
         specialistReferral: {
-            specialty: data.specialistReferral?.specialty || "General Practitioner",
-            reason: data.specialistReferral?.reason || "Comprehensive clinical evaluation of acute febrile symptoms.",
+            specialty:
+                data.specialistReferral?.specialty || "General Practitioner",
+            reason: data.specialistReferral?.reason || "",
             urgency: data.specialistReferral?.urgency || "Moderate",
-            estimatedFee: data.specialistReferral?.estimatedFee || "₦5,000",
-            availableDoctorsCount: data.specialistReferral?.availableDoctorsCount || 18
+            estimatedFee: data.specialistReferral?.estimatedFee || "",
+            availableDoctorsCount:
+                data.specialistReferral?.availableDoctorsCount ?? 0,
         },
-        redFlags: Array.isArray(data.redFlags) && data.redFlags.length > 0 ? data.redFlags : [
-            "Difficulty breathing or chest tightness",
-            "Persistent vomiting or inability to retain oral fluids",
-            "Severe neck stiffness or sudden confusion",
-            "Very high fever (>39.5°C) unresponsive to medication",
-            "Seizures or loss of consciousness"
-        ]
+        redFlags: data.redFlags,
     };
-}
-
-function getFallbackAssessment(historyText: string): ClinicalAssessmentData {
-    return sanitizeClinicalAssessment({});
 }

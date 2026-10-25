@@ -1,8 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const genAI = new GoogleGenerativeAI(API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+import { callAiProxy } from "./aiProxy";
 
 export interface GeneratePatientHealthSummaryInput {
     personalDetails: {
@@ -28,30 +24,45 @@ export interface GeneratePatientHealthSummaryInput {
     labResultsDataUri?: string;
 }
 
-export async function generatePatientHealthSummary(input: GeneratePatientHealthSummaryInput): Promise<{ summary: string }> {
+export async function generatePatientHealthSummary(
+    input: GeneratePatientHealthSummaryInput
+): Promise<{ summary: string }> {
     try {
-        const meds = input.medicalHistory.currentMedications.map(m => `${m.name} (${m.dosage})`).join(', ') || 'None';
+        const meds =
+            input.medicalHistory.currentMedications
+                .map((m) => `${m.name} (${m.dosage})`)
+                .join(", ") || "None";
+
         const prompt = `Generate a concise clinical health summary for the following patient. Write in professional medical format.
 
 Patient: ${input.personalDetails.fullName}
-Age: ${input.personalDetails.age || 'Unknown'}, Sex: ${input.personalDetails.sex || 'Unknown'}
-Address: ${input.personalDetails.address || 'N/A'}
+Age: ${input.personalDetails.age || "Unknown"}, Sex: ${input.personalDetails.sex || "Unknown"}
+Address: ${input.personalDetails.address || "N/A"}
 
 Current Medications: ${meds}
-Past Chronic Diseases: ${input.medicalHistory.pastChronicDiseases.join(', ') || 'None'}
-Other Conditions: ${input.medicalHistory.otherPastConditifons.map(c => `${c.name}: ${c.details}`).join(', ') || 'None'}
-Family History: ${input.medicalHistory.familyHistory.join(', ') || 'None'}
-Allergies: ${input.medicalHistory.allergies.join(', ') || 'NKDA'}
-Social History: ${input.medicalHistory.socialHistory || 'None'}
+Past Chronic Diseases: ${input.medicalHistory.pastChronicDiseases.join(", ") || "None"}
+Other Conditions: ${
+            input.medicalHistory.otherPastConditifons
+                .map((c) => `${c.name}: ${c.details}`)
+                .join(", ") || "None"
+        }
+Family History: ${input.medicalHistory.familyHistory.join(", ") || "None"}
+Allergies: ${input.medicalHistory.allergies.join(", ") || "NKDA"}
+Social History: ${input.medicalHistory.socialHistory || "None"}
 Current Symptoms: ${input.symptoms}
 
 Provide a structured clinical summary paragraph.`;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return { summary: response.text() };
+        const text = await callAiProxy({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+        });
+
+        return { summary: text };
     } catch (error) {
         console.error("Error generating health summary:", error);
-        return { summary: "Unable to generate summary at this time. Please try again later." };
+        return {
+            summary:
+                "Unable to generate summary at this time. Please try again later.",
+        };
     }
 }

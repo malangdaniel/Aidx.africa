@@ -44,6 +44,7 @@ export default function AIChatInterface({
     const [isLoading, setIsLoading] = useState(false);
     const [isGeneratingAssessment, setIsGeneratingAssessment] = useState(false);
     const [isAssessmentReady, setIsAssessmentReady] = useState(false);
+    const [assessmentFailed, setAssessmentFailed] = useState(false);
     const [sessionId, setSessionId] = useState<string | null>(initialSessionId || null);
     const [sessionTitle, setSessionTitle] = useState<string>('');
     const [assessmentResult, setAssessmentResult] = useState<ClinicalAssessmentData | null>(null);
@@ -207,9 +208,12 @@ export default function AIChatInterface({
                             rationale: assessmentData.clinicalSummaryText
                         });
                     }
+                } else {
+                    setAssessmentFailed(true);
                 }
             } catch (err) {
                 console.error("Error generating assessment:", err);
+                setAssessmentFailed(true);
             } finally {
                 setIsGeneratingAssessment(false);
             }
@@ -224,6 +228,7 @@ export default function AIChatInterface({
         }]);
         setIsGeneratingAssessment(false);
         setIsAssessmentReady(false);
+        setAssessmentFailed(false);
         setAssessmentResult(null);
         setSessionId(null);
         setSessionTitle('');
@@ -332,6 +337,26 @@ export default function AIChatInterface({
                                     >
                                         View Clinical Assessment Dashboard
                                         <ArrowRight className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Assessment failed: patient safety message */}
+                            {assessmentFailed && (
+                                <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20 space-y-2 animate-in fade-in duration-500">
+                                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                                        Assessment Unavailable
+                                    </p>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                        We couldn't complete your assessment. Please try again, or book a consultation with a doctor. If this is an emergency, go to the nearest hospital.
+                                    </p>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs h-8"
+                                        onClick={handleRestart}
+                                    >
+                                        Try Again
                                     </Button>
                                 </div>
                             )}
