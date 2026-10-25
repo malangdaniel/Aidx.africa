@@ -117,7 +117,6 @@ export default function AdminDashboard() {
     return (
         <DashboardLayout
             title="Administrator Portal"
-            subtitle="Central governance, safety oversight, and platform financials"
         >
             <div className="space-y-6 pb-20 md:pb-8">
                 {/* Desktop & Tablet Navigation Bar */}
