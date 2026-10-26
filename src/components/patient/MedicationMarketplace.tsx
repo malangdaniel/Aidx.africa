@@ -1,10 +1,10 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, MapPin, Navigation, ShoppingCart, Plus, Minus, Trash2, CreditCard, Loader2, Wallet, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { Search, MapPin, Navigation, ShoppingCart, Plus, Minus, Trash2, CreditCard, Loader2, Wallet, ShieldAlert, CheckCircle2, ArrowUpDown, Star, Pill } from "lucide-react";
 import { PharmacyService, InventoryItem, Pharmacy } from "@/services/PharmacyService";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import DepositFundsModal from "./DepositFundsModal";
+import DrugDetailModal from "./DrugDetailModal";
 
 interface CartItem {
     inventoryItem: InventoryItem;
@@ -52,6 +53,14 @@ export default function MedicationMarketplace({ initialSearchTerm, onOrderSucces
     const [wallet, setWallet] = useState<{ balance: number; escrow: number } | null>(null);
     const [lastOrderId, setLastOrderId] = useState<string | null>(null);
     const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
+
+    // Sort control
+    const [sortBy, setSortBy] = useState<'price_asc' | 'rating_desc'>('price_asc');
+
+    // Drug detail modal
+    const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
+    const [detailPharmacy, setDetailPharmacy] = useState<Pharmacy | null>(null);
+    const [isDetailOpen, setIsDetailOpen] = useState(false);
 
     // Default user location (Lagos) — used only for distance sorting
     const userLocation = { lat: 6.5244, lng: 3.3792 };
@@ -109,17 +118,22 @@ export default function MedicationMarketplace({ initialSearchTerm, onOrderSucces
         void handleSearch(initialSearchTerm);
     }, [initialSearchTerm]);
 
-    const addToCart = (item: InventoryItem, pharmacy: Pharmacy) => {
+    const addToCart = (item: InventoryItem, pharmacy: Pharmacy, qty = 1) => {
         setCart(prev => {
             const existing = prev.find(c => c.inventoryItem.id === item.id);
             if (existing) {
-                if (existing.quantity + 1 > item.stock) {
+                const newQty = existing.quantity + qty;
+                if (newQty > item.stock) {
                     toast.error("Max stock reached");
                     return prev;
                 }
-                return prev.map(c => c.inventoryItem.id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
+                return prev.map(c => c.inventoryItem.id === item.id ? { ...c, quantity: newQty } : c);
             }
-            return [...prev, { inventoryItem: item, pharmacy, quantity: 1 }];
+            if (qty > item.stock) {
+                toast.error("Max stock reached");
+                return prev;
+            }
+            return [...prev, { inventoryItem: item, pharmacy, quantity: qty }];
         });
         toast.success(`${item.drug.name} added to cart`);
     };
@@ -472,60 +486,136 @@ export default function MedicationMarketplace({ initialSearchTerm, onOrderSucces
                     </div>
                 )}
 
-                {results.map(({ item, pharmacy, distance }) => (
-                    <Card key={item.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                        <CardContent className="p-0">
-                            <div className="flex flex-col sm:flex-row">
-                                <div className="p-4 sm:p-6 flex-1 min-w-0 space-y-2">
-                                    <div className="flex justify-between items-start gap-2">
-                                        <div className="min-w-0">
-                                            <h3 className="font-bold text-base sm:text-lg text-primary truncate">{item.drug.name}</h3>
-                                            <p className="text-sm text-muted-foreground line-clamp-2">{item.drug.description}</p>
+                {/* Sort control — show when there are 2+ results */}
+                {results.length >= 2 && (
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm text-muted-foreground">
+                            {results.length} result{results.length !== 1 ? 's' : ''}
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground" />
+                            <select
+                                className="text-xs p-1.5 pr-6 rounded-md border border-input bg-background text-foreground cursor-pointer"
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value as 'price_asc' | 'rating_desc')}
+                            >
+                                <option value="price_asc">Lowest price</option>
+                                <option value="rating_desc">Highest rating</option>
+                            </select>
+                        </div>
+                    </div>
+                )}
+
+                {(() => {
+                    // Sort results based on sortBy
+                    const sorted = [...results].sort((a, b) => {
+                        if (sortBy === 'price_asc') return a.item.price - b.item.price;
+                        return (b.pharmacy.rating || 0) - (a.pharmacy.rating || 0);
+                    });
+                    return sorted.map(({ item, pharmacy, distance }) => (
+                        <Card
+                            key={item.id + '-' + pharmacy.id}
+                            className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                            onClick={() => {
+                                setDetailItem(item);
+                                setDetailPharmacy(pharmacy);
+                                setIsDetailOpen(true);
+                            }}
+                        >
+                            <CardContent className="p-0">
+                                <div className="flex flex-col sm:flex-row">
+                                    {/* Drug Image */}
+                                    <div className="sm:w-[120px] sm:min-h-[120px] flex items-center justify-center bg-muted/30 border-b sm:border-b-0 sm:border-r p-3">
+                                        {item.drug.image && item.drug.image.length > 10 ? (
+                                            <img
+                                                src={item.drug.image}
+                                                alt={item.drug.name}
+                                                className="w-16 h-16 sm:w-20 sm:h-20 object-contain rounded"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                    (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                                                }}
+                                            />
+                                        ) : null}
+                                        <div className={`flex items-center justify-center ${item.drug.image && item.drug.image.length > 10 ? 'hidden' : ''}`}>
+                                            <Pill className="w-10 h-10 text-muted-foreground/40" />
                                         </div>
-                                        <Badge variant={item.stock > 0 ? "outline" : "destructive"} className="shrink-0">
-                                            {item.stock > 0 ? `${item.stock} in stock` : "Out of Stock"}
-                                        </Badge>
                                     </div>
 
-                                    {item.drug.requiresPrescription && (
-                                        <Badge variant="secondary" className="text-[10px]">Prescription required</Badge>
-                                    )}
-
-                                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground pt-2">
-                                        <div className="flex items-center gap-1 min-w-0">
-                                            <MapPin className="w-4 h-4 shrink-0" />
-                                            <span className="font-medium text-foreground truncate">{pharmacy.name}</span>
-                                        </div>
-                                        {distance !== undefined && (
-                                            <div className="flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-full">
-                                                <Navigation className="w-3 h-3" />
-                                                <span>{distance.toFixed(1)} km away</span>
+                                    {/* Info */}
+                                    <div className="p-4 sm:p-5 flex-1 min-w-0 space-y-2">
+                                        <div className="flex justify-between items-start gap-2">
+                                            <div className="min-w-0">
+                                                <h3 className="font-bold text-base sm:text-lg text-primary truncate">{item.drug.name}</h3>
+                                                {(item.drug.strength || item.drug.dosage_form) && (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {[item.drug.strength, item.drug.dosage_form].filter(Boolean).join(' · ')}
+                                                    </p>
+                                                )}
                                             </div>
+                                            <p className="text-lg font-bold shrink-0">{naira(item.price)}</p>
+                                        </div>
+
+                                        {item.drug.requiresPrescription && (
+                                            <Badge variant="secondary" className="text-[10px] gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">
+                                                <ShieldAlert className="w-3 h-3" />
+                                                Prescription required
+                                            </Badge>
                                         )}
+
+                                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground pt-1">
+                                            <div className="flex items-center gap-1 min-w-0">
+                                                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                                                <span className="font-medium text-foreground text-xs truncate">{pharmacy.name}</span>
+                                            </div>
+                                            {pharmacy.address && (
+                                                <span className="text-xs truncate max-w-[200px]">{pharmacy.address}</span>
+                                            )}
+                                            {pharmacy.rating > 0 && (
+                                                <div className="flex items-center gap-0.5 text-xs">
+                                                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                                    <span>{pharmacy.rating.toFixed(1)}</span>
+                                                </div>
+                                            )}
+                                            {distance !== undefined && distance > 0 && (
+                                                <div className="flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-full">
+                                                    <Navigation className="w-3 h-3" />
+                                                    <span>{distance.toFixed(1)} km</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
 
-                                    <div className="text-xs text-muted-foreground truncate">{pharmacy.address}</div>
-                                </div>
-
-                                <div className="bg-muted/30 p-4 sm:p-6 flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-4 sm:min-w-[160px] border-t sm:border-t-0 sm:border-l">
-                                    <div className="text-center">
-                                        <p className="text-xs text-muted-foreground">Price</p>
-                                        <p className="text-xl font-bold">{naira(item.price)}</p>
+                                    {/* Add to cart */}
+                                    <div className="bg-muted/20 p-4 sm:p-5 flex items-center justify-center sm:min-w-[120px] border-t sm:border-t-0 sm:border-l">
+                                        <Button
+                                            size="sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                addToCart(item, pharmacy);
+                                            }}
+                                            disabled={item.stock <= 0}
+                                            className="gap-1.5"
+                                        >
+                                            <ShoppingCart className="w-4 h-4" />
+                                            Add to cart
+                                        </Button>
                                     </div>
-                                    <Button
-                                        size="sm"
-                                        onClick={() => addToCart(item, pharmacy)}
-                                        disabled={item.stock <= 0}
-                                    >
-                                        <ShoppingCart className="w-4 h-4 mr-2" />
-                                        Add
-                                    </Button>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
+                            </CardContent>
+                        </Card>
+                    ));
+                })()}
             </div>
+
+            {/* Drug Detail Modal */}
+            <DrugDetailModal
+                open={isDetailOpen}
+                onOpenChange={setIsDetailOpen}
+                item={detailItem}
+                pharmacy={detailPharmacy}
+                onAddToCart={addToCart}
+            />
         </div>
     );
 }

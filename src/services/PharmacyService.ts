@@ -12,6 +12,8 @@ export interface Pharmacy {
     address: string;
     rating: number;
     isOpen: boolean;
+    license_number?: string | null;
+    phone?: string | null;
 }
 
 export interface Drug {
@@ -124,25 +126,35 @@ export const PharmacyService = {
     },
 
     searchDrugs: async (query: string, userLocation?: GeoLocation): Promise<{ item: InventoryItem; pharmacy: Pharmacy; distance?: number }[]> => {
-        // We search the 'drugs' table directly which serves as inventory
-        // We also join with 'pharmacies'
-        const { data, error } = await supabase
+        const today = new Date().toISOString().split('T')[0];
+        let q = supabase
             .from('drugs')
             .select(`
-                *,
+                id, name, generic_name, brand_name, active_ingredients,
+                strength, dosage_form, route, category, manufacturer,
+                description, nafdac_registration_number, prescription_required,
+                price, stock_quantity, expiry_date, dosage_instructions,
+                image_url, verification_status,
                 pharmacies (
-                    id,
-                    business_name,
-                    address,
-                    location,
-                    rating
+                    id, business_name, address, location, rating,
+                    license_number, phone
                 )
             `)
-            .ilike('name', `%${query}%`);
+            .gt('stock_quantity', 0)
+            .or(`expiry_date.is.null,expiry_date.gt.${today}`);
 
+        if (query.trim()) {
+            const term = query.trim();
+            q = q.or(`name.ilike.%${term}%,generic_name.ilike.%${term}%,brand_name.ilike.%${term}%`);
+        }
+
+        const { data, error } = await q;
         if (error) throw error;
 
-        const results = data.map((row: any) => {
+        // Filter out rows where the pharmacy join returned null (no access / missing)
+        const validRows = (data || []).filter((row: any) => row.pharmacies);
+
+        const results = validRows.map((row: any) => {
             const pharmacyData = row.pharmacies;
             const pharmacyLocation = parseLocation(pharmacyData.location);
             const pharmacy: Pharmacy = {
@@ -151,7 +163,9 @@ export const PharmacyService = {
                 address: pharmacyData.address || "",
                 rating: pharmacyData.rating || 0,
                 location: pharmacyLocation,
-                isOpen: true
+                isOpen: true,
+                license_number: pharmacyData.license_number || null,
+                phone: pharmacyData.phone || null,
             };
 
             const drug: Drug = {
@@ -160,7 +174,15 @@ export const PharmacyService = {
                 description: row.description || "",
                 category: row.category || "General",
                 image: row.image_url,
-                requiresPrescription: row.prescription_required
+                requiresPrescription: row.prescription_required,
+                generic_name: row.generic_name,
+                brand_name: row.brand_name,
+                active_ingredients: row.active_ingredients,
+                strength: row.strength,
+                dosage_form: row.dosage_form,
+                route: row.route,
+                manufacturer: row.manufacturer,
+                nafdac_registration_number: row.nafdac_registration_number,
             };
 
             const item: InventoryItem = {
@@ -169,7 +191,11 @@ export const PharmacyService = {
                 drugId: row.id,
                 drug: drug,
                 price: row.price,
-                stock: row.stock_quantity
+                stock: row.stock_quantity,
+                verification_status: row.verification_status,
+                nafdac_registration_number: row.nafdac_registration_number,
+                expiry_date: row.expiry_date,
+                dosage_instructions: row.dosage_instructions,
             };
 
             let distance = 0;
