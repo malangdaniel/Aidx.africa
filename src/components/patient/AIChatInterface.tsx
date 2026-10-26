@@ -114,8 +114,9 @@ export default function AIChatInterface({
     const handleSendMessage = async () => {
         if (!inputText.trim()) return;
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        if (!user || !session?.access_token) {
             toast.error('You must be logged in to chat.');
             return;
         }
