@@ -21,6 +21,33 @@ export interface Drug {
     category: string;
     image?: string;
     requiresPrescription: boolean;
+    generic_name?: string | null;
+    brand_name?: string | null;
+    active_ingredients?: string | null;
+    strength?: string | null;
+    dosage_form?: string | null;
+    route?: string | null;
+    manufacturer?: string | null;
+    nafdac_registration_number?: string | null;
+}
+
+export interface DrugCatalogueItem {
+    id: string;
+    name: string;
+    generic_name: string | null;
+    brand_name: string | null;
+    active_ingredients: any;
+    strength: string | null;
+    dosage_form: string | null;
+    route: string | null;
+    category: string | null;
+    manufacturer: string | null;
+    description: string | null;
+    nafdac_registration_number: string | null;
+    prescription_required: boolean | null;
+    verification_status: string | null;
+    source_of_verification: string | null;
+    product_code: string | null;
 }
 
 export interface DoctorPrescription {
@@ -39,6 +66,12 @@ export interface InventoryItem {
     price: number;
     stock: number;
     discount?: number;
+    catalogue_id?: string | null;
+    verification_status?: string | null;
+    nafdac_registration_number?: string | null;
+    expiry_date?: string | null;
+    dosage_instructions?: string | null;
+    raw?: any;
 }
 
 // Helper to parse Point type from Supabase (if needed) or just default
@@ -154,15 +187,32 @@ export const PharmacyService = {
         return results;
     },
 
+    searchDrugCatalogue: async (query: string): Promise<DrugCatalogueItem[]> => {
+        const trimmed = query.trim();
+        if (trimmed.length < 2) return [];
+
+        // Query drug_catalogue with ilike on name, generic_name, and brand_name, limit 20
+        // READ-ONLY for pharmacists: never insert/update/delete it
+        const { data, error } = await supabase
+            .from('drug_catalogue')
+            .select('*')
+            .or(`name.ilike.%${trimmed}%,generic_name.ilike.%${trimmed}%,brand_name.ilike.%${trimmed}%`)
+            .limit(20);
+
+        if (error) throw error;
+        return (data || []) as DrugCatalogueItem[];
+    },
+
     getInventory: async (pharmacyId: string): Promise<InventoryItem[]> => {
         const { data, error } = await supabase
             .from('drugs')
             .select('*')
-            .eq('pharmacy_id', pharmacyId);
+            .eq('pharmacy_id', pharmacyId)
+            .order('created_at', { ascending: false });
 
         if (error) throw error;
 
-        return data.map((d: any) => ({
+        return (data || []).map((d: any) => ({
             id: d.id,
             pharmacyId: pharmacyId,
             drugId: d.id,
@@ -172,10 +222,23 @@ export const PharmacyService = {
                 description: d.description || "",
                 category: d.category || "General",
                 image: d.image_url,
-                requiresPrescription: d.prescription_required
+                requiresPrescription: d.prescription_required,
+                generic_name: d.generic_name,
+                brand_name: d.brand_name,
+                strength: d.strength,
+                dosage_form: d.dosage_form,
+                route: d.route,
+                manufacturer: d.manufacturer,
+                nafdac_registration_number: d.nafdac_registration_number,
             },
             price: d.price,
-            stock: d.stock_quantity
+            stock: d.stock_quantity,
+            catalogue_id: d.catalogue_id,
+            verification_status: d.verification_status,
+            nafdac_registration_number: d.nafdac_registration_number,
+            expiry_date: d.expiry_date,
+            dosage_instructions: d.dosage_instructions,
+            raw: d,
         }));
     },
 
@@ -193,26 +256,48 @@ export const PharmacyService = {
 
     createDrug: async (pharmacyId: string, payload: {
         name: string;
-        description?: string;
-        category?: string;
+        generic_name?: string | null;
+        brand_name?: string | null;
+        active_ingredients?: string | null;
+        strength?: string | null;
+        dosage_form?: string | null;
+        route?: string | null;
+        category?: string | null;
+        manufacturer?: string | null;
+        description?: string | null;
+        nafdac_registration_number?: string | null;
+        prescription_required?: boolean;
         price: number;
         stock: number;
-        prescriptionRequired?: boolean;
-        manufacturer?: string;
         expiryDate?: string | null;
+        dosage_instructions?: string | null;
+        image_url?: string | null;
+        catalogue_id?: string | null;
+        verification_status?: string | null;
     }): Promise<InventoryItem> => {
         const { data, error } = await supabase
             .from('drugs')
             .insert({
                 pharmacy_id: pharmacyId,
+                catalogue_id: payload.catalogue_id || null,
+                verification_status: payload.verification_status || 'unverified',
                 name: payload.name,
-                description: payload.description || null,
+                generic_name: payload.generic_name || null,
+                brand_name: payload.brand_name || null,
+                active_ingredients: payload.active_ingredients || null,
+                strength: payload.strength || null,
+                dosage_form: payload.dosage_form || null,
+                route: payload.route || null,
                 category: payload.category || null,
+                manufacturer: payload.manufacturer || null,
+                description: payload.description || null,
+                nafdac_registration_number: payload.nafdac_registration_number || null,
+                prescription_required: payload.prescription_required ?? false,
                 price: payload.price,
                 stock_quantity: payload.stock,
-                prescription_required: payload.prescriptionRequired ?? false,
-                manufacturer: payload.manufacturer || null,
                 expiry_date: payload.expiryDate || null,
+                dosage_instructions: payload.dosage_instructions || null,
+                image_url: payload.image_url || null,
             })
             .select()
             .single();
@@ -229,32 +314,67 @@ export const PharmacyService = {
                 description: data.description || "",
                 category: data.category || "General",
                 image: data.image_url,
-                requiresPrescription: data.prescription_required
+                requiresPrescription: data.prescription_required,
+                generic_name: data.generic_name,
+                brand_name: data.brand_name,
+                strength: data.strength,
+                dosage_form: data.dosage_form,
+                route: data.route,
+                manufacturer: data.manufacturer,
+                nafdac_registration_number: data.nafdac_registration_number,
             },
             price: data.price,
-            stock: data.stock_quantity
+            stock: data.stock_quantity,
+            catalogue_id: data.catalogue_id,
+            verification_status: data.verification_status,
+            nafdac_registration_number: data.nafdac_registration_number,
+            expiry_date: data.expiry_date,
+            dosage_instructions: data.dosage_instructions,
+            raw: data,
         };
     },
 
     updateDrug: async (drugId: string, payload: {
         name?: string;
-        description?: string;
-        category?: string;
+        generic_name?: string | null;
+        brand_name?: string | null;
+        active_ingredients?: string | null;
+        strength?: string | null;
+        dosage_form?: string | null;
+        route?: string | null;
+        category?: string | null;
+        manufacturer?: string | null;
+        description?: string | null;
+        nafdac_registration_number?: string | null;
+        prescription_required?: boolean;
         price?: number;
         stock?: number;
-        prescriptionRequired?: boolean;
-        manufacturer?: string;
         expiryDate?: string | null;
+        dosage_instructions?: string | null;
+        image_url?: string | null;
+        catalogue_id?: string | null;
+        verification_status?: string | null;
     }): Promise<void> => {
         const patch: Record<string, any> = {};
         if (payload.name !== undefined) patch.name = payload.name;
-        if (payload.description !== undefined) patch.description = payload.description || null;
+        if (payload.generic_name !== undefined) patch.generic_name = payload.generic_name || null;
+        if (payload.brand_name !== undefined) patch.brand_name = payload.brand_name || null;
+        if (payload.active_ingredients !== undefined) patch.active_ingredients = payload.active_ingredients || null;
+        if (payload.strength !== undefined) patch.strength = payload.strength || null;
+        if (payload.dosage_form !== undefined) patch.dosage_form = payload.dosage_form || null;
+        if (payload.route !== undefined) patch.route = payload.route || null;
         if (payload.category !== undefined) patch.category = payload.category || null;
+        if (payload.manufacturer !== undefined) patch.manufacturer = payload.manufacturer || null;
+        if (payload.description !== undefined) patch.description = payload.description || null;
+        if (payload.nafdac_registration_number !== undefined) patch.nafdac_registration_number = payload.nafdac_registration_number || null;
+        if (payload.prescription_required !== undefined) patch.prescription_required = payload.prescription_required;
         if (payload.price !== undefined) patch.price = payload.price;
         if (payload.stock !== undefined) patch.stock_quantity = payload.stock;
-        if (payload.prescriptionRequired !== undefined) patch.prescription_required = payload.prescriptionRequired;
-        if (payload.manufacturer !== undefined) patch.manufacturer = payload.manufacturer || null;
         if (payload.expiryDate !== undefined) patch.expiry_date = payload.expiryDate || null;
+        if (payload.dosage_instructions !== undefined) patch.dosage_instructions = payload.dosage_instructions || null;
+        if (payload.image_url !== undefined) patch.image_url = payload.image_url || null;
+        if (payload.catalogue_id !== undefined) patch.catalogue_id = payload.catalogue_id || null;
+        if (payload.verification_status !== undefined) patch.verification_status = payload.verification_status || null;
 
         const { error } = await supabase.from('drugs').update(patch).eq('id', drugId);
         if (error) throw error;
