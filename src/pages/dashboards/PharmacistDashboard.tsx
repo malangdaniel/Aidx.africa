@@ -3,20 +3,41 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingCart, Package, AlertTriangle, TrendingUp, Star, Wallet } from 'lucide-react';
+import { ShoppingCart, Package, AlertTriangle, TrendingUp, Star, Wallet, Building2, Loader2 } from 'lucide-react';
 import OrderManagement from '@/components/pharmacist/OrderManagement';
 import InventoryManagement from '@/components/pharmacist/InventoryManagement';
 import BottomNav from '@/components/layout/BottomNav';
 import WithdrawalScreen from '@/components/shared/WithdrawalScreen';
+import { PharmacyOnboardingService, type ApplicationStatus } from '@/services/PharmacyOnboardingService';
+import PharmacyOnboardingWizard from '@/components/pharmacist/onboarding/PharmacyOnboardingWizard';
+import PharmacyProfileSettings from '@/components/pharmacist/onboarding/PharmacyProfileSettings';
+import { UnderReviewScreen, SuspendedScreen } from '@/components/pharmacist/onboarding/PharmacyStatusScreens';
 
 export default function PharmacistDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('orders');
   const [stats, setStats] = useState({ activeOrders: 0, revenue: 0, lowStock: 0 });
+  const [appStatus, setAppStatus] = useState<ApplicationStatus | null>(null);
+
+  const loadStatus = async () => {
+    try {
+      setAppStatus(await PharmacyOnboardingService.getStatus());
+    } catch (error) {
+      console.error('Error loading pharmacy application status:', error);
+      // Fail closed: treat as not approved so the gate screens (not the dashboard) are shown.
+      setAppStatus({ has_pharmacy: true, verification_status: 'pending', profile_status: 'draft' });
+    }
+  };
 
   useEffect(() => {
-    if (user) fetchStats();
+    if (user) loadStatus();
   }, [user]);
+
+  const approved = appStatus?.verification_status === 'verified' && !appStatus.is_suspended;
+
+  useEffect(() => {
+    if (user && approved) fetchStats();
+  }, [user, approved]);
 
   const fetchStats = async () => {
     if (!user) return;
@@ -61,6 +82,7 @@ export default function PharmacistDashboard() {
     { id: 'analytics', label: 'Stats', icon: TrendingUp },
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'withdrawal', label: 'Withdraw', icon: Wallet },
+    { id: 'profile', label: 'Profile', icon: Building2 },
   ];
 
   const formatRevenue = (amount: number) => {
@@ -142,10 +164,37 @@ export default function PharmacistDashboard() {
             <WithdrawalScreen />
           </div>
         );
+      case 'profile':
+        return <PharmacyProfileSettings />;
       default:
         return null;
     }
   };
+
+  // ---- Approval gate (UI-level): only approved, non-suspended pharmacies see inventory/orders ----
+  if (!appStatus) {
+    return (
+      <DashboardLayout title="Pharmacy Dashboard">
+        <div className="flex justify-center py-24"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+      </DashboardLayout>
+    );
+  }
+
+  if (appStatus.has_pharmacy && !approved) {
+    let gate: JSX.Element;
+    if (appStatus.verification_status === 'verified' && appStatus.is_suspended) {
+      gate = <SuspendedScreen status={appStatus} />;
+    } else if (appStatus.profile_status === 'submitted' && appStatus.verification_status === 'pending') {
+      gate = <UnderReviewScreen status={appStatus} onRefresh={loadStatus} />;
+    } else {
+      gate = <PharmacyOnboardingWizard status={appStatus} onSubmitted={loadStatus} />;
+    }
+    return (
+      <DashboardLayout title="Pharmacy Dashboard">
+        <div className="pb-8">{gate}</div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout

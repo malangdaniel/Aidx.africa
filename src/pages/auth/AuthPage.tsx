@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Stethoscope, Pill, User, Eye, EyeOff } from 'lucide-react';
@@ -24,6 +25,8 @@ export default function AuthPage() {
     role: 'patient' as 'patient' | 'doctor' | 'pharmacist',
     business_name: ''
   });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
 
   const { signUp, signIn } = useAuth();
   const navigate = useNavigate();
@@ -66,6 +69,14 @@ export default function AuthPage() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.role === 'pharmacist' && !acceptedTerms) {
+      toast({
+        title: "Agreement required",
+        description: "Please accept the vendor agreement and privacy policy to continue.",
+        variant: "destructive"
+      });
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -74,7 +85,11 @@ export default function AuthPage() {
         first_name: formData.first_name,
         last_name: formData.last_name,
         phone: formData.phone,
-        ...(formData.role === 'pharmacist' && { business_name: formData.business_name })
+        ...(formData.role === 'pharmacist' && {
+          business_name: formData.business_name,
+          terms_accepted: acceptedTerms,
+          marketing_opt_in: marketingOptIn
+        })
       };
 
       const { data, error } = await signUp(formData.email, formData.password, userData);
@@ -317,6 +332,34 @@ export default function AuthPage() {
                       </Button>
                     </div>
                   </div>
+
+                  {formData.role === 'pharmacist' && (
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          id="accept-terms"
+                          checked={acceptedTerms}
+                          onCheckedChange={(v) => setAcceptedTerms(!!v)}
+                        />
+                        <Label htmlFor="accept-terms" className="text-xs leading-relaxed font-normal">
+                          I accept the e-commerce and vendor agreement and privacy policy <span className="text-destructive">*</span>
+                        </Label>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          id="marketing-opt-in"
+                          checked={marketingOptIn}
+                          onCheckedChange={(v) => setMarketingOptIn(!!v)}
+                        />
+                        <Label htmlFor="marketing-opt-in" className="text-xs leading-relaxed font-normal">
+                          I want to receive marketing material
+                        </Label>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        After signing up you'll complete your pharmacy profile and upload your licenses. Our team verifies every pharmacy before it can receive orders.
+                      </p>
+                    </div>
+                  )}
 
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Creating Account..." : "Create Account"}

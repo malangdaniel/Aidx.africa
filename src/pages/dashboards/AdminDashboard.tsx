@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import BottomNav from '@/components/layout/BottomNav';
@@ -17,13 +17,16 @@ import {
     Sliders,
     ShieldAlert,
     Home,
-    Wallet
+    Wallet,
+    Building2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // Admin Tab Components
 import AdminOverviewTab from '@/components/admin/AdminOverviewTab';
 import AdminVerificationTab from '@/components/admin/AdminVerificationTab';
+import AdminPharmaciesTab from '@/components/admin/AdminPharmaciesTab';
+import { supabase } from '@/integrations/supabase/client';
 import AdminUsersTab from '@/components/admin/AdminUsersTab';
 import AdminConsultationsTab from '@/components/admin/AdminConsultationsTab';
 import AdminOrdersTab from '@/components/admin/AdminOrdersTab';
@@ -37,6 +40,14 @@ import AdminWalletTab from '@/components/admin/AdminWalletTab';
 export default function AdminDashboard() {
     const { user, profile, loading: authLoading } = useAuth();
     const [activeTab, setActiveTab] = useState<string>('overview');
+    const [pharmacyQueue, setPharmacyQueue] = useState(0);
+
+    useEffect(() => {
+        if (profile?.role !== 'admin') return;
+        supabase
+            .rpc('admin_list_pharmacy_applications', { p_status: 'awaiting_review', p_limit: 200, p_offset: 0 })
+            .then(({ data }) => setPharmacyQueue(Array.isArray(data) ? data.length : 0));
+    }, [profile?.role, activeTab]);
 
     // 1. Role / Access Guard
     if (authLoading) {
@@ -73,6 +84,7 @@ export default function AdminDashboard() {
 
     const tabs = [
         { id: 'overview', label: 'Overview', icon: BarChart3 },
+        { id: 'pharmacies', label: 'Pharmacies', icon: Building2 },
         { id: 'verification', label: 'Verification', icon: ShieldCheck },
         { id: 'users', label: 'Users', icon: Users },
         { id: 'consultations', label: 'Consults', icon: Calendar },
@@ -89,6 +101,8 @@ export default function AdminDashboard() {
         switch (activeTab) {
             case 'overview':
                 return <AdminOverviewTab />;
+            case 'pharmacies':
+                return <AdminPharmaciesTab />;
             case 'verification':
                 return <AdminVerificationTab />;
             case 'users':
@@ -135,6 +149,11 @@ export default function AdminDashboard() {
                             >
                                 <Icon className="w-3.5 h-3.5" />
                                 {tab.label}
+                                {tab.id === 'pharmacies' && pharmacyQueue > 0 && (
+                                    <span className="ml-1 rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                                        {pharmacyQueue}
+                                    </span>
+                                )}
                             </Button>
                         );
                     })}

@@ -444,59 +444,147 @@ export type Database = {
           },
         ]
       }
+      drug_catalogue: {
+        Row: {
+          active_ingredients: string | null
+          brand_name: string | null
+          category: string | null
+          description: string | null
+          dosage_form: string | null
+          generic_name: string | null
+          id: string
+          manufacturer: string | null
+          nafdac_registration_number: string | null
+          name: string | null
+          prescription_required: boolean | null
+          product_code: string
+          route: string | null
+          source_of_verification: string | null
+          strength: string | null
+          verification_status: string | null
+        }
+        Insert: {
+          active_ingredients?: string | null
+          brand_name?: string | null
+          category?: string | null
+          description?: string | null
+          dosage_form?: string | null
+          generic_name?: string | null
+          id?: string
+          manufacturer?: string | null
+          nafdac_registration_number?: string | null
+          name?: string | null
+          prescription_required?: boolean | null
+          product_code: string
+          route?: string | null
+          source_of_verification?: string | null
+          strength?: string | null
+          verification_status?: string | null
+        }
+        Update: {
+          active_ingredients?: string | null
+          brand_name?: string | null
+          category?: string | null
+          description?: string | null
+          dosage_form?: string | null
+          generic_name?: string | null
+          id?: string
+          manufacturer?: string | null
+          nafdac_registration_number?: string | null
+          name?: string | null
+          prescription_required?: boolean | null
+          product_code?: string
+          route?: string | null
+          source_of_verification?: string | null
+          strength?: string | null
+          verification_status?: string | null
+        }
+        Relationships: []
+      }
       drugs: {
         Row: {
+          active_ingredients: string | null
+          brand_name: string | null
+          catalogue_id: string | null
           category: string | null
           created_at: string
           description: string | null
+          dosage_form: string | null
           dosage_instructions: string | null
           expiry_date: string | null
+          generic_name: string | null
           id: string
           image_url: string | null
           manufacturer: string | null
+          nafdac_registration_number: string | null
           name: string
           pharmacy_id: string
           prescription_required: boolean | null
           price: number
+          route: string | null
           stock_quantity: number | null
           strength: string | null
           updated_at: string
+          verification_status: string
         }
         Insert: {
+          active_ingredients?: string | null
+          brand_name?: string | null
+          catalogue_id?: string | null
           category?: string | null
           created_at?: string
           description?: string | null
+          dosage_form?: string | null
           dosage_instructions?: string | null
           expiry_date?: string | null
+          generic_name?: string | null
           id?: string
           image_url?: string | null
           manufacturer?: string | null
+          nafdac_registration_number?: string | null
           name: string
           pharmacy_id: string
           prescription_required?: boolean | null
           price: number
+          route?: string | null
           stock_quantity?: number | null
           strength?: string | null
           updated_at?: string
+          verification_status?: string
         }
         Update: {
+          active_ingredients?: string | null
+          brand_name?: string | null
+          catalogue_id?: string | null
           category?: string | null
           created_at?: string
           description?: string | null
+          dosage_form?: string | null
           dosage_instructions?: string | null
           expiry_date?: string | null
+          generic_name?: string | null
           id?: string
           image_url?: string | null
           manufacturer?: string | null
+          nafdac_registration_number?: string | null
           name?: string
           pharmacy_id?: string
           prescription_required?: boolean | null
           price?: number
+          route?: string | null
           stock_quantity?: number | null
           strength?: string | null
           updated_at?: string
+          verification_status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "drugs_catalogue_id_fkey"
+            columns: ["catalogue_id"]
+            isOneToOne: false
+            referencedRelation: "drug_catalogue"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "drugs_pharmacy_id_fkey"
             columns: ["pharmacy_id"]
@@ -1047,43 +1135,121 @@ export type Database = {
       }
       pharmacies: {
         Row: {
+          accepts_hmo: boolean
           address: string | null
           business_name: string
+          city: string | null
           created_at: string
+          delivery_fee: number | null
+          delivery_radius_km: number | null
+          email: string | null
+          handles_cold_chain: boolean
+          handles_controlled_drugs: boolean
+          hmo_partners: string[]
           id: string
+          is_24_hours: boolean
+          is_suspended: boolean
+          landmark: string | null
+          latitude: number | null
           license_number: string | null
           location: unknown
+          logo_url: string | null
+          longitude: number | null
+          offers_delivery: boolean
+          offers_pickup: boolean
+          opening_hours: Json
           phone: string | null
+          profile_status: string
           rating: number | null
+          state: string | null
+          street: string | null
+          submitted_at: string | null
+          suspended_at: string | null
+          suspended_reason: string | null
           total_orders: number | null
+          trading_name: string | null
           updated_at: string
           user_id: string
+          whatsapp_number: string | null
+          year_established: number | null
         }
         Insert: {
+          accepts_hmo?: boolean
           address?: string | null
           business_name: string
+          city?: string | null
           created_at?: string
+          delivery_fee?: number | null
+          delivery_radius_km?: number | null
+          email?: string | null
+          handles_cold_chain?: boolean
+          handles_controlled_drugs?: boolean
+          hmo_partners?: string[]
           id?: string
+          is_24_hours?: boolean
+          is_suspended?: boolean
+          landmark?: string | null
+          latitude?: number | null
           license_number?: string | null
           location?: unknown
+          logo_url?: string | null
+          longitude?: number | null
+          offers_delivery?: boolean
+          offers_pickup?: boolean
+          opening_hours?: Json
           phone?: string | null
+          profile_status?: string
           rating?: number | null
+          state?: string | null
+          street?: string | null
+          submitted_at?: string | null
+          suspended_at?: string | null
+          suspended_reason?: string | null
           total_orders?: number | null
+          trading_name?: string | null
           updated_at?: string
           user_id: string
+          whatsapp_number?: string | null
+          year_established?: number | null
         }
         Update: {
+          accepts_hmo?: boolean
           address?: string | null
           business_name?: string
+          city?: string | null
           created_at?: string
+          delivery_fee?: number | null
+          delivery_radius_km?: number | null
+          email?: string | null
+          handles_cold_chain?: boolean
+          handles_controlled_drugs?: boolean
+          hmo_partners?: string[]
           id?: string
+          is_24_hours?: boolean
+          is_suspended?: boolean
+          landmark?: string | null
+          latitude?: number | null
           license_number?: string | null
           location?: unknown
+          logo_url?: string | null
+          longitude?: number | null
+          offers_delivery?: boolean
+          offers_pickup?: boolean
+          opening_hours?: Json
           phone?: string | null
+          profile_status?: string
           rating?: number | null
+          state?: string | null
+          street?: string | null
+          submitted_at?: string | null
+          suspended_at?: string | null
+          suspended_reason?: string | null
           total_orders?: number | null
+          trading_name?: string | null
           updated_at?: string
           user_id?: string
+          whatsapp_number?: string | null
+          year_established?: number | null
         }
         Relationships: [
           {
@@ -1092,6 +1258,189 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      pharmacy_documents: {
+        Row: {
+          created_at: string
+          doc_type: string
+          file_name: string | null
+          id: string
+          mime_type: string | null
+          pharmacy_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          size_bytes: number | null
+          status: string
+          storage_path: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          doc_type: string
+          file_name?: string | null
+          id?: string
+          mime_type?: string | null
+          pharmacy_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          size_bytes?: number | null
+          status?: string
+          storage_path: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          doc_type?: string
+          file_name?: string | null
+          id?: string
+          mime_type?: string | null
+          pharmacy_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          size_bytes?: number | null
+          status?: string
+          storage_path?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_documents_pharmacy_id_fkey"
+            columns: ["pharmacy_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pharmacy_review_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          message: string | null
+          pharmacy_id: string
+          user_id: string
+          visible_to_pharmacy: boolean
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          pharmacy_id: string
+          user_id: string
+          visible_to_pharmacy?: boolean
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          pharmacy_id?: string
+          user_id?: string
+          visible_to_pharmacy?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_review_events_pharmacy_id_fkey"
+            columns: ["pharmacy_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pharmacy_verification: {
+        Row: {
+          cac_rc_number: string | null
+          contact_person_email: string | null
+          contact_person_name: string | null
+          contact_person_phone: string | null
+          created_at: string
+          id: string
+          marketing_opt_in: boolean
+          nafdac_ndlea_number: string | null
+          payout_account_name: string | null
+          payout_account_number: string | null
+          payout_bank_name: string | null
+          pcn_premises_license_expiry: string | null
+          pharmacist_email: string | null
+          pharmacist_full_name: string | null
+          pharmacist_license_expiry: string | null
+          pharmacist_pcn_number: string | null
+          pharmacist_phone: string | null
+          pharmacy_id: string
+          terms_accepted_at: string | null
+          terms_version: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cac_rc_number?: string | null
+          contact_person_email?: string | null
+          contact_person_name?: string | null
+          contact_person_phone?: string | null
+          created_at?: string
+          id?: string
+          marketing_opt_in?: boolean
+          nafdac_ndlea_number?: string | null
+          payout_account_name?: string | null
+          payout_account_number?: string | null
+          payout_bank_name?: string | null
+          pcn_premises_license_expiry?: string | null
+          pharmacist_email?: string | null
+          pharmacist_full_name?: string | null
+          pharmacist_license_expiry?: string | null
+          pharmacist_pcn_number?: string | null
+          pharmacist_phone?: string | null
+          pharmacy_id: string
+          terms_accepted_at?: string | null
+          terms_version?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cac_rc_number?: string | null
+          contact_person_email?: string | null
+          contact_person_name?: string | null
+          contact_person_phone?: string | null
+          created_at?: string
+          id?: string
+          marketing_opt_in?: boolean
+          nafdac_ndlea_number?: string | null
+          payout_account_name?: string | null
+          payout_account_number?: string | null
+          payout_bank_name?: string | null
+          pcn_premises_license_expiry?: string | null
+          pharmacist_email?: string | null
+          pharmacist_full_name?: string | null
+          pharmacist_license_expiry?: string | null
+          pharmacist_pcn_number?: string | null
+          pharmacist_phone?: string | null
+          pharmacy_id?: string
+          terms_accepted_at?: string | null
+          terms_version?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_verification_pharmacy_id_fkey"
+            columns: ["pharmacy_id"]
+            isOneToOne: true
+            referencedRelation: "pharmacies"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1707,6 +2056,11 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      _pharmacy_missing: { Args: { p_uid: string }; Returns: string[] }
+      admin_get_pharmacy_application: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       admin_grant_role: {
         Args: {
           p_role: Database["public"]["Enums"]["app_role"]
@@ -1755,6 +2109,31 @@ export type Database = {
           tracking_status: string
         }[]
       }
+      admin_list_pharmacy_applications: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          city: string
+          created_at: string
+          docs_approved: number
+          docs_total: number
+          email: string
+          is_suspended: boolean
+          nearest_expiry: string
+          pcn_license_number: string
+          pharmacy_id: string
+          pharmacy_name: string
+          profile_status: string
+          state: string
+          submitted_at: string
+          user_id: string
+          verification_status: string
+        }[]
+      }
       admin_list_users: {
         Args: {
           p_limit?: number
@@ -1791,6 +2170,18 @@ export type Database = {
         }[]
       }
       admin_overview: { Args: { p_days?: number }; Returns: Json }
+      admin_pharmacy_expiry_alerts: {
+        Args: { p_days?: number }
+        Returns: {
+          days_left: number
+          email: string
+          expiry_date: string
+          license_type: string
+          pharmacy_name: string
+          user_id: string
+          verification_status: string
+        }[]
+      }
       admin_process_withdrawal: {
         Args: {
           p_action: string
@@ -1798,6 +2189,14 @@ export type Database = {
           p_reference?: string
           p_withdrawal_id: string
         }
+        Returns: Json
+      }
+      admin_review_pharmacy: {
+        Args: { p_action: string; p_message?: string; p_user_id: string }
+        Returns: Json
+      }
+      admin_review_pharmacy_document: {
+        Args: { p_document_id: string; p_note?: string; p_status: string }
         Returns: Json
       }
       admin_set_verification: {
@@ -1879,6 +2278,7 @@ export type Database = {
         Returns: undefined
       }
       owns_order: { Args: { _order_id: string }; Returns: boolean }
+      pharmacy_application_status: { Args: never; Returns: Json }
       pharmacy_serves_customer: {
         Args: { _customer_id: string }
         Returns: boolean
@@ -1892,6 +2292,7 @@ export type Database = {
         }
         Returns: Json
       }
+      pharmacy_submit_application: { Args: never; Returns: Json }
       place_pharmacy_order: {
         Args: {
           p_delivery_address: string
