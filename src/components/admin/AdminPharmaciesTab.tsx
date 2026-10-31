@@ -172,7 +172,7 @@ type Detail = {
 };
 type ActionType = 'approve' | 'request_info' | 'reject' | 'suspend' | 'unsuspend';
 
-function PharmacyDetail({ userId, onBack }: { userId: string; onBack: () => void }) {
+export function PharmacyDetail({ userId, onBack, backLabel = 'All pharmacies' }: { userId: string; onBack: () => void; backLabel?: string }) {
   const [d, setD] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState<ActionType | null>(null);
@@ -236,7 +236,7 @@ function PharmacyDetail({ userId, onBack }: { userId: string; onBack: () => void
 
   return (
     <div className="space-y-4">
-      <Button variant="ghost" onClick={onBack} className="gap-1 -ml-2"><ArrowLeft className="w-4 h-4" /> All pharmacies</Button>
+      <Button variant="ghost" onClick={onBack} className="gap-1 -ml-2"><ArrowLeft className="w-4 h-4" /> {backLabel}</Button>
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex items-center gap-3">

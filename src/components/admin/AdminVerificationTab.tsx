@@ -23,10 +23,13 @@ import {
     ShieldAlert,
     Building2,
     Stethoscope,
-    User
+    User,
+    Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AdminRpcService, AdminUserRow } from '@/services/AdminRpcService';
+import { PharmacyDetail } from '@/components/admin/AdminPharmaciesTab';
+import AdminDoctorDetail from '@/components/admin/AdminDoctorDetail';
 
 export default function AdminVerificationTab() {
     const [pendingUsers, setPendingUsers] = useState<AdminUserRow[]>([]);
@@ -36,6 +39,7 @@ export default function AdminVerificationTab() {
     const [rejectReason, setRejectReason] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [docLoading, setDocLoading] = useState<string | null>(null);
+    const [detailUser, setDetailUser] = useState<AdminUserRow | null>(null);
 
     const loadPending = async () => {
         setLoading(true);
@@ -110,6 +114,19 @@ export default function AdminVerificationTab() {
         }
     };
 
+    const closeDetail = () => {
+        setDetailUser(null);
+        loadPending();
+    };
+
+    if (detailUser) {
+        return detailUser.role === 'pharmacist' ? (
+            <PharmacyDetail userId={detailUser.user_id} onBack={closeDetail} backLabel="Back to queue" />
+        ) : (
+            <AdminDoctorDetail user={detailUser} onBack={closeDetail} />
+        );
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -146,7 +163,7 @@ export default function AdminVerificationTab() {
                         const isDoctor = u.role === 'doctor';
                         return (
                             <Card key={u.user_id} className="border hover:shadow-sm transition-shadow">
-                                <CardHeader className="pb-3">
+                                <CardHeader className="pb-3 cursor-pointer" onClick={() => setDetailUser(u)}>
                                     <div className="flex justify-between items-start gap-2">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -182,46 +199,58 @@ export default function AdminVerificationTab() {
 
                                     <div className="flex flex-wrap items-center gap-2 pt-1">
                                         <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleViewDocument(u)}
-                                            disabled={docLoading === u.user_id}
-                                            className="text-xs gap-1.5 flex-1"
-                                        >
-                                            {docLoading === u.user_id ? (
-                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                            ) : (
-                                                <FileText className="w-3.5 h-3.5" />
-                                            )}
-                                            View Document
-                                        </Button>
-
-                                        <Button
                                             variant="default"
                                             size="sm"
-                                            onClick={() => {
-                                                setActionUser(u);
-                                                setActionType('verify');
-                                            }}
-                                            className="text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                            onClick={() => setDetailUser(u)}
+                                            className="text-xs gap-1.5 flex-1"
                                         >
-                                            <CheckCircle className="w-3.5 h-3.5" />
-                                            Approve
+                                            <Eye className="w-3.5 h-3.5" />
+                                            {isDoctor ? 'View profile & details' : 'Review application'}
                                         </Button>
 
-                                        <Button
-                                            variant="destructive"
-                                            size="sm"
-                                            onClick={() => {
-                                                setActionUser(u);
-                                                setActionType('reject');
-                                                setRejectReason('');
-                                            }}
-                                            className="text-xs gap-1"
-                                        >
-                                            <XCircle className="w-3.5 h-3.5" />
-                                            Reject
-                                        </Button>
+                                        {isDoctor && (
+                                            <>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleViewDocument(u)}
+                                                    disabled={docLoading === u.user_id}
+                                                    className="text-xs gap-1.5"
+                                                >
+                                                    {docLoading === u.user_id ? (
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    ) : (
+                                                        <FileText className="w-3.5 h-3.5" />
+                                                    )}
+                                                    Document
+                                                </Button>
+                                                <Button
+                                                    variant="default"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setActionUser(u);
+                                                        setActionType('verify');
+                                                    }}
+                                                    className="text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                >
+                                                    <CheckCircle className="w-3.5 h-3.5" />
+                                                    Approve
+                                                </Button>
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setActionUser(u);
+                                                        setActionType('reject');
+                                                        setRejectReason('');
+                                                    }}
+                                                    className="text-xs gap-1"
+                                                >
+                                                    <XCircle className="w-3.5 h-3.5" />
+                                                    Reject
+                                                </Button>
+                                            </>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
