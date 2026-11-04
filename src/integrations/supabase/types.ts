@@ -397,42 +397,237 @@ export type Database = {
           },
         ]
       }
-      doctors: {
+      doctor_documents: {
         Row: {
-          bio: string | null
-          consult_price: number | null
           created_at: string
+          doc_type: string
+          doctor_id: string
+          file_name: string | null
           id: string
-          license_number: string | null
-          rating: number | null
-          specialties: string[] | null
-          total_consultations: number | null
+          mime_type: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          size_bytes: number | null
+          status: string
+          storage_path: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          bio?: string | null
-          consult_price?: number | null
           created_at?: string
+          doc_type: string
+          doctor_id: string
+          file_name?: string | null
           id?: string
-          license_number?: string | null
-          rating?: number | null
-          specialties?: string[] | null
-          total_consultations?: number | null
+          mime_type?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          size_bytes?: number | null
+          status?: string
+          storage_path: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          created_at?: string
+          doc_type?: string
+          doctor_id?: string
+          file_name?: string | null
+          id?: string
+          mime_type?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          size_bytes?: number | null
+          status?: string
+          storage_path?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_documents_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctor_review_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          doctor_id: string
+          id: string
+          message: string | null
+          user_id: string
+          visible_to_doctor: boolean
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          doctor_id: string
+          id?: string
+          message?: string | null
+          user_id: string
+          visible_to_doctor?: boolean
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          message?: string | null
+          user_id?: string
+          visible_to_doctor?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_review_events_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctor_verification: {
+        Row: {
+          alma_mater: string | null
+          contact_phone: string | null
+          created_at: string
+          doctor_id: string
+          graduation_year: number | null
+          id: string
+          license_expiry: string | null
+          marketing_opt_in: boolean
+          mdcn_folio_number: string | null
+          payout_account_name: string | null
+          payout_account_number: string | null
+          payout_bank_name: string | null
+          terms_accepted_at: string | null
+          terms_version: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alma_mater?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          doctor_id: string
+          graduation_year?: number | null
+          id?: string
+          license_expiry?: string | null
+          marketing_opt_in?: boolean
+          mdcn_folio_number?: string | null
+          payout_account_name?: string | null
+          payout_account_number?: string | null
+          payout_bank_name?: string | null
+          terms_accepted_at?: string | null
+          terms_version?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alma_mater?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          doctor_id?: string
+          graduation_year?: number | null
+          id?: string
+          license_expiry?: string | null
+          marketing_opt_in?: boolean
+          mdcn_folio_number?: string | null
+          payout_account_name?: string | null
+          payout_account_number?: string | null
+          payout_bank_name?: string | null
+          terms_accepted_at?: string | null
+          terms_version?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_verification_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: true
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctors: {
+        Row: {
+          bio: string | null
+          city: string | null
+          consult_price: number | null
+          created_at: string
+          hospital_or_clinic: string | null
+          id: string
+          is_suspended: boolean
+          license_number: string | null
+          profile_photo_url: string | null
+          profile_status: string
+          rating: number | null
+          specialties: string[] | null
+          state: string | null
+          submitted_at: string | null
+          suspended_at: string | null
+          suspended_reason: string | null
+          total_consultations: number | null
+          updated_at: string
+          user_id: string
+          years_of_experience: number | null
+        }
+        Insert: {
           bio?: string | null
+          city?: string | null
           consult_price?: number | null
           created_at?: string
+          hospital_or_clinic?: string | null
           id?: string
+          is_suspended?: boolean
           license_number?: string | null
+          profile_photo_url?: string | null
+          profile_status?: string
           rating?: number | null
           specialties?: string[] | null
+          state?: string | null
+          submitted_at?: string | null
+          suspended_at?: string | null
+          suspended_reason?: string | null
+          total_consultations?: number | null
+          updated_at?: string
+          user_id: string
+          years_of_experience?: number | null
+        }
+        Update: {
+          bio?: string | null
+          city?: string | null
+          consult_price?: number | null
+          created_at?: string
+          hospital_or_clinic?: string | null
+          id?: string
+          is_suspended?: boolean
+          license_number?: string | null
+          profile_photo_url?: string | null
+          profile_status?: string
+          rating?: number | null
+          specialties?: string[] | null
+          state?: string | null
+          submitted_at?: string | null
+          suspended_at?: string | null
+          suspended_reason?: string | null
           total_consultations?: number | null
           updated_at?: string
           user_id?: string
+          years_of_experience?: number | null
         }
         Relationships: [
           {
@@ -1155,7 +1350,6 @@ export type Database = {
           location: unknown
           logo_url: string | null
           longitude: number | null
-          metadata: Json | null
           offers_delivery: boolean
           offers_pickup: boolean
           opening_hours: Json
@@ -1195,7 +1389,6 @@ export type Database = {
           location?: unknown
           logo_url?: string | null
           longitude?: number | null
-          metadata?: Json | null
           offers_delivery?: boolean
           offers_pickup?: boolean
           opening_hours?: Json
@@ -1235,7 +1428,6 @@ export type Database = {
           location?: unknown
           logo_url?: string | null
           longitude?: number | null
-          metadata?: Json | null
           offers_delivery?: boolean
           offers_pickup?: boolean
           opening_hours?: Json
@@ -2029,6 +2221,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _doctor_missing: { Args: { p_uid: string }; Returns: string[] }
       _ledger: {
         Args: {
           p_amount: number
@@ -2060,6 +2253,10 @@ export type Database = {
         }
       }
       _pharmacy_missing: { Args: { p_uid: string }; Returns: string[] }
+      admin_get_doctor_application: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       admin_get_pharmacy_application: {
         Args: { p_user_id: string }
         Returns: Json
@@ -2082,6 +2279,31 @@ export type Database = {
           price: number
           scheduled_at: string
           status: string
+        }[]
+      }
+      admin_list_doctor_applications: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          city: string
+          created_at: string
+          docs_approved: number
+          docs_total: number
+          doctor_id: string
+          email: string
+          full_name: string
+          is_suspended: boolean
+          license_expiry: string
+          license_number: string
+          profile_status: string
+          state: string
+          submitted_at: string
+          user_id: string
+          verification_status: string
         }[]
       }
       admin_list_flagged_diagnoses: {
@@ -2194,6 +2416,14 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_review_doctor: {
+        Args: { p_action: string; p_message?: string; p_user_id: string }
+        Returns: Json
+      }
+      admin_review_doctor_document: {
+        Args: { p_document_id: string; p_note?: string; p_status: string }
+        Returns: Json
+      }
       admin_review_pharmacy: {
         Args: { p_action: string; p_message?: string; p_user_id: string }
         Returns: Json
@@ -2241,6 +2471,8 @@ export type Database = {
         }
         Returns: Json
       }
+      doctor_application_status: { Args: never; Returns: Json }
+      doctor_submit_application: { Args: never; Returns: Json }
       get_current_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
@@ -2271,6 +2503,7 @@ export type Database = {
         Args: { _doctor_id: string; _patient_id: string }
         Returns: boolean
       }
+      is_verified_doctor: { Args: { _uid: string }; Returns: boolean }
       log_audit: {
         Args: {
           p_action: string
