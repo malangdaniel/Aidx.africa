@@ -42,6 +42,7 @@ import {
   type Section,
 } from '@/components/pharmacist/onboarding/pharmacyForm';
 import type { PharmacyRow, PharmacyVerificationRow } from '@/services/PharmacyOnboardingService';
+import { AdminRpcService } from '@/services/AdminRpcService';
 import type {
   DoctorBasicInfoData,
   DoctorCredentialsData,
@@ -114,7 +115,7 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
       // 1. Fetch pending doctors
       const { data: profilesData, error: profErr } = await supabase
         .from('profiles')
-        .select('id, user_id, first_name, last_name, email, role, metadata, updated_at')
+        .select('id, user_id, first_name, last_name, role, metadata, phone, updated_at')
         .eq('role', 'doctor');
 
       if (profErr) throw profErr;
@@ -126,9 +127,11 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
         return pending && pending.pendingChangesStatus === 'pending';
       });
 
-      // Load associated doctors table rows
+      // Load associated doctors table rows and user emails
       const doctorUserIds = pendingDoctorsRaw.map((p) => p.user_id).filter(Boolean);
       let doctorRowsMap: Record<string, any> = {};
+      let userEmailMap: Record<string, string> = {};
+
       if (doctorUserIds.length > 0) {
         const { data: dRows } = await supabase
           .from('doctors')
@@ -139,17 +142,34 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
             if (r.user_id) doctorRowsMap[r.user_id] = r;
           });
         }
+
+        try {
+          const adminUsers = await AdminRpcService.listUsers({ role: 'doctor', limit: 200 });
+          adminUsers.forEach((u) => {
+            if (u.user_id && u.email) userEmailMap[u.user_id] = u.email;
+          });
+        } catch (e) {
+          console.warn('Could not fetch doctor emails via AdminRpcService:', e);
+        }
       }
 
       const docItems: DoctorChangeItem[] = pendingDoctorsRaw.map((p) => {
         const meta = (p.metadata as Record<string, any>) || {};
         const pending = meta.pending_doctor_changes as PendingDoctorChangesPayload;
         const dRec = doctorRowsMap[p.user_id] || null;
+        const doctorEmail =
+          userEmailMap[p.user_id] ||
+          meta.email ||
+          meta.doctorProfile?.basicInfo?.email ||
+          pending.pendingChanges?.basicInfo?.email ||
+          p.phone ||
+          null;
+
         const displayName =
           [pending.pendingChanges?.firstName || p.first_name, pending.pendingChanges?.lastName || p.last_name]
             .filter(Boolean)
             .join(' ') ||
-          p.email ||
+          doctorEmail ||
           'Unnamed Doctor';
 
         return {
@@ -157,7 +177,7 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
           userId: p.user_id,
           role: 'doctor',
           displayName,
-          email: p.email,
+          email: doctorEmail,
           submittedAt: pending.pendingChangesSubmittedAt || p.updated_at,
           pendingPayload: pending,
           currentProfile: {

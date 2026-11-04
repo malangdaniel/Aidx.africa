@@ -131,7 +131,7 @@ export default function AdminWalletTab() {
         try {
             const { data, error } = await supabase
                 .from('wallets')
-                .select('user_id, balance, escrow_balance, profiles:user_id(first_name,last_name,email,role)')
+                .select('user_id, balance, escrow_balance, profiles:user_id(first_name,last_name,role)')
                 .order('balance', { ascending: false })
                 .limit(100);
             if (error) throw error;
@@ -141,7 +141,7 @@ export default function AdminWalletTab() {
                 return {
                     user_id: w.user_id,
                     owner_name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Unknown',
-                    owner_email: p.email || '—',
+                    owner_email: p.role || '—',
                     owner_role: p.role || '—',
                     balance: w.balance || 0,
                     escrow_balance: w.escrow_balance || 0,
