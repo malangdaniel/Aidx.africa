@@ -14,12 +14,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, LogOut, User, Stethoscope, HeartPulse } from 'lucide-react';
+import { Loader2, LogOut, User, Stethoscope, HeartPulse, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DoctorProfileSettings } from '@/components/doctor/settings/DoctorProfileSettings';
+import PharmacyProfileSettings from '@/components/pharmacist/onboarding/PharmacyProfileSettings';
 import { AvatarUpload } from '@/components/shared/AvatarUpload';
 import MedicalHistoryView from '@/components/patient/medical-history/MedicalHistoryView';
-
+import { cn } from '@/lib/utils';
 
 interface SettingsDialogProps {
     open: boolean;
@@ -30,7 +31,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     const { user, profile, signOut, refetchProfile } = useAuth();
     const [loading, setLoading] = useState(false);
 
-    // Form State
+    // Form State (for general/doctor personal profiles)
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [age, setAge] = useState('');
@@ -40,6 +41,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     const [avatarUrl, setAvatarUrl] = useState('');
 
     const isDoctor = profile?.role === 'doctor';
+    const isPharmacist = profile?.role === 'pharmacist';
 
     useEffect(() => {
         if (profile) {
@@ -209,68 +211,115 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className={`${isDoctor ? 'sm:max-w-[600px]' : 'sm:max-w-[380px]'} max-h-[85vh] p-0 gap-0`}>
-                <DialogHeader className="px-4 pt-4 pb-2">
-                    <DialogTitle className="text-lg">Settings</DialogTitle>
-                    <DialogDescription className="text-xs">
-                        {isDoctor ? 'Manage your professional profile' : 'Manage your profile'}
-                    </DialogDescription>
-                </DialogHeader>
-
-                {isDoctor ? (
-                    <Tabs defaultValue="professional" className="flex-1">
-                        <TabsList className="grid grid-cols-2 mx-4 mb-2">
-                            <TabsTrigger value="professional" className="gap-1.5 text-xs">
-                                <Stethoscope className="h-3.5 w-3.5" />
-                                Professional
-                            </TabsTrigger>
-                            <TabsTrigger value="personal" className="gap-1.5 text-xs">
-                                <User className="h-3.5 w-3.5" />
-                                Personal
-                            </TabsTrigger>
-                        </TabsList>
-
-                        <TabsContent value="professional" className="mt-0 px-4 pb-4">
-                            <ScrollArea className="h-[55vh]">
-                                <DoctorProfileSettings onSaved={() => onOpenChange(false)} />
-                            </ScrollArea>
-                        </TabsContent>
-
-                        <TabsContent value="personal" className="mt-0 px-4 pb-4">
-                            <ScrollArea className="h-[55vh] pr-3">
-                                <GeneralProfileContent />
-                            </ScrollArea>
-                        </TabsContent>
-                    </Tabs>
-                ) : profile?.role === 'patient' ? (
-                    <Tabs defaultValue="personal" className="flex-1">
-                        <TabsList className="grid grid-cols-2 mx-4 mb-2">
-                            <TabsTrigger value="personal" className="gap-1.5 text-xs">
-                                <User className="h-3.5 w-3.5" />
-                                Personal
-                            </TabsTrigger>
-                            <TabsTrigger value="medical" className="gap-1.5 text-xs">
-                                <HeartPulse className="h-3.5 w-3.5" />
-                                Medical History
-                            </TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="personal" className="mt-0 px-4 pb-4">
-                            <ScrollArea className="h-[60vh] pr-3">
-                                <GeneralProfileContent />
-                            </ScrollArea>
-                        </TabsContent>
-                        <TabsContent value="medical" className="mt-0 px-4 pb-4">
-                            <ScrollArea className="h-[60vh] pr-3">
-                                <MedicalHistoryView />
-                            </ScrollArea>
-                        </TabsContent>
-                    </Tabs>
-                ) : (
-                    <ScrollArea className="h-[60vh] px-4 pb-4">
-                        <GeneralProfileContent />
-                    </ScrollArea>
+            <DialogContent
+                className={cn(
+                    "p-0 gap-0 overflow-hidden flex flex-col",
+                    isPharmacist
+                        ? "w-[94vw] sm:w-[90vw] max-w-5xl lg:max-w-6xl h-[90vh] max-h-[90vh] rounded-2xl border shadow-2xl bg-background"
+                        : isDoctor
+                        ? "sm:max-w-[600px] max-h-[85vh]"
+                        : "sm:max-w-[380px] max-h-[85vh]"
                 )}
+            >
+                {isPharmacist ? (
+                    <div className="flex flex-col h-full overflow-hidden">
+                        {/* Accessible Modal Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b bg-card/60 flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                                    <Building2 className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <DialogTitle className="text-base sm:text-lg font-bold tracking-tight text-foreground">
+                                        Pharmacy Profile
+                                    </DialogTitle>
+                                    <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                                        Manage premises, regulatory licenses, operations, delivery, and payout details
+                                    </DialogDescription>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 mr-8">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleSignOut}
+                                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 px-2.5 text-xs gap-1.5"
+                                >
+                                    <LogOut className="h-3.5 w-3.5" />
+                                    <span className="hidden sm:inline">Sign Out</span>
+                                </Button>
+                            </div>
+                        </div>
 
+                        {/* Complete Pharmacy Profile Management Interface */}
+                        <div className="flex-1 min-h-0 overflow-hidden">
+                            <PharmacyProfileSettings inModal onClose={() => onOpenChange(false)} />
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        <DialogHeader className="px-4 pt-4 pb-2">
+                            <DialogTitle className="text-lg">Settings</DialogTitle>
+                            <DialogDescription className="text-xs">
+                                {isDoctor ? 'Manage your professional profile' : 'Manage your profile'}
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        {isDoctor ? (
+                            <Tabs defaultValue="professional" className="flex-1">
+                                <TabsList className="grid grid-cols-2 mx-4 mb-2">
+                                    <TabsTrigger value="professional" className="gap-1.5 text-xs">
+                                        <Stethoscope className="h-3.5 w-3.5" />
+                                        Professional
+                                    </TabsTrigger>
+                                    <TabsTrigger value="personal" className="gap-1.5 text-xs">
+                                        <User className="h-3.5 w-3.5" />
+                                        Personal
+                                    </TabsTrigger>
+                                </TabsList>
+
+                                <TabsContent value="professional" className="mt-0 px-4 pb-4">
+                                    <ScrollArea className="h-[55vh]">
+                                        <DoctorProfileSettings onSaved={() => onOpenChange(false)} />
+                                    </ScrollArea>
+                                </TabsContent>
+
+                                <TabsContent value="personal" className="mt-0 px-4 pb-4">
+                                    <ScrollArea className="h-[55vh] pr-3">
+                                        <GeneralProfileContent />
+                                    </ScrollArea>
+                                </TabsContent>
+                            </Tabs>
+                        ) : profile?.role === 'patient' ? (
+                            <Tabs defaultValue="personal" className="flex-1">
+                                <TabsList className="grid grid-cols-2 mx-4 mb-2">
+                                    <TabsTrigger value="personal" className="gap-1.5 text-xs">
+                                        <User className="h-3.5 w-3.5" />
+                                        Personal
+                                    </TabsTrigger>
+                                    <TabsTrigger value="medical" className="gap-1.5 text-xs">
+                                        <HeartPulse className="h-3.5 w-3.5" />
+                                        Medical History
+                                    </TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="personal" className="mt-0 px-4 pb-4">
+                                    <ScrollArea className="h-[60vh] pr-3">
+                                        <GeneralProfileContent />
+                                    </ScrollArea>
+                                </TabsContent>
+                                <TabsContent value="medical" className="mt-0 px-4 pb-4">
+                                    <ScrollArea className="h-[60vh] pr-3">
+                                        <MedicalHistoryView />
+                                    </ScrollArea>
+                                </TabsContent>
+                            </Tabs>
+                        ) : (
+                            <ScrollArea className="h-[60vh] px-4 pb-4">
+                                <GeneralProfileContent />
+                            </ScrollArea>
+                        )}
+                    </>
+                )}
             </DialogContent>
         </Dialog>
     );

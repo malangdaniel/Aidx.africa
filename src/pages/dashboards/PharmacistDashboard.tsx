@@ -3,14 +3,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingCart, Package, AlertTriangle, TrendingUp, Star, Wallet, Building2, Loader2 } from 'lucide-react';
+import { ShoppingCart, Package, AlertTriangle, TrendingUp, Star, Wallet, Loader2 } from 'lucide-react';
 import OrderManagement from '@/components/pharmacist/OrderManagement';
 import InventoryManagement from '@/components/pharmacist/InventoryManagement';
 import BottomNav from '@/components/layout/BottomNav';
 import WithdrawalScreen from '@/components/shared/WithdrawalScreen';
 import { PharmacyOnboardingService, type ApplicationStatus } from '@/services/PharmacyOnboardingService';
 import PharmacyOnboardingWizard from '@/components/pharmacist/onboarding/PharmacyOnboardingWizard';
-import PharmacyProfileSettings from '@/components/pharmacist/onboarding/PharmacyProfileSettings';
+
 import { UnderReviewScreen, SuspendedScreen } from '@/components/pharmacist/onboarding/PharmacyStatusScreens';
 
 export default function PharmacistDashboard() {
@@ -82,7 +82,6 @@ export default function PharmacistDashboard() {
     { id: 'analytics', label: 'Stats', icon: TrendingUp },
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'withdrawal', label: 'Withdraw', icon: Wallet },
-    { id: 'profile', label: 'Profile', icon: Building2 },
   ];
 
   const formatRevenue = (amount: number) => {
@@ -164,8 +163,7 @@ export default function PharmacistDashboard() {
             <WithdrawalScreen />
           </div>
         );
-      case 'profile':
-        return <PharmacyProfileSettings />;
+      
       default:
         return null;
     }
