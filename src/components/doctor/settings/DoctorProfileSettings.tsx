@@ -1,9 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Loader2, User, GraduationCap, Stethoscope, Calendar, Save } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Loader2,
+  User,
+  GraduationCap,
+  Stethoscope,
+  Calendar,
+  Send,
+  X,
+  Clock,
+  XCircle,
+  CheckCircle2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { DoctorBasicInfo } from "./DoctorBasicInfo";
 import { DoctorCredentials } from "./DoctorCredentials";
@@ -15,40 +27,98 @@ interface DoctorProfileSettingsProps {
   onSaved?: () => void;
 }
 
-// Default state factory
-const getDefaultBasicInfo = () => ({
+export interface DoctorBasicInfoData {
+  professionalTitle: string;
+  about: string;
+  profilePhoto: string;
+  gender: string;
+  country: string;
+  city: string;
+  languages: string[];
+  registrationNumber: string;
+  licensingAuthority: string;
+  yearOfGraduation: string;
+}
+
+export interface DoctorCredentialsData {
+  primaryDegree: string;
+  postgraduateQualifications: string[];
+  specialty: string;
+  subSpecialty: string;
+  yearsExperience: string;
+  currentAffiliations: string[];
+  pastInstitutions: string[];
+  certifications: string[];
+  fellowships: string[];
+}
+
+export interface DoctorExpertiseData {
+  conditionsTreated: string[];
+  clinicalInterests: string[];
+  ageGroups: string[];
+  consultationScopes: string[];
+}
+
+export interface DoctorAvailabilityData {
+  consultationModes: string[];
+  availableDays: string[];
+  workingHoursStart: string;
+  workingHoursEnd: string;
+  timezone: string;
+  avgResponseTime: string;
+  maxConsultationsPerDay: string;
+  emergencyAvailable: boolean;
+  onCallStatus: boolean;
+  consultPrice: string;
+}
+
+export interface PendingDoctorChangesPayload {
+  pendingChanges: {
+    firstName: string;
+    lastName: string;
+    basicInfo: DoctorBasicInfoData;
+    credentials: DoctorCredentialsData;
+    expertise: DoctorExpertiseData;
+    availability: DoctorAvailabilityData;
+  };
+  pendingChangesStatus: "pending" | "approved" | "rejected";
+  pendingChangesSubmittedAt: string;
+  pendingChangesRejectionReason: string | null;
+}
+
+const getDefaultBasicInfo = (): DoctorBasicInfoData => ({
   professionalTitle: "",
   about: "",
   profilePhoto: "",
   gender: "",
   country: "",
   city: "",
-  languages: [] as string[],
+  languages: [],
   registrationNumber: "",
   licensingAuthority: "",
-  yearOfGraduation: ""
+  yearOfGraduation: "",
 });
 
-const getDefaultCredentials = () => ({
+const getDefaultCredentials = (): DoctorCredentialsData => ({
   primaryDegree: "",
-  postgraduateQualifications: [] as string[],
+  postgraduateQualifications: [],
   specialty: "",
   subSpecialty: "",
   yearsExperience: "",
-  currentAffiliations: [] as string[],
-  pastInstitutions: [] as string[],
-  certifications: [] as string[],
-  fellowships: [] as string[]
+  currentAffiliations: [],
+  pastInstitutions: [],
+  certifications: [],
+  fellowships: [],
 });
 
-const getDefaultExpertise = () => ({
-  conditionsTreated: [] as string[],
-  clinicalInterests: [] as string[],
-  ageGroups: [] as string[],
-  consultationScopes: [] as string[]
+const getDefaultExpertise = (): DoctorExpertiseData => ({
+  conditionsTreated: [],
+  clinicalInterests: [],
+  ageGroups: [],
+  consultationScopes: [],
 });
 
-const getDefaultAvailability = () => ({
+const getDefaultAvailability = (): DoctorAvailabilityData => ({
   consultationModes: ["chat", "audio", "video"],
   availableDays: ["monday", "tuesday", "wednesday", "thursday", "friday"],
   workingHoursStart: "09:00",
@@ -58,91 +128,143 @@ const getDefaultAvailability = () => ({
   maxConsultationsPerDay: "10",
   emergencyAvailable: false,
   onCallStatus: false,
-  consultPrice: "5000"
+  consultPrice: "5000",
 });
 
 export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
   const { user, profile, refetchProfile } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
   // Form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [basicInfo, setBasicInfo] = useState(getDefaultBasicInfo());
-  const [credentials, setCredentials] = useState(getDefaultCredentials());
-  const [expertise, setExpertise] = useState(getDefaultExpertise());
-  const [availability, setAvailability] = useState(getDefaultAvailability());
+  const [basicInfo, setBasicInfo] = useState<DoctorBasicInfoData>(getDefaultBasicInfo());
+  const [credentials, setCredentials] = useState<DoctorCredentialsData>(getDefaultCredentials());
+  const [expertise, setExpertise] = useState<DoctorExpertiseData>(getDefaultExpertise());
+  const [availability, setAvailability] = useState<DoctorAvailabilityData>(getDefaultAvailability());
 
-  // Load existing data
-  useEffect(() => {
-    const loadDoctorProfile = async () => {
-      if (!user) return;
+  // Pending changes review state
+  const [pendingStatus, setPendingStatus] = useState<"pending" | "approved" | "rejected" | null>(null);
+  const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
 
-      try {
-        // Load profile first/last name
-        if (profile) {
-          setFirstName(profile.first_name || "");
-          setLastName(profile.last_name || "");
+  const loadDoctorProfile = useCallback(async () => {
+    if (!user) return;
 
-          // Load from profile metadata if exists
-          const meta = profile.metadata || {};
-          if (meta.doctorProfile) {
-            const dp = meta.doctorProfile;
-            setBasicInfo(prev => ({ ...prev, ...dp.basicInfo }));
-            setCredentials(prev => ({ ...prev, ...dp.credentials }));
-            setExpertise(prev => ({ ...prev, ...dp.expertise }));
-            setAvailability(prev => ({ ...prev, ...dp.availability }));
-          }
+    try {
+      let liveFirstName = "";
+      let liveLastName = "";
+      let liveBasic = getDefaultBasicInfo();
+      let liveCred = getDefaultCredentials();
+      let liveExp = getDefaultExpertise();
+      let liveAvail = getDefaultAvailability();
+
+      // 1. Load from profile table & live metadata
+      if (profile) {
+        liveFirstName = profile.first_name || "";
+        liveLastName = profile.last_name || "";
+
+        const meta = (profile.metadata as Record<string, any>) || {};
+        if (meta.doctorProfile) {
+          const dp = meta.doctorProfile;
+          if (dp.basicInfo) liveBasic = { ...liveBasic, ...dp.basicInfo };
+          if (dp.credentials) liveCred = { ...liveCred, ...dp.credentials };
+          if (dp.expertise) liveExp = { ...liveExp, ...dp.expertise };
+          if (dp.availability) liveAvail = { ...liveAvail, ...dp.availability };
         }
-
-        // Load from doctors table
-        const { data: doctorData, error } = await supabase
-          .from("doctors")
-          .select("*")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (doctorData) {
-          // Map doctors table fields
-          setCredentials(prev => ({
-            ...prev,
-            specialty: doctorData.specialties?.[0] || prev.specialty
-          }));
-          setAvailability(prev => ({
-            ...prev,
-            consultPrice: doctorData.consult_price?.toString() || prev.consultPrice
-          }));
-          setBasicInfo(prev => ({
-            ...prev,
-            registrationNumber: doctorData.license_number || prev.registrationNumber,
-            about: prev.about || doctorData.bio || ""
-          }));
-        }
-      } catch (error) {
-        console.error("Error loading doctor profile:", error);
-      } finally {
-        setInitialLoading(false);
       }
-    };
 
-    loadDoctorProfile();
+      // 2. Load from doctors table (live source of truth for specialties, consult price, bio)
+      const { data: doctorData } = await supabase
+        .from("doctors")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (doctorData) {
+        liveCred = {
+          ...liveCred,
+          specialty: doctorData.specialties?.[0] || liveCred.specialty,
+        };
+        liveAvail = {
+          ...liveAvail,
+          consultPrice: doctorData.consult_price?.toString() || liveAvail.consultPrice,
+        };
+        liveBasic = {
+          ...liveBasic,
+          registrationNumber: doctorData.license_number || liveBasic.registrationNumber,
+          about: liveBasic.about || doctorData.bio || "",
+        };
+      }
+
+      // 3. Inspect pending_doctor_changes in profile.metadata
+      const meta = (profile?.metadata as Record<string, any>) || {};
+      const pendingBlob = meta.pending_doctor_changes as PendingDoctorChangesPayload | undefined;
+
+      if (pendingBlob && pendingBlob.pendingChangesStatus === "pending") {
+        setPendingStatus("pending");
+        setSubmittedAt(pendingBlob.pendingChangesSubmittedAt || null);
+        setRejectionReason(null);
+
+        // Pre-populate with currently pending changes so the doctor sees what's queued
+        const pc = pendingBlob.pendingChanges;
+        if (pc) {
+          setFirstName(pc.firstName ?? liveFirstName);
+          setLastName(pc.lastName ?? liveLastName);
+          setBasicInfo({ ...liveBasic, ...(pc.basicInfo || {}) });
+          setCredentials({ ...liveCred, ...(pc.credentials || {}) });
+          setExpertise({ ...liveExp, ...(pc.expertise || {}) });
+          setAvailability({ ...liveAvail, ...(pc.availability || {}) });
+          return;
+        }
+      } else if (pendingBlob && pendingBlob.pendingChangesStatus === "rejected") {
+        setPendingStatus("rejected");
+        setSubmittedAt(pendingBlob.pendingChangesSubmittedAt || null);
+        setRejectionReason(pendingBlob.pendingChangesRejectionReason || "No specific reason provided.");
+      } else if (pendingBlob && pendingBlob.pendingChangesStatus === "approved") {
+        setPendingStatus("approved");
+        setSubmittedAt(pendingBlob.pendingChangesSubmittedAt || null);
+        setRejectionReason(null);
+      } else {
+        setPendingStatus(null);
+        setSubmittedAt(null);
+        setRejectionReason(null);
+      }
+
+      // Apply live data
+      setFirstName(liveFirstName);
+      setLastName(liveLastName);
+      setBasicInfo(liveBasic);
+      setCredentials(liveCred);
+      setExpertise(liveExp);
+      setAvailability(liveAvail);
+    } catch (error) {
+      console.error("Error loading doctor profile:", error);
+    } finally {
+      setInitialLoading(false);
+    }
   }, [user, profile]);
 
+  useEffect(() => {
+    loadDoctorProfile();
+  }, [loadDoctorProfile]);
+
   const handleBasicInfoChange = (field: string, value: any) => {
-    setBasicInfo(prev => ({ ...prev, [field]: value }));
+    setBasicInfo((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleCredentialsChange = (field: string, value: any) => {
-    setCredentials(prev => ({ ...prev, [field]: value }));
+    setCredentials((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleExpertiseChange = (field: string, value: any) => {
-    setExpertise(prev => ({ ...prev, [field]: value }));
+    setExpertise((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleAvailabilityChange = (field: string, value: any) => {
-    setAvailability(prev => ({ ...prev, [field]: value }));
+    setAvailability((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSave = async () => {
@@ -150,74 +272,90 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
     setLoading(true);
 
     try {
-      // Prepare the doctor profile data
-      const doctorProfile = {
-        basicInfo,
-        credentials,
-        expertise,
-        availability
+      const now = new Date().toISOString();
+      const pendingChangesPayload: PendingDoctorChangesPayload = {
+        pendingChanges: {
+          firstName,
+          lastName,
+          basicInfo,
+          credentials,
+          expertise,
+          availability,
+        },
+        pendingChangesStatus: "pending",
+        pendingChangesSubmittedAt: now,
+        pendingChangesRejectionReason: null,
       };
 
-      // Update profiles table
+      const existingMeta = (profile.metadata as Record<string, any>) || {};
+      const updatedMeta = {
+        ...existingMeta,
+        pending_doctor_changes: pendingChangesPayload,
+      };
+
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
-          first_name: firstName,
-          last_name: lastName,
-          updated_at: new Date().toISOString(),
-          metadata: {
-            ...profile.metadata,
-            doctorProfile
-          }
+          metadata: updatedMeta,
+          updated_at: now,
         })
         .eq("id", profile.id);
 
       if (profileError) throw profileError;
 
-      // Check if doctor record exists
-      const { data: existingDoctor } = await supabase
-        .from("doctors")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const doctorTableData = {
-        user_id: user.id,
-        license_number: basicInfo.registrationNumber,
-        specialties: credentials.specialty ? [credentials.specialty] : [],
-        consult_price: parseFloat(availability.consultPrice) || 0,
-        bio: basicInfo.about?.trim()
-          ? basicInfo.about.trim()
-          : `${basicInfo.professionalTitle} ${firstName} ${lastName} - ${credentials.specialty || "Medical Professional"}`,
-        updated_at: new Date().toISOString()
-      };
-
-      if (existingDoctor) {
-        // Update existing
-        const { error: doctorError } = await supabase
-          .from("doctors")
-          .update(doctorTableData)
-          .eq("id", existingDoctor.id);
-
-        if (doctorError) throw doctorError;
-      } else {
-        // Insert new
-        const { error: doctorError } = await supabase
-          .from("doctors")
-          .insert(doctorTableData);
-
-        if (doctorError) throw doctorError;
-      }
-
       await refetchProfile();
-      toast.success("Doctor profile saved successfully");
+      setPendingStatus("pending");
+      setSubmittedAt(now);
+      setRejectionReason(null);
+
+      toast.success("Profile changes submitted for admin review");
       onSaved?.();
     } catch (error: any) {
-      console.error("Error saving doctor profile:", error);
-      toast.error("Failed to save profile: " + error.message);
+      console.error("Error submitting doctor profile changes:", error);
+      toast.error("Failed to submit profile changes: " + error.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancelPending = async () => {
+    if (!user || !profile) return;
+    setCancelling(true);
+
+    try {
+      const existingMeta = { ...((profile.metadata as Record<string, any>) || {}) };
+      delete existingMeta.pending_doctor_changes;
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          metadata: existingMeta,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", profile.id);
+
+      if (error) throw error;
+
+      await refetchProfile();
+      setPendingStatus(null);
+      setSubmittedAt(null);
+      setRejectionReason(null);
+
+      // Reload live data
+      await loadDoctorProfile();
+      toast.success("Pending profile changes have been cancelled");
+    } catch (error: any) {
+      console.error("Error cancelling pending changes:", error);
+      toast.error("Failed to cancel pending changes: " + error.message);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const getButtonText = () => {
+    if (pendingStatus === "rejected") return "Resubmit Changes";
+    if (pendingStatus === "pending") return "Update Pending Request";
+    return "Submit Changes for Review";
   };
 
   if (initialLoading) {
@@ -229,7 +367,57 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full space-y-3">
+      {/* Pending status banner */}
+      {pendingStatus === "pending" && (
+        <Alert className="border-amber-400 bg-amber-500/10 text-amber-900 dark:text-amber-200">
+          <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertTitle className="font-semibold text-amber-900 dark:text-amber-200">
+            Changes Under Review
+          </AlertTitle>
+          <AlertDescription className="text-xs text-amber-800 dark:text-amber-300 mt-1">
+            Your profile changes are under review by an administrator. Live data remains visible to
+            patients until approved.
+            {submittedAt && (
+              <span className="block mt-0.5 text-muted-foreground dark:text-amber-400/80">
+                Submitted on {new Date(submittedAt).toLocaleDateString()} at{" "}
+                {new Date(submittedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.
+              </span>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Rejected status banner */}
+      {pendingStatus === "rejected" && (
+        <Alert variant="destructive">
+          <XCircle className="h-4 w-4" />
+          <AlertTitle className="font-semibold">Profile Changes Rejected</AlertTitle>
+          <AlertDescription className="text-xs mt-1 space-y-1">
+            <p>
+              Your profile changes were rejected:{" "}
+              <span className="font-medium">{rejectionReason || "No specific reason provided."}</span>
+            </p>
+            <p className="text-[11px] opacity-90">
+              Please review the feedback, adjust your details below, and resubmit for review.
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Approved recently notice */}
+      {pendingStatus === "approved" && (
+        <Alert className="border-emerald-400 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          <AlertTitle className="font-semibold text-emerald-900 dark:text-emerald-200">
+            Changes Approved
+          </AlertTitle>
+          <AlertDescription className="text-xs text-emerald-800 dark:text-emerald-300 mt-1">
+            Your latest profile changes have been approved and published to your live profile.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Tabs defaultValue="basic" className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="grid grid-cols-4 mb-4 flex-shrink-0">
           <TabsTrigger value="basic" className="gap-1.5 text-xs sm:text-sm">
@@ -255,7 +443,9 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
             <TabsContent value="basic" className="mt-0 space-y-4">
               <div className="space-y-1">
                 <h3 className="font-semibold text-lg">Basic Identification</h3>
-                <p className="text-sm text-muted-foreground">Your professional identity and trust credentials</p>
+                <p className="text-sm text-muted-foreground">
+                  Your professional identity and trust credentials
+                </p>
               </div>
               <DoctorBasicInfo
                 data={basicInfo}
@@ -270,7 +460,9 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
             <TabsContent value="credentials" className="mt-0 space-y-4">
               <div className="space-y-1">
                 <h3 className="font-semibold text-lg">Professional Credentials</h3>
-                <p className="text-sm text-muted-foreground">Your qualifications, experience, and affiliations</p>
+                <p className="text-sm text-muted-foreground">
+                  Your qualifications, experience, and affiliations
+                </p>
               </div>
               <DoctorCredentials
                 data={credentials}
@@ -281,7 +473,9 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
             <TabsContent value="expertise" className="mt-0 space-y-4">
               <div className="space-y-1">
                 <h3 className="font-semibold text-lg">Areas of Expertise</h3>
-                <p className="text-sm text-muted-foreground">Help patients find you for the right conditions</p>
+                <p className="text-sm text-muted-foreground">
+                  Help patients find you for the right conditions
+                </p>
               </div>
               <DoctorExpertise
                 data={expertise}
@@ -292,7 +486,9 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
             <TabsContent value="availability" className="mt-0 space-y-4">
               <div className="space-y-1">
                 <h3 className="font-semibold text-lg">Consultation Settings</h3>
-                <p className="text-sm text-muted-foreground">Configure your availability and booking preferences</p>
+                <p className="text-sm text-muted-foreground">
+                  Configure your availability and booking preferences
+                </p>
               </div>
               <DoctorAvailability
                 data={availability}
@@ -303,14 +499,31 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
         </ScrollArea>
       </Tabs>
 
-      <div className="pt-4 border-t mt-4 flex-shrink-0">
-        <Button onClick={handleSave} disabled={loading} className="w-full gap-2">
+      <div className="pt-4 border-t mt-4 flex-shrink-0 flex flex-col sm:flex-row gap-2">
+        {pendingStatus === "pending" && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCancelPending}
+            disabled={cancelling || loading}
+            className="border-destructive/40 text-destructive hover:bg-destructive/10 gap-2 sm:w-auto"
+          >
+            {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+            Cancel Pending Changes
+          </Button>
+        )}
+
+        <Button
+          onClick={handleSave}
+          disabled={loading || cancelling}
+          className="flex-1 gap-2"
+        >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <Save className="h-4 w-4" />
+            <Send className="h-4 w-4" />
           )}
-          Save Profile
+          {getButtonText()}
         </Button>
       </div>
     </div>

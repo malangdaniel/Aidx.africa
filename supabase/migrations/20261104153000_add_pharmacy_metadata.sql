@@ -1,1 +1,2 @@
 ALTER TABLE public.pharmacies ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT '{}'::jsonb;
+

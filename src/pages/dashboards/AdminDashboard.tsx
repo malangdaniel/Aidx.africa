@@ -18,7 +18,8 @@ import {
     ShieldAlert,
     Home,
     Wallet,
-    Building2
+    Building2,
+    UserCog
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -26,6 +27,7 @@ import { Link } from 'react-router-dom';
 import AdminOverviewTab from '@/components/admin/AdminOverviewTab';
 import AdminVerificationTab from '@/components/admin/AdminVerificationTab';
 import AdminPharmaciesTab from '@/components/admin/AdminPharmaciesTab';
+import AdminProfileChangesTab from '@/components/admin/AdminProfileChangesTab';
 import { supabase } from '@/integrations/supabase/client';
 import AdminUsersTab from '@/components/admin/AdminUsersTab';
 import AdminConsultationsTab from '@/components/admin/AdminConsultationsTab';
@@ -41,12 +43,41 @@ export default function AdminDashboard() {
     const { user, profile, loading: authLoading } = useAuth();
     const [activeTab, setActiveTab] = useState<string>('overview');
     const [pharmacyQueue, setPharmacyQueue] = useState(0);
+    const [profileChangesQueue, setProfileChangesQueue] = useState(0);
 
     useEffect(() => {
         if (profile?.role !== 'admin') return;
+
+        // 1. Pharmacy applications queue count
         supabase
             .rpc('admin_list_pharmacy_applications', { p_status: 'awaiting_review', p_limit: 200, p_offset: 0 })
             .then(({ data }) => setPharmacyQueue(Array.isArray(data) ? data.length : 0));
+
+        // 2. Pending profile changes queue count
+        const fetchPendingProfileChanges = async () => {
+            try {
+                const [profRes, pharmRes] = await Promise.all([
+                    supabase.from('profiles').select('metadata').eq('role', 'doctor'),
+                    supabase.from('pharmacies').select('metadata'),
+                ]);
+
+                const docCount = (profRes.data || []).filter((p: any) => {
+                    const meta = p.metadata || {};
+                    return meta.pending_doctor_changes?.pendingChangesStatus === 'pending';
+                }).length;
+
+                const phCount = (pharmRes.data || []).filter((ph: any) => {
+                    const meta = ph.metadata || {};
+                    return meta.pending_changes?.status === 'pending';
+                }).length;
+
+                setProfileChangesQueue(docCount + phCount);
+            } catch (e) {
+                console.error('Error fetching pending profile change counts:', e);
+            }
+        };
+
+        fetchPendingProfileChanges();
     }, [profile?.role, activeTab]);
 
     // 1. Role / Access Guard
@@ -84,6 +115,7 @@ export default function AdminDashboard() {
 
     const tabs = [
         { id: 'overview', label: 'Overview', icon: BarChart3 },
+        { id: 'profile_changes', label: 'Profile Changes', icon: UserCog },
         { id: 'pharmacies', label: 'Pharmacies', icon: Building2 },
         { id: 'verification', label: 'Verification', icon: ShieldCheck },
         { id: 'users', label: 'Users', icon: Users },
@@ -101,6 +133,8 @@ export default function AdminDashboard() {
         switch (activeTab) {
             case 'overview':
                 return <AdminOverviewTab />;
+            case 'profile_changes':
+                return <AdminProfileChangesTab onCountChange={setProfileChangesQueue} />;
             case 'pharmacies':
                 return <AdminPharmaciesTab />;
             case 'verification':
@@ -152,6 +186,11 @@ export default function AdminDashboard() {
                                 {tab.id === 'pharmacies' && pharmacyQueue > 0 && (
                                     <span className="ml-1 rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
                                         {pharmacyQueue}
+                                    </span>
+                                )}
+                                {tab.id === 'profile_changes' && profileChangesQueue > 0 && (
+                                    <span className="ml-1 rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white">
+                                        {profileChangesQueue}
                                     </span>
                                 )}
                             </Button>
