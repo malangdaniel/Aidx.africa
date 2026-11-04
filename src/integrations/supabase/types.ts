@@ -1155,6 +1155,7 @@ export type Database = {
           location: unknown
           logo_url: string | null
           longitude: number | null
+          metadata: Json | null
           offers_delivery: boolean
           offers_pickup: boolean
           opening_hours: Json
@@ -1194,6 +1195,7 @@ export type Database = {
           location?: unknown
           logo_url?: string | null
           longitude?: number | null
+          metadata?: Json | null
           offers_delivery?: boolean
           offers_pickup?: boolean
           opening_hours?: Json
@@ -1233,6 +1235,7 @@ export type Database = {
           location?: unknown
           logo_url?: string | null
           longitude?: number | null
+          metadata?: Json | null
           offers_delivery?: boolean
           offers_pickup?: boolean
           opening_hours?: Json
