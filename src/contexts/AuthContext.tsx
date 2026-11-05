@@ -11,6 +11,7 @@ interface Profile {
   verification_status: 'pending' | 'verified' | 'rejected';
   metadata: any;
   role?: 'patient' | 'doctor' | 'pharmacist' | 'admin';
+  records_sharing_consent?: boolean;
 }
 
 interface AuthContextType {

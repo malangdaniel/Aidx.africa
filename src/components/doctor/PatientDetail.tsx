@@ -52,9 +52,12 @@ interface PatientRecord {
         clinical_summary: string | null;
         follow_up_plan: string | null;
         referral: string | null;
+        is_mine: boolean;
+        doctor_name: string | null;
+        hospital_or_clinic: string | null;
     }[];
-    prescriptions: { id: string; consultation_id: string; prescription_data: any; notes: string | null; created_at: string }[];
-    lab_orders: { id: string; test_name: string; urgency: string | null; reason: string | null; status: string | null; results: string | null; created_at: string }[];
+    prescriptions: { id: string; consultation_id: string; prescription_data: any; notes: string | null; created_at: string; is_mine: boolean; doctor_name: string | null; hospital_or_clinic: string | null }[];
+    lab_orders: { id: string; test_name: string; urgency: string | null; reason: string | null; status: string | null; results: string | null; created_at: string; is_mine: boolean; doctor_name: string | null; hospital_or_clinic: string | null }[];
     vitals: {
         id: string; systolic: number | null; diastolic: number | null; heart_rate: number | null;
         weight: number | null; temperature: number | null; oxygen_saturation: number | null; recorded_at: string;
@@ -68,6 +71,16 @@ interface PatientRecord {
 const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+
+function Author({ mine, name, clinic }: { mine: boolean; name: string | null; clinic: string | null }) {
+    if (mine) return <Badge variant="secondary">You</Badge>;
+    return (
+        <span className="text-xs text-muted-foreground">
+            {name ? `Dr. ${name}` : 'Another doctor'}
+            {clinic ? ` · ${clinic}` : ''}
+        </span>
+    );
+}
 
 function NotShared({ what }: { what: string }) {
     return (
@@ -243,7 +256,7 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                 <div className="md:col-span-2">
                     <Tabs defaultValue="visits">
                         <TabsList className="w-full justify-start flex-wrap h-auto">
-                            <TabsTrigger value="visits">My Visits</TabsTrigger>
+                            <TabsTrigger value="visits">Visits & Notes</TabsTrigger>
                             <TabsTrigger value="vitals">Vitals</TabsTrigger>
                             <TabsTrigger value="ai">AI Diagnoses</TabsTrigger>
                             <TabsTrigger value="rx">Prescriptions & Labs</TabsTrigger>
@@ -254,10 +267,15 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <FileText className="w-5 h-5 text-primary" />
-                                        Visits with you
+                                        Visits & clinical notes
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-0">
+                                    {!record.consent && (
+                                        <div className="m-4 mb-0">
+                                            <NotShared what="record, including notes from other doctors" />
+                                        </div>
+                                    )}
                                     {record.consultations.length === 0 ? (
                                         <div className="p-4 text-sm text-muted-foreground">No consultations found.</div>
                                     ) : (
@@ -271,6 +289,7 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                                                         <h4 className="font-semibold">{fmtDate(c.visit_at)}</h4>
                                                         <Badge variant="outline" className="capitalize">{c.status}</Badge>
                                                     </div>
+                                                    <Author mine={c.is_mine} name={c.doctor_name} clinic={c.hospital_or_clinic} />
                                                     {c.chief_complaint && <p><span className="text-muted-foreground">Complaint: </span>{c.chief_complaint}</p>}
                                                     {c.diagnosis && <p className="font-medium">Dx: {c.diagnosis}</p>}
                                                     {c.differential_diagnosis && <p><span className="text-muted-foreground">Differential: </span>{c.differential_diagnosis}</p>}
@@ -359,7 +378,7 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <Pill className="w-5 h-5 text-primary" />
-                                        Prescriptions you issued
+                                        Prescriptions
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-0">
@@ -374,7 +393,10 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                                                     : [];
                                             return (
                                                 <div key={rx.id} className="p-4 border-b last:border-0 text-sm space-y-1">
-                                                    <p className="text-xs text-muted-foreground">{fmtDate(rx.created_at)}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-xs text-muted-foreground">{fmtDate(rx.created_at)}</p>
+                                                        <Author mine={rx.is_mine} name={rx.doctor_name} clinic={rx.hospital_or_clinic} />
+                                                    </div>
                                                     {items.length > 0 ? (
                                                         <ul className="space-y-0.5">
                                                             {items.map((m, i) => (
@@ -401,7 +423,7 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <FlaskConical className="w-5 h-5 text-primary" />
-                                        Lab orders you placed
+                                        Lab orders
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-0">
@@ -417,7 +439,10 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                                                 </div>
                                                 {l.reason && <p className="text-muted-foreground">{l.reason}</p>}
                                                 {l.results && <p>Result: {l.results}</p>}
-                                                <p className="text-xs text-muted-foreground">{fmtDate(l.created_at)}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-xs text-muted-foreground">{fmtDate(l.created_at)}</p>
+                                                    <Author mine={l.is_mine} name={l.doctor_name} clinic={l.hospital_or_clinic} />
+                                                </div>
                                             </div>
                                         ))
                                     )}

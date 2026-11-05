@@ -354,8 +354,10 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm, isSub
                                     </span>
                                     <span className="block text-muted-foreground">
                                         Lets {doctor.name} see your allergies, conditions, medications, vitals and AI
-                                        diagnosis history. You get a notification whenever the doctor opens your record,
-                                        and you can review every access in your profile.
+                                        diagnosis history, plus finalized notes from other doctors who treated you.
+                                        You get a notification whenever the doctor opens your record, and you can
+                                        review every access in your profile. To share with every doctor you book,
+                                        turn it on in Settings.
                                     </span>
                                 </span>
                             </label>
