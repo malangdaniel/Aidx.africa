@@ -192,19 +192,29 @@ export default function DoctorDashboard() {
 
       setUpcoming(mappedUpcoming);
 
-      // Fetch reviews
-      const { data: reviewsData } = await supabase
+      // Fetch reviews left on this doctor (reviewers looked up separately)
+      const { data: reviewsData, error: reviewsError } = await supabase
         .from('reviews')
-        .select(`
-          id, rating, comment, created_at, reviewer_id,
-          profiles:reviewer_id (first_name, last_name)
-        `)
+        .select('id, rating, comment, created_at, reviewer_id')
         .eq('reviewee_id', user.id)
         .order('created_at', { ascending: false });
 
+      if (reviewsError) throw reviewsError;
+
+      const reviewerIds = Array.from(new Set((reviewsData || []).map((r: any) => r.reviewer_id).filter(Boolean)));
+      const reviewerMap: Record<string, any> = {};
+      if (reviewerIds.length > 0) {
+        const { data: reviewerProfiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', reviewerIds);
+        (reviewerProfiles || []).forEach((p: any) => {
+          reviewerMap[p.user_id] = p;
+        });
+      }
+
       const mappedReviews: Review[] = (reviewsData || []).map((r: any) => {
-        // Handle potential array or object for joined table
-        const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles || {};
+        const profile = reviewerMap[r.reviewer_id] || {};
         const fName = profile.first_name || 'Anonymous';
         const lName = profile.last_name || 'Patient';
         return {
