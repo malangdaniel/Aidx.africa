@@ -2256,6 +2256,17 @@ export type Database = {
         }
       }
       _pharmacy_missing: { Args: { p_uid: string }; Returns: string[] }
+      admin_apply_profile_change: {
+        Args: {
+          p_doctor?: Json
+          p_kind: string
+          p_pharmacy?: Json
+          p_profile?: Json
+          p_user_id: string
+          p_verification?: Json
+        }
+        Returns: Json
+      }
       admin_get_doctor_application: {
         Args: { p_user_id: string }
         Returns: Json
