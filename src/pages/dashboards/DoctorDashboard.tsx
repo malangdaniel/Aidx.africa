@@ -192,19 +192,29 @@ export default function DoctorDashboard() {
 
       setUpcoming(mappedUpcoming);
 
-      // Fetch reviews
-      const { data: reviewsData } = await supabase
+      // Fetch reviews left on this doctor (reviewers looked up separately)
+      const { data: reviewsData, error: reviewsError } = await supabase
         .from('reviews')
-        .select(`
-          id, rating, comment, created_at, reviewer_id,
-          profiles:reviewer_id (first_name, last_name)
-        `)
+        .select('id, rating, comment, created_at, reviewer_id')
         .eq('reviewee_id', user.id)
         .order('created_at', { ascending: false });
 
+      if (reviewsError) throw reviewsError;
+
+      const reviewerIds = Array.from(new Set((reviewsData || []).map((r: any) => r.reviewer_id).filter(Boolean)));
+      const reviewerMap: Record<string, any> = {};
+      if (reviewerIds.length > 0) {
+        const { data: reviewerProfiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', reviewerIds);
+        (reviewerProfiles || []).forEach((p: any) => {
+          reviewerMap[p.user_id] = p;
+        });
+      }
+
       const mappedReviews: Review[] = (reviewsData || []).map((r: any) => {
-        // Handle potential array or object for joined table
-        const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles || {};
+        const profile = reviewerMap[r.reviewer_id] || {};
         const fName = profile.first_name || 'Anonymous';
         const lName = profile.last_name || 'Patient';
         return {
@@ -411,27 +421,56 @@ export default function DoctorDashboard() {
       case 'reviews':
         return (
           <div className="space-y-4 animate-in fade-in duration-500">
-            <h2 className="text-lg font-bold">Ratings & Feedback</h2>
-            <Card className="border-dashed border-2">
-              <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Star className="w-8 h-8 text-muted-foreground" />
+            <h2 className="text-lg font-bold">Ratings &amp; Feedback</h2>
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="p-6 text-center">
+                <div className="flex items-center justify-center gap-3">
+                  {avgReviewRating > 0 ? (
+                    <>
+                      <span className="text-4xl font-black text-foreground">{avgReviewRating.toFixed(1)}</span>
+                      <div className="flex flex-col items-start">
+                        <div className="flex gap-0.5">
+                          {[1, 2, 3, 4, 5].map((value) => (
+                            <Star
+                              key={value}
+                              className={`w-4 h-4 ${value <= Math.round(avgReviewRating)
+                                ? 'fill-amber-500 text-amber-500'
+                                : 'text-muted-foreground/40'}`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs text-muted-foreground mt-1">
+                          {ratingCount} review{ratingCount !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                      <Star className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                  )}
                 </div>
-                <h3 className="font-bold text-base mb-1">
-                  {stats.rating > 0 ? `Your Rating: ${stats.rating.toFixed(1)} ⭐` : 'Building Your Credibility'}
+                <h3 className="font-bold text-base mt-3 mb-1">
+                  {avgReviewRating > 0 ? 'Reputation Score' : 'Building Your Credibility'}
                 </h3>
-                <p className="text-sm text-muted-foreground max-w-[240px] mx-auto leading-relaxed">
-                  {stats.rating > 0
-                    ? `Based on ${stats.totalConsults} consultations. Keep providing excellent care!`
+                <p className="text-sm text-muted-foreground max-w-[260px] mx-auto leading-relaxed">
+                  {avgReviewRating > 0
+                    ? `Average of ${ratingCount} patient review${ratingCount !== 1 ? 's' : ''}. Keep providing excellent care!`
                     : 'Complete high-quality consultations to start receiving reviews from your patients.'
                   }
                 </p>
               </CardContent>
             </Card>
 
-            {reviews.length > 0 && (
-              <div className="space-y-4 mt-6">
-                <h3 className="font-bold text-md">Recent Reviews</h3>
+            {reviews.length === 0 ? (
+              <Card className="border-dashed border-2">
+                <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                  No reviews yet. Reviews patients leave after consultations will appear here.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                <h3 className="font-bold text-md">All Reviews ({reviews.length})</h3>
                 {reviews.map((review) => (
                   <Card key={review.id} className="bg-card">
                     <CardContent className="p-4">
@@ -494,6 +533,11 @@ export default function DoctorDashboard() {
     if (amount >= 1000) return `${(amount / 1000).toFixed(0)}k`;
     return amount.toString();
   };
+
+  const avgReviewRating = reviews.length > 0
+    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    : 0;
+  const ratingCount = reviews.length;
 
   return (
     <DashboardLayout
