@@ -421,27 +421,56 @@ export default function DoctorDashboard() {
       case 'reviews':
         return (
           <div className="space-y-4 animate-in fade-in duration-500">
-            <h2 className="text-lg font-bold">Ratings & Feedback</h2>
-            <Card className="border-dashed border-2">
-              <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Star className="w-8 h-8 text-muted-foreground" />
+            <h2 className="text-lg font-bold">Ratings &amp; Feedback</h2>
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="p-6 text-center">
+                <div className="flex items-center justify-center gap-3">
+                  {avgReviewRating > 0 ? (
+                    <>
+                      <span className="text-4xl font-black text-foreground">{avgReviewRating.toFixed(1)}</span>
+                      <div className="flex flex-col items-start">
+                        <div className="flex gap-0.5">
+                          {[1, 2, 3, 4, 5].map((value) => (
+                            <Star
+                              key={value}
+                              className={`w-4 h-4 ${value <= Math.round(avgReviewRating)
+                                ? 'fill-amber-500 text-amber-500'
+                                : 'text-muted-foreground/40'}`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs text-muted-foreground mt-1">
+                          {ratingCount} review{ratingCount !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                      <Star className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                  )}
                 </div>
-                <h3 className="font-bold text-base mb-1">
-                  {stats.rating > 0 ? `Your Rating: ${stats.rating.toFixed(1)} ⭐` : 'Building Your Credibility'}
+                <h3 className="font-bold text-base mt-3 mb-1">
+                  {avgReviewRating > 0 ? 'Reputation Score' : 'Building Your Credibility'}
                 </h3>
-                <p className="text-sm text-muted-foreground max-w-[240px] mx-auto leading-relaxed">
-                  {stats.rating > 0
-                    ? `Based on ${stats.totalConsults} consultations. Keep providing excellent care!`
+                <p className="text-sm text-muted-foreground max-w-[260px] mx-auto leading-relaxed">
+                  {avgReviewRating > 0
+                    ? `Average of ${ratingCount} patient review${ratingCount !== 1 ? 's' : ''}. Keep providing excellent care!`
                     : 'Complete high-quality consultations to start receiving reviews from your patients.'
                   }
                 </p>
               </CardContent>
             </Card>
 
-            {reviews.length > 0 && (
-              <div className="space-y-4 mt-6">
-                <h3 className="font-bold text-md">Recent Reviews</h3>
+            {reviews.length === 0 ? (
+              <Card className="border-dashed border-2">
+                <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                  No reviews yet. Reviews patients leave after consultations will appear here.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                <h3 className="font-bold text-md">All Reviews ({reviews.length})</h3>
                 {reviews.map((review) => (
                   <Card key={review.id} className="bg-card">
                     <CardContent className="p-4">
