@@ -35,6 +35,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
+  DAYS,
+  DAY_LABELS,
   formFromRows,
   pharmacyPatch,
   verificationPatch,
@@ -43,14 +45,19 @@ import {
 } from '@/components/pharmacist/onboarding/pharmacyForm';
 import type { PharmacyRow, PharmacyVerificationRow } from '@/services/PharmacyOnboardingService';
 import { AdminRpcService } from '@/services/AdminRpcService';
-import type {
-  DoctorBasicInfoData,
-  DoctorCredentialsData,
-  DoctorExpertiseData,
-  DoctorAvailabilityData,
-  PendingDoctorChangesPayload,
+import {
+  getDefaultBasicInfo,
+  getDefaultCredentials,
+  getDefaultExpertise,
+  getDefaultAvailability,
+  type DoctorBasicInfoData,
+  type DoctorCredentialsData,
+  type DoctorExpertiseData,
+  type DoctorAvailabilityData,
+  type PendingDoctorChangesPayload,
 } from '@/components/doctor/settings/DoctorProfileSettings';
 import type { PendingPharmacyChangesPayload } from '@/components/pharmacist/onboarding/PharmacyProfileSettings';
+import { has, isSameValue } from '@/lib/profileChanges';
 
 export interface DoctorChangeItem {
   id: string; // profile id
@@ -84,6 +91,8 @@ export interface PharmacyChangeItem {
   currentPharmacy: PharmacyRow;
   currentVerification?: PharmacyVerificationRow | null;
   currentForm: PharmacyForm;
+  /** Live form with the proposed (edited) fields applied on top. */
+  proposedForm: PharmacyForm;
 }
 
 export type ProfileChangeItem = DoctorChangeItem | PharmacyChangeItem;
@@ -91,6 +100,63 @@ export type ProfileChangeItem = DoctorChangeItem | PharmacyChangeItem;
 // Supabase update payloads must match the generated Json type; arbitrary
 // metadata blobs are safe to cast since they are written verbatim.
 const toMeta = (value: unknown): Record<string, any> => value as Record<string, any>;
+
+// -------------------------------------------------------------
+// Live vs proposed data
+// -------------------------------------------------------------
+interface DoctorSnapshot {
+  firstName: string;
+  lastName: string;
+  basicInfo: DoctorBasicInfoData;
+  credentials: DoctorCredentialsData;
+  expertise: DoctorExpertiseData;
+  availability: DoctorAvailabilityData;
+}
+
+/** The doctor's current live data (same sources/precedence the doctor's own settings page uses). */
+function buildLiveDoctor(item: DoctorChangeItem): DoctorSnapshot {
+  const dp = item.currentProfile.metadata?.doctorProfile || {};
+  const doc = item.currentDoctorRecord;
+  const basicInfo = { ...getDefaultBasicInfo(), ...(dp.basicInfo || {}) };
+  const credentials = { ...getDefaultCredentials(), ...(dp.credentials || {}) };
+  const expertise = { ...getDefaultExpertise(), ...(dp.expertise || {}) };
+  const availability = { ...getDefaultAvailability(), ...(dp.availability || {}) };
+  if (doc) {
+    credentials.specialty = doc.specialties?.[0] || credentials.specialty;
+    availability.consultPrice = doc.consult_price?.toString() || availability.consultPrice;
+    basicInfo.registrationNumber = doc.license_number || basicInfo.registrationNumber;
+    basicInfo.about = basicInfo.about || doc.bio || '';
+  }
+  return {
+    firstName: item.currentProfile.first_name || '',
+    lastName: item.currentProfile.last_name || '',
+    basicInfo,
+    credentials,
+    expertise,
+    availability,
+  };
+}
+
+/** Live data with only the edited fields from the request applied (also handles legacy full snapshots). */
+function buildProposedDoctor(live: DoctorSnapshot, p: PendingDoctorChangesPayload['pendingChanges']): DoctorSnapshot {
+  return {
+    firstName: p.firstName ?? live.firstName,
+    lastName: p.lastName ?? live.lastName,
+    basicInfo: { ...live.basicInfo, ...(p.basicInfo || {}) },
+    credentials: { ...live.credentials, ...(p.credentials || {}) },
+    expertise: { ...live.expertise, ...(p.expertise || {}) },
+    availability: { ...live.availability, ...(p.availability || {}) },
+  };
+}
+
+/** Keeps only the keys of `next` whose serialised value differs from `prev`. */
+function diffPatch<T extends Record<string, any>>(next: T, prev: T): Partial<T> {
+  const out: Record<string, any> = {};
+  Object.keys(next).forEach((k) => {
+    if (JSON.stringify(next[k]) !== JSON.stringify(prev[k])) out[k] = next[k];
+  });
+  return out as Partial<T>;
+}
 
 interface Props {
   onCountChange?: (count: number) => void;
@@ -223,18 +289,25 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
         const pending = meta.pending_changes as PendingPharmacyChangesPayload;
         const vRec = verifMap[ph.id] || null;
         const currentForm = vRec ? formFromRows(ph as PharmacyRow, vRec) : formFromRows(ph as PharmacyRow, {} as any);
+        // New requests store only the edited fields (`changes`); legacy ones stored the whole form.
+        const proposedForm: PharmacyForm = pending.changes
+          ? { ...currentForm, ...pending.changes }
+          : pending.form
+          ? { ...currentForm, ...pending.form }
+          : currentForm;
 
         return {
           id: ph.id,
           userId: ph.user_id,
           role: 'pharmacy',
-          displayName: pending.form?.business_name || ph.business_name || 'Unnamed Pharmacy',
-          email: pending.form?.email || ph.email,
+          displayName: proposedForm.business_name || ph.business_name || 'Unnamed Pharmacy',
+          email: proposedForm.email || ph.email,
           submittedAt: pending.submitted_at || ph.updated_at,
           pendingPayload: pending,
           currentPharmacy: ph as PharmacyRow,
           currentVerification: vRec,
           currentForm,
+          proposedForm,
         };
       });
 
@@ -282,47 +355,42 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
   const getDiffSummary = (item: ProfileChangeItem): string[] => {
     const diffs: string[] = [];
     if (item.role === 'doctor') {
-      const pending = item.pendingPayload.pendingChanges;
-      const curProfile = item.currentProfile;
-      const curMetaDoc = curProfile.metadata.doctorProfile || {};
-      const curDoc = item.currentDoctorRecord;
+      const live = buildLiveDoctor(item);
+      const prop = buildProposedDoctor(live, item.pendingPayload.pendingChanges || {});
+      const changed = (a: Record<string, any>, b: Record<string, any>) =>
+        Object.keys(b).some((k) => !isSameValue(a[k], b[k]));
 
-      if (pending.firstName !== curProfile.first_name || pending.lastName !== curProfile.last_name) {
-        diffs.push('Name');
-      }
-      if (pending.credentials?.specialty && pending.credentials.specialty !== curDoc?.specialties?.[0]) {
-        diffs.push('Specialty');
-      }
+      if (prop.firstName !== live.firstName || prop.lastName !== live.lastName) diffs.push('Name');
+      if (!isSameValue(prop.credentials.specialty, live.credentials.specialty)) diffs.push('Specialty');
+      if (!isSameValue(prop.availability.consultPrice, live.availability.consultPrice)) diffs.push('Consult Price');
+      if (!isSameValue(prop.basicInfo.registrationNumber, live.basicInfo.registrationNumber)) diffs.push('License Number');
+      if (!isSameValue(prop.basicInfo.about, live.basicInfo.about)) diffs.push('Bio');
       if (
-        pending.availability?.consultPrice &&
-        pending.availability.consultPrice !== curDoc?.consult_price?.toString()
-      ) {
-        diffs.push('Consult Price');
-      }
-      if (
-        pending.basicInfo?.registrationNumber &&
-        pending.basicInfo.registrationNumber !== curDoc?.license_number
-      ) {
-        diffs.push('License Number');
-      }
-      if (
-        pending.basicInfo?.about &&
-        pending.basicInfo.about !== (curDoc?.bio || curMetaDoc.basicInfo?.about)
-      ) {
-        diffs.push('Bio');
-      }
-      if (
-        pending.availability?.workingHoursStart !== curMetaDoc.availability?.workingHoursStart ||
-        pending.availability?.workingHoursEnd !== curMetaDoc.availability?.workingHoursEnd
+        prop.availability.workingHoursStart !== live.availability.workingHoursStart ||
+        prop.availability.workingHoursEnd !== live.availability.workingHoursEnd
       ) {
         diffs.push('Working Hours');
       }
-      if (pending.expertise?.conditionsTreated?.length !== curMetaDoc.expertise?.conditionsTreated?.length) {
-        diffs.push('Expertise');
-      }
+      if (changed(live.expertise, prop.expertise)) diffs.push('Expertise');
+      // Anything else that was edited (other basic info / credentials / availability fields)
+      const otherBasic = Object.keys(prop.basicInfo).some(
+        (k) => !['registrationNumber', 'about'].includes(k) && !isSameValue((live.basicInfo as any)[k], (prop.basicInfo as any)[k])
+      );
+      const otherCred =
+        Object.keys(prop.credentials).some(
+          (k) => k !== 'specialty' && !isSameValue((live.credentials as any)[k], (prop.credentials as any)[k])
+        );
+      const otherAvail = Object.keys(prop.availability).some(
+        (k) =>
+          !['consultPrice', 'workingHoursStart', 'workingHoursEnd'].includes(k) &&
+          !isSameValue((live.availability as any)[k], (prop.availability as any)[k])
+      );
+      if (otherBasic) diffs.push('Basic Info');
+      if (otherCred) diffs.push('Credentials');
+      if (otherAvail) diffs.push('Availability');
       if (diffs.length === 0) diffs.push('Profile details');
     } else {
-      const pForm = item.pendingPayload.form;
+      const pForm = item.proposedForm;
       const cForm = item.currentForm;
 
       if (pForm.business_name !== cForm.business_name) diffs.push('Business Name');
@@ -336,6 +404,28 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
     return diffs;
   };
 
+  // All writes go through one admin-only database function: the profiles / doctors /
+  // pharmacies tables only allow owners to update their own rows, and guard triggers
+  // restrict direct writes, so a plain client-side UPDATE by the admin matches 0 rows.
+  const applyChange = async (args: {
+    kind: 'doctor' | 'pharmacy';
+    userId: string;
+    profile?: Record<string, any>;
+    doctor?: Record<string, any>;
+    pharmacy?: Record<string, any>;
+    verification?: Record<string, any>;
+  }) => {
+    const { error } = await (supabase.rpc as any)('admin_apply_profile_change', {
+      p_kind: args.kind,
+      p_user_id: args.userId,
+      p_profile: args.profile ?? {},
+      p_doctor: args.doctor ?? {},
+      p_pharmacy: args.pharmacy ?? {},
+      p_verification: args.verification ?? {},
+    });
+    if (error) throw error;
+  };
+
   // APPROVAL HANDLER
   const handleApprove = async () => {
     if (!selectedItem) return;
@@ -345,23 +435,54 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
       const now = new Date().toISOString();
 
       if (selectedItem.role === 'doctor') {
-        const changes = selectedItem.pendingPayload.pendingChanges;
+        const changes = selectedItem.pendingPayload.pendingChanges || {};
         const curMeta = selectedItem.currentProfile.metadata || {};
+        const live = buildLiveDoctor(selectedItem);
+        const prop = buildProposedDoctor(live, changes);
 
-        // 1. Update profiles table
-        const { error: profErr } = await supabase
-          .from('profiles')
-          .update({
-            first_name: changes.firstName,
-            last_name: changes.lastName,
-            updated_at: now,
+        // doctors table: only touch the columns whose source field was edited
+        const doctorPatch: Record<string, any> = {};
+        if (has(changes.basicInfo, 'registrationNumber')) {
+          doctorPatch.license_number = prop.basicInfo.registrationNumber?.trim() || null;
+        }
+        if (has(changes.credentials, 'specialty')) {
+          doctorPatch.specialties = prop.credentials.specialty ? [prop.credentials.specialty] : [];
+        }
+        if (has(changes.availability, 'consultPrice')) {
+          doctorPatch.consult_price = parseFloat(prop.availability.consultPrice) || 0;
+        }
+        if (has(changes.basicInfo, 'about')) {
+          doctorPatch.bio =
+            prop.basicInfo.about?.trim() ||
+            `${prop.basicInfo.professionalTitle || 'Dr.'} ${prop.firstName} ${prop.lastName} - ${
+              prop.credentials.specialty || 'Medical Professional'
+            }`;
+        }
+        // A doctor with no doctors row yet needs the full set to create one
+        if (!selectedItem.currentDoctorRecord) {
+          doctorPatch.license_number = prop.basicInfo.registrationNumber?.trim() || null;
+          doctorPatch.specialties = prop.credentials.specialty ? [prop.credentials.specialty] : [];
+          doctorPatch.consult_price = parseFloat(prop.availability.consultPrice) || 0;
+          doctorPatch.bio =
+            prop.basicInfo.about?.trim() ||
+            `${prop.basicInfo.professionalTitle || 'Dr.'} ${prop.firstName} ${prop.lastName} - ${
+              prop.credentials.specialty || 'Medical Professional'
+            }`;
+        }
+
+        await applyChange({
+          kind: 'doctor',
+          userId: selectedItem.userId,
+          profile: {
+            ...(has(changes, 'firstName') ? { first_name: prop.firstName } : {}),
+            ...(has(changes, 'lastName') ? { last_name: prop.lastName } : {}),
             metadata: toMeta({
               ...curMeta,
               doctorProfile: {
-                basicInfo: changes.basicInfo,
-                credentials: changes.credentials,
-                expertise: changes.expertise,
-                availability: changes.availability,
+                basicInfo: prop.basicInfo,
+                credentials: prop.credentials,
+                expertise: prop.expertise,
+                availability: prop.availability,
               },
               pending_doctor_changes: {
                 ...selectedItem.pendingPayload,
@@ -369,97 +490,55 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
                 approvedAt: now,
               },
             }),
-          })
-          .eq('user_id', selectedItem.userId);
+          },
+          doctor: doctorPatch,
+        });
 
-        if (profErr) throw profErr;
-
-        // 2. Update doctors table
-        const basic = changes.basicInfo || ({} as DoctorBasicInfoData);
-        const cred = changes.credentials || ({} as DoctorCredentialsData);
-        const avail = changes.availability || ({} as DoctorAvailabilityData);
-
-        const { data: existingDoctor } = await supabase
-          .from('doctors')
-          .select('id')
-          .eq('user_id', selectedItem.userId)
-          .maybeSingle();
-
-        const doctorTableData = {
-          user_id: selectedItem.userId,
-          license_number: basic.registrationNumber || null,
-          specialties: cred.specialty ? [cred.specialty] : [],
-          consult_price: parseFloat(avail.consultPrice) || 0,
-          bio:
-            basic.about?.trim() ||
-            `${basic.professionalTitle || 'Dr.'} ${changes.firstName} ${changes.lastName} - ${
-              cred.specialty || 'Medical Professional'
-            }`,
-          updated_at: now,
-        };
-
-        if (existingDoctor) {
-          const { error: docErr } = await supabase
-            .from('doctors')
-            .update(doctorTableData)
-            .eq('id', existingDoctor.id);
-          if (docErr) throw docErr;
-        } else {
-          const { error: docErr } = await supabase
-            .from('doctors')
-            .insert(doctorTableData);
-          if (docErr) throw docErr;
-        }
-
-        toast.success(`Approved profile changes for Dr. ${changes.firstName} ${changes.lastName}`);
+        toast.success(`Approved profile changes for Dr. ${prop.firstName} ${prop.lastName}`);
       } else {
-        // PHARMACY APPROVAL
-        const { form } = selectedItem.pendingPayload;
+        // PHARMACY APPROVAL — apply only the columns that actually changed
+        const cur = selectedItem.currentForm;
+        const prop = selectedItem.proposedForm;
         const sections: Section[] = ['business', 'contacts', 'location', 'operations', 'payout'];
 
+        const pharmacyPatchAll: Record<string, any> = {};
+        const verificationPatchAll: Record<string, any> = {};
         for (const s of sections) {
-          const pPatch = pharmacyPatch(form, s, { licenseLocked: true });
-          const vPatch = verificationPatch(form, s, { regLocked: true });
-
-          if (Object.keys(pPatch).length > 0) {
-            const { error: pErr } = await supabase
-              .from('pharmacies')
-              .update({ ...pPatch, updated_at: now })
-              .eq('id', selectedItem.id);
-            if (pErr) throw pErr;
-          }
-
-          if (Object.keys(vPatch).length > 0) {
-            const { error: vErr } = await supabase
-              .from('pharmacy_verification')
-              .update({ ...vPatch, updated_at: now })
-              .eq('pharmacy_id', selectedItem.id);
-            if (vErr) throw vErr;
-          }
+          Object.assign(
+            pharmacyPatchAll,
+            diffPatch(
+              pharmacyPatch(prop, s, { licenseLocked: true }) as Record<string, any>,
+              pharmacyPatch(cur, s, { licenseLocked: true }) as Record<string, any>,
+            ),
+          );
+          Object.assign(
+            verificationPatchAll,
+            diffPatch(
+              verificationPatch(prop, s, { regLocked: true }) as Record<string, any>,
+              verificationPatch(cur, s, { regLocked: true }) as Record<string, any>,
+            ),
+          );
         }
 
-        // Update metadata on pharmacies table
         const existingMeta = (selectedItem.currentPharmacy.metadata as Record<string, any>) || {};
-        const updatedMeta = {
-          ...existingMeta,
-          pending_changes: {
-            ...selectedItem.pendingPayload,
-            status: 'approved',
-            approved_at: now,
+        await applyChange({
+          kind: 'pharmacy',
+          userId: selectedItem.userId,
+          pharmacy: {
+            ...pharmacyPatchAll,
+            metadata: toMeta({
+              ...existingMeta,
+              pending_changes: {
+                ...selectedItem.pendingPayload,
+                status: 'approved',
+                approved_at: now,
+              },
+            }),
           },
-        };
+          verification: verificationPatchAll,
+        });
 
-        const { error: mErr } = await supabase
-          .from('pharmacies')
-          .update({
-            metadata: toMeta(updatedMeta),
-            updated_at: now,
-          })
-          .eq('id', selectedItem.id);
-
-        if (mErr) throw mErr;
-
-        toast.success(`Approved profile changes for ${form.business_name || 'pharmacy'}`);
+        toast.success(`Approved profile changes for ${prop.business_name || 'pharmacy'}`);
       }
 
       setConfirmApproveOpen(false);
@@ -467,7 +546,7 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
       await loadRequests();
     } catch (err: any) {
       console.error('Error approving profile changes:', err);
-      toast.error('Failed to approve changes: ' + err.message);
+      toast.error('Failed to approve changes: ' + (err?.message || 'unknown error'));
     } finally {
       setActionBusy(false);
     }
@@ -488,9 +567,10 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
 
       if (selectedItem.role === 'doctor') {
         const curMeta = selectedItem.currentProfile.metadata || {};
-        const { error } = await supabase
-          .from('profiles')
-          .update({
+        await applyChange({
+          kind: 'doctor',
+          userId: selectedItem.userId,
+          profile: {
             metadata: toMeta({
               ...curMeta,
               pending_doctor_changes: {
@@ -500,17 +580,15 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
                 rejectedAt: now,
               },
             }),
-            updated_at: now,
-          })
-          .eq('user_id', selectedItem.userId);
-
-        if (error) throw error;
+          },
+        });
         toast.success('Doctor change request rejected with feedback.');
       } else {
         const existingMeta = (selectedItem.currentPharmacy.metadata as Record<string, any>) || {};
-        const { error } = await supabase
-          .from('pharmacies')
-          .update({
+        await applyChange({
+          kind: 'pharmacy',
+          userId: selectedItem.userId,
+          pharmacy: {
             metadata: toMeta({
               ...existingMeta,
               pending_changes: {
@@ -520,11 +598,8 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
                 rejected_at: now,
               },
             }),
-            updated_at: now,
-          })
-          .eq('id', selectedItem.id);
-
-        if (error) throw error;
+          },
+        });
         toast.success('Pharmacy change request rejected with feedback.');
       }
 
@@ -534,7 +609,7 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
       await loadRequests();
     } catch (err: any) {
       console.error('Error rejecting profile changes:', err);
-      toast.error('Failed to reject changes: ' + err.message);
+      toast.error('Failed to reject changes: ' + (err?.message || 'unknown error'));
     } finally {
       setActionBusy(false);
     }
@@ -722,10 +797,18 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
       <Dialog
         open={!!selectedItem}
         onOpenChange={(open) => {
-          if (!open && !actionBusy) setSelectedItem(null);
+          // The confirm / reject dialogs render in their own portals, so clicking inside them counts as an
+          // "outside" click for this dialog. Ignore that, otherwise the selected request is cleared before
+          // the Approve / Reject handler runs and the click silently does nothing.
+          if (!open && !actionBusy && !confirmApproveOpen && !rejectModalOpen) setSelectedItem(null);
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
+        <DialogContent
+          className="max-w-3xl max-h-[90vh] flex flex-col p-0"
+          onInteractOutside={(e) => {
+            if (confirmApproveOpen || rejectModalOpen) e.preventDefault();
+          }}
+        >
           <DialogHeader className="p-6 pb-3 border-b">
             <div className="flex items-center justify-between pr-6">
               <div className="flex items-center gap-2.5">
@@ -895,64 +978,87 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
 }
 
 // -------------------------------------------------------------
-// HELPER COMPONENT: Field Diff Row
+// HELPERS: Field diff rows (only edited fields are shown)
 // -------------------------------------------------------------
-function DiffRow({
-  label,
-  oldVal,
-  newVal,
-}: {
+interface DiffEntry {
   label: string;
   oldVal: any;
   newVal: any;
-}) {
-  const oldStr =
-    oldVal === null || oldVal === undefined || oldVal === ''
-      ? '—'
-      : Array.isArray(oldVal)
-      ? oldVal.join(', ') || '—'
-      : String(oldVal);
+}
 
-  const newStr =
-    newVal === null || newVal === undefined || newVal === ''
-      ? '—'
-      : Array.isArray(newVal)
-      ? newVal.join(', ') || '—'
-      : String(newVal);
+const displayValue = (v: any): string =>
+  v === null || v === undefined || v === ''
+    ? '—'
+    : Array.isArray(v)
+    ? v.join(', ') || '—'
+    : String(v);
 
-  const isChanged = oldStr !== newStr;
+const yn = (b: unknown) => (b ? 'Yes' : 'No');
 
+const isEntryChanged = (e: DiffEntry) => displayValue(e.oldVal) !== displayValue(e.newVal);
+
+function DiffRow({ label, oldVal, newVal }: DiffEntry) {
   return (
-    <div
-      className={`grid grid-cols-1 md:grid-cols-3 gap-2 py-2 px-2.5 rounded-md text-xs transition-colors ${
-        isChanged
-          ? 'bg-amber-500/10 border border-amber-500/20'
-          : 'border-b border-border/40 hover:bg-muted/30'
-      }`}
-    >
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 py-2 px-2.5 rounded-md text-xs bg-amber-500/10 border border-amber-500/20">
       <div className="font-medium text-muted-foreground flex items-center gap-1.5">
         {label}
-        {isChanged && (
-          <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-            (Modified)
-          </span>
-        )}
+        <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">(Modified)</span>
       </div>
 
       <div className="text-muted-foreground break-words line-through md:no-underline">
         <span className="md:hidden font-semibold text-[10px] mr-1">Current:</span>
-        {oldStr}
+        {displayValue(oldVal)}
       </div>
 
-      <div
-        className={`break-words font-medium ${
-          isChanged ? 'text-amber-700 dark:text-amber-300 font-semibold' : 'text-foreground'
-        }`}
-      >
+      <div className="break-words font-semibold text-amber-700 dark:text-amber-300">
         <span className="md:hidden font-semibold text-[10px] mr-1">Proposed:</span>
-        {newStr}
+        {displayValue(newVal)}
       </div>
     </div>
+  );
+}
+
+/** A titled group of rows; renders nothing when none of its fields were edited. */
+function DiffGroup({
+  icon,
+  title,
+  entries,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  entries: DiffEntry[];
+}) {
+  const changed = entries.filter(isEntryChanged);
+  if (changed.length === 0) return null;
+  return (
+    <div className="space-y-1">
+      <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+        {icon} {title}
+      </h4>
+      <div className="space-y-0.5">
+        {changed.map((e) => (
+          <DiffRow key={e.label} {...e} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DiffHeader() {
+  return (
+    <div className="hidden md:grid grid-cols-3 gap-2 px-2.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider pb-1 border-b">
+      <span>Field</span>
+      <span>Current Live Data</span>
+      <span>Proposed Change</span>
+    </div>
+  );
+}
+
+function NoDifferences() {
+  return (
+    <p className="text-xs text-muted-foreground py-6 text-center">
+      No field-level differences were found between the live profile and this request.
+    </p>
   );
 }
 
@@ -960,185 +1066,80 @@ function DiffRow({
 // HELPER COMPONENT: Doctor Diff Section
 // -------------------------------------------------------------
 function DoctorDiffSection({ item }: { item: DoctorChangeItem }) {
-  const pending = item.pendingPayload.pendingChanges;
-  const curProf = item.currentProfile;
-  const curMetaDoc = curProf.metadata?.doctorProfile || {};
-  const curDoc = item.currentDoctorRecord;
+  const live = buildLiveDoctor(item);
+  const prop = buildProposedDoctor(live, item.pendingPayload.pendingChanges || {});
 
-  const curBasic = curMetaDoc.basicInfo || {};
-  const curCred = curMetaDoc.credentials || {};
-  const curExp = curMetaDoc.expertise || {};
-  const curAvail = curMetaDoc.availability || {};
+  const groups: { icon: React.ReactNode; title: string; entries: DiffEntry[] }[] = [
+    {
+      icon: <User className="w-3.5 h-3.5" />,
+      title: 'Basic Identification',
+      entries: [
+        { label: 'First Name', oldVal: live.firstName, newVal: prop.firstName },
+        { label: 'Last Name', oldVal: live.lastName, newVal: prop.lastName },
+        { label: 'Professional Title', oldVal: live.basicInfo.professionalTitle, newVal: prop.basicInfo.professionalTitle },
+        { label: 'License / Registration No.', oldVal: live.basicInfo.registrationNumber, newVal: prop.basicInfo.registrationNumber },
+        { label: 'Licensing Authority', oldVal: live.basicInfo.licensingAuthority, newVal: prop.basicInfo.licensingAuthority },
+        { label: 'Year of Graduation', oldVal: live.basicInfo.yearOfGraduation, newVal: prop.basicInfo.yearOfGraduation },
+        { label: 'Gender', oldVal: live.basicInfo.gender, newVal: prop.basicInfo.gender },
+        { label: 'City / State', oldVal: live.basicInfo.city, newVal: prop.basicInfo.city },
+        { label: 'Country', oldVal: live.basicInfo.country, newVal: prop.basicInfo.country },
+        { label: 'Languages', oldVal: live.basicInfo.languages, newVal: prop.basicInfo.languages },
+        { label: 'About / Bio', oldVal: live.basicInfo.about, newVal: prop.basicInfo.about },
+        { label: 'Profile Photo', oldVal: live.basicInfo.profilePhoto, newVal: prop.basicInfo.profilePhoto },
+      ],
+    },
+    {
+      icon: <Stethoscope className="w-3.5 h-3.5" />,
+      title: 'Professional Credentials',
+      entries: [
+        { label: 'Primary Specialty', oldVal: live.credentials.specialty, newVal: prop.credentials.specialty },
+        { label: 'Sub-Specialty', oldVal: live.credentials.subSpecialty, newVal: prop.credentials.subSpecialty },
+        { label: 'Primary Medical Degree', oldVal: live.credentials.primaryDegree, newVal: prop.credentials.primaryDegree },
+        { label: 'Years of Experience', oldVal: live.credentials.yearsExperience, newVal: prop.credentials.yearsExperience },
+        { label: 'Current Affiliations', oldVal: live.credentials.currentAffiliations, newVal: prop.credentials.currentAffiliations },
+        { label: 'Past Institutions', oldVal: live.credentials.pastInstitutions, newVal: prop.credentials.pastInstitutions },
+        { label: 'Postgrad Qualifications', oldVal: live.credentials.postgraduateQualifications, newVal: prop.credentials.postgraduateQualifications },
+        { label: 'Certifications', oldVal: live.credentials.certifications, newVal: prop.credentials.certifications },
+        { label: 'Fellowships', oldVal: live.credentials.fellowships, newVal: prop.credentials.fellowships },
+      ],
+    },
+    {
+      icon: <Stethoscope className="w-3.5 h-3.5" />,
+      title: 'Areas of Expertise',
+      entries: [
+        { label: 'Conditions Treated', oldVal: live.expertise.conditionsTreated, newVal: prop.expertise.conditionsTreated },
+        { label: 'Clinical Interests', oldVal: live.expertise.clinicalInterests, newVal: prop.expertise.clinicalInterests },
+        { label: 'Target Age Groups', oldVal: live.expertise.ageGroups, newVal: prop.expertise.ageGroups },
+        { label: 'Consultation Scopes', oldVal: live.expertise.consultationScopes, newVal: prop.expertise.consultationScopes },
+      ],
+    },
+    {
+      icon: <Calendar className="w-3.5 h-3.5" />,
+      title: 'Consultation & Pricing',
+      entries: [
+        { label: 'Consultation Price (NGN)', oldVal: live.availability.consultPrice, newVal: prop.availability.consultPrice },
+        { label: 'Consultation Modes', oldVal: live.availability.consultationModes, newVal: prop.availability.consultationModes },
+        { label: 'Available Days', oldVal: live.availability.availableDays, newVal: prop.availability.availableDays },
+        {
+          label: 'Working Hours',
+          oldVal: `${live.availability.workingHoursStart} - ${live.availability.workingHoursEnd}`,
+          newVal: `${prop.availability.workingHoursStart} - ${prop.availability.workingHoursEnd}`,
+        },
+        { label: 'Timezone', oldVal: live.availability.timezone, newVal: prop.availability.timezone },
+        { label: 'Avg Response Time', oldVal: live.availability.avgResponseTime, newVal: prop.availability.avgResponseTime },
+        { label: 'Max Consults / Day', oldVal: live.availability.maxConsultationsPerDay, newVal: prop.availability.maxConsultationsPerDay },
+        { label: 'Emergency Available', oldVal: yn(live.availability.emergencyAvailable), newVal: yn(prop.availability.emergencyAvailable) },
+        { label: 'On-Call Status', oldVal: live.availability.onCallStatus ? 'Active' : 'Inactive', newVal: prop.availability.onCallStatus ? 'Active' : 'Inactive' },
+      ],
+    },
+  ];
+
+  const anyChanged = groups.some((g) => g.entries.some(isEntryChanged));
 
   return (
     <div className="space-y-6">
-      {/* Header column labels for desktop */}
-      <div className="hidden md:grid grid-cols-3 gap-2 px-2.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider pb-1 border-b">
-        <span>Field</span>
-        <span>Current Live Data</span>
-        <span>Proposed Change</span>
-      </div>
-
-      {/* Identity & Basic Info */}
-      <div className="space-y-1">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-          <User className="w-3.5 h-3.5" /> Basic Identification
-        </h4>
-        <div className="space-y-0.5">
-          <DiffRow label="First Name" oldVal={curProf.first_name} newVal={pending.firstName} />
-          <DiffRow label="Last Name" oldVal={curProf.last_name} newVal={pending.lastName} />
-          <DiffRow
-            label="Professional Title"
-            oldVal={curBasic.professionalTitle}
-            newVal={pending.basicInfo?.professionalTitle}
-          />
-          <DiffRow
-            label="License / Registration No."
-            oldVal={curDoc?.license_number || curBasic.registrationNumber}
-            newVal={pending.basicInfo?.registrationNumber}
-          />
-          <DiffRow
-            label="Licensing Authority"
-            oldVal={curBasic.licensingAuthority}
-            newVal={pending.basicInfo?.licensingAuthority}
-          />
-          <DiffRow
-            label="Year of Graduation"
-            oldVal={curBasic.yearOfGraduation}
-            newVal={pending.basicInfo?.yearOfGraduation}
-          />
-          <DiffRow label="Gender" oldVal={curBasic.gender} newVal={pending.basicInfo?.gender} />
-          <DiffRow label="City / State" oldVal={curBasic.city} newVal={pending.basicInfo?.city} />
-          <DiffRow label="Country" oldVal={curBasic.country} newVal={pending.basicInfo?.country} />
-          <DiffRow
-            label="Languages"
-            oldVal={curBasic.languages}
-            newVal={pending.basicInfo?.languages}
-          />
-          <DiffRow
-            label="About / Bio"
-            oldVal={curDoc?.bio || curBasic.about}
-            newVal={pending.basicInfo?.about}
-          />
-        </div>
-      </div>
-
-      {/* Credentials */}
-      <div className="space-y-1">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-          <Stethoscope className="w-3.5 h-3.5" /> Professional Credentials
-        </h4>
-        <div className="space-y-0.5">
-          <DiffRow
-            label="Primary Specialty"
-            oldVal={curDoc?.specialties?.[0] || curCred.specialty}
-            newVal={pending.credentials?.specialty}
-          />
-          <DiffRow
-            label="Sub-Specialty"
-            oldVal={curCred.subSpecialty}
-            newVal={pending.credentials?.subSpecialty}
-          />
-          <DiffRow
-            label="Primary Medical Degree"
-            oldVal={curCred.primaryDegree}
-            newVal={pending.credentials?.primaryDegree}
-          />
-          <DiffRow
-            label="Years of Experience"
-            oldVal={curCred.yearsExperience}
-            newVal={pending.credentials?.yearsExperience}
-          />
-          <DiffRow
-            label="Current Affiliations"
-            oldVal={curCred.currentAffiliations}
-            newVal={pending.credentials?.currentAffiliations}
-          />
-          <DiffRow
-            label="Postgrad Qualifications"
-            oldVal={curCred.postgraduateQualifications}
-            newVal={pending.credentials?.postgraduateQualifications}
-          />
-          <DiffRow
-            label="Certifications"
-            oldVal={curCred.certifications}
-            newVal={pending.credentials?.certifications}
-          />
-        </div>
-      </div>
-
-      {/* Areas of Expertise */}
-      <div className="space-y-1">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-          <Stethoscope className="w-3.5 h-3.5" /> Areas of Expertise
-        </h4>
-        <div className="space-y-0.5">
-          <DiffRow
-            label="Conditions Treated"
-            oldVal={curExp.conditionsTreated}
-            newVal={pending.expertise?.conditionsTreated}
-          />
-          <DiffRow
-            label="Clinical Interests"
-            oldVal={curExp.clinicalInterests}
-            newVal={pending.expertise?.clinicalInterests}
-          />
-          <DiffRow
-            label="Target Age Groups"
-            oldVal={curExp.ageGroups}
-            newVal={pending.expertise?.ageGroups}
-          />
-          <DiffRow
-            label="Consultation Scopes"
-            oldVal={curExp.consultationScopes}
-            newVal={pending.expertise?.consultationScopes}
-          />
-        </div>
-      </div>
-
-      {/* Availability & Booking */}
-      <div className="space-y-1">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-          <Calendar className="w-3.5 h-3.5" /> Consultation & Pricing
-        </h4>
-        <div className="space-y-0.5">
-          <DiffRow
-            label="Consultation Price (NGN)"
-            oldVal={curDoc?.consult_price?.toString() || curAvail.consultPrice}
-            newVal={pending.availability?.consultPrice}
-          />
-          <DiffRow
-            label="Consultation Modes"
-            oldVal={curAvail.consultationModes}
-            newVal={pending.availability?.consultationModes}
-          />
-          <DiffRow
-            label="Available Days"
-            oldVal={curAvail.availableDays}
-            newVal={pending.availability?.availableDays}
-          />
-          <DiffRow
-            label="Working Hours"
-            oldVal={`${curAvail.workingHoursStart || '09:00'} - ${curAvail.workingHoursEnd || '17:00'}`}
-            newVal={`${pending.availability?.workingHoursStart} - ${pending.availability?.workingHoursEnd}`}
-          />
-          <DiffRow
-            label="Max Consults / Day"
-            oldVal={curAvail.maxConsultationsPerDay}
-            newVal={pending.availability?.maxConsultationsPerDay}
-          />
-          <DiffRow
-            label="Emergency Available"
-            oldVal={curAvail.emergencyAvailable ? 'Yes' : 'No'}
-            newVal={pending.availability?.emergencyAvailable ? 'Yes' : 'No'}
-          />
-          <DiffRow
-            label="On-Call Status"
-            oldVal={curAvail.onCallStatus ? 'Active' : 'Inactive'}
-            newVal={pending.availability?.onCallStatus ? 'Active' : 'Inactive'}
-          />
-        </div>
-      </div>
+      <DiffHeader />
+      {anyChanged ? groups.map((g) => <DiffGroup key={g.title} {...g} />) : <NoDifferences />}
     </div>
   );
 }
@@ -1146,205 +1147,86 @@ function DoctorDiffSection({ item }: { item: DoctorChangeItem }) {
 // -------------------------------------------------------------
 // HELPER COMPONENT: Pharmacy Diff Section
 // -------------------------------------------------------------
+const summariseHours = (h: PharmacyForm['opening_hours']) =>
+  DAYS.map((d) => `${DAY_LABELS[d].slice(0, 3)} ${h[d].closed ? 'closed' : `${h[d].open}-${h[d].close}`}`).join(', ');
+
 function PharmacyDiffSection({ item }: { item: PharmacyChangeItem }) {
-  const pendingForm = item.pendingPayload.form;
-  const currentForm = item.currentForm;
+  const p = item.proposedForm;
+  const c = item.currentForm;
+
+  const groups: { icon: React.ReactNode; title: string; entries: DiffEntry[] }[] = [
+    {
+      icon: <Building2 className="w-3.5 h-3.5" />,
+      title: 'Business Information',
+      entries: [
+        { label: 'Registered Business Name', oldVal: c.business_name, newVal: p.business_name },
+        { label: 'Trading / Store Name', oldVal: c.trading_name, newVal: p.trading_name },
+        { label: 'Business Email', oldVal: c.email, newVal: p.email },
+        { label: 'Business Phone', oldVal: c.phone, newVal: p.phone },
+        { label: 'WhatsApp Number', oldVal: c.whatsapp_number, newVal: p.whatsapp_number },
+        { label: 'Year Established', oldVal: c.year_established, newVal: p.year_established },
+        { label: 'PCN Premises License Expiry', oldVal: c.pcn_premises_license_expiry, newVal: p.pcn_premises_license_expiry },
+        { label: 'NAFDAC / NDLEA Number', oldVal: c.nafdac_ndlea_number, newVal: p.nafdac_ndlea_number },
+      ],
+    },
+    {
+      icon: <Phone className="w-3.5 h-3.5" />,
+      title: 'Contacts & Superintendent Pharmacist',
+      entries: [
+        { label: 'Superintendent Pharmacist', oldVal: c.pharmacist_full_name, newVal: p.pharmacist_full_name },
+        { label: 'Pharmacist Annual License Expiry', oldVal: c.pharmacist_license_expiry, newVal: p.pharmacist_license_expiry },
+        { label: 'Pharmacist Phone', oldVal: c.pharmacist_phone, newVal: p.pharmacist_phone },
+        { label: 'Pharmacist Email', oldVal: c.pharmacist_email, newVal: p.pharmacist_email },
+        { label: 'Contact Person Name', oldVal: c.contact_person_name, newVal: p.contact_person_name },
+        { label: 'Contact Person Phone', oldVal: c.contact_person_phone, newVal: p.contact_person_phone },
+        { label: 'Contact Person Email', oldVal: c.contact_person_email, newVal: p.contact_person_email },
+      ],
+    },
+    {
+      icon: <MapPin className="w-3.5 h-3.5" />,
+      title: 'Physical Location',
+      entries: [
+        { label: 'State', oldVal: c.state, newVal: p.state },
+        { label: 'City', oldVal: c.city, newVal: p.city },
+        { label: 'Street Address', oldVal: c.street, newVal: p.street },
+        { label: 'Landmark', oldVal: c.landmark, newVal: p.landmark },
+        { label: 'Latitude', oldVal: c.latitude, newVal: p.latitude },
+        { label: 'Longitude', oldVal: c.longitude, newVal: p.longitude },
+      ],
+    },
+    {
+      icon: <Clock className="w-3.5 h-3.5" />,
+      title: 'Operations & Services',
+      entries: [
+        { label: 'Opening Hours', oldVal: summariseHours(c.opening_hours), newVal: summariseHours(p.opening_hours) },
+        { label: '24-Hour Operation', oldVal: yn(c.is_24_hours), newVal: yn(p.is_24_hours) },
+        { label: 'Offers Delivery', oldVal: yn(c.offers_delivery), newVal: yn(p.offers_delivery) },
+        { label: 'Delivery Radius (km)', oldVal: c.delivery_radius_km, newVal: p.delivery_radius_km },
+        { label: 'Delivery Fee (NGN)', oldVal: c.delivery_fee, newVal: p.delivery_fee },
+        { label: 'Offers Pickup', oldVal: yn(c.offers_pickup), newVal: yn(p.offers_pickup) },
+        { label: 'Handles Cold-Chain', oldVal: yn(c.handles_cold_chain), newVal: yn(p.handles_cold_chain) },
+        { label: 'Handles Controlled Drugs', oldVal: yn(c.handles_controlled_drugs), newVal: yn(p.handles_controlled_drugs) },
+        { label: 'Accepts HMO', oldVal: yn(c.accepts_hmo), newVal: yn(p.accepts_hmo) },
+        { label: 'HMO Partners', oldVal: c.hmo_partners, newVal: p.hmo_partners },
+      ],
+    },
+    {
+      icon: <Wallet className="w-3.5 h-3.5" />,
+      title: 'Settlement & Payout Account',
+      entries: [
+        { label: 'Bank Name', oldVal: c.payout_bank_name, newVal: p.payout_bank_name },
+        { label: 'Account Number', oldVal: c.payout_account_number, newVal: p.payout_account_number },
+        { label: 'Account Name', oldVal: c.payout_account_name, newVal: p.payout_account_name },
+      ],
+    },
+  ];
+
+  const anyChanged = groups.some((g) => g.entries.some(isEntryChanged));
 
   return (
     <div className="space-y-6">
-      {/* Header column labels for desktop */}
-      <div className="hidden md:grid grid-cols-3 gap-2 px-2.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider pb-1 border-b">
-        <span>Field</span>
-        <span>Current Live Data</span>
-        <span>Proposed Change</span>
-      </div>
-
-      {/* Business Information */}
-      <div className="space-y-1">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-          <Building2 className="w-3.5 h-3.5" /> Business Information
-        </h4>
-        <div className="space-y-0.5">
-          <DiffRow
-            label="Registered Business Name"
-            oldVal={currentForm.business_name}
-            newVal={pendingForm.business_name}
-          />
-          <DiffRow
-            label="Trading / Store Name"
-            oldVal={currentForm.trading_name}
-            newVal={pendingForm.trading_name}
-          />
-          <DiffRow
-            label="Business Email"
-            oldVal={currentForm.email}
-            newVal={pendingForm.email}
-          />
-          <DiffRow
-            label="Business Phone"
-            oldVal={currentForm.phone}
-            newVal={pendingForm.phone}
-          />
-          <DiffRow
-            label="WhatsApp Number"
-            oldVal={currentForm.whatsapp_number}
-            newVal={pendingForm.whatsapp_number}
-          />
-          <DiffRow
-            label="Year Established"
-            oldVal={currentForm.year_established}
-            newVal={pendingForm.year_established}
-          />
-          <DiffRow
-            label="PCN Premises License Expiry"
-            oldVal={currentForm.pcn_premises_license_expiry}
-            newVal={pendingForm.pcn_premises_license_expiry}
-          />
-          <DiffRow
-            label="NAFDAC / NDLEA Number"
-            oldVal={currentForm.nafdac_ndlea_number}
-            newVal={pendingForm.nafdac_ndlea_number}
-          />
-        </div>
-      </div>
-
-      {/* Contacts & Personnel */}
-      <div className="space-y-1">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-          <Phone className="w-3.5 h-3.5" /> Contacts & Superintendent Pharmacist
-        </h4>
-        <div className="space-y-0.5">
-          <DiffRow
-            label="Superintendent Pharmacist"
-            oldVal={currentForm.pharmacist_full_name}
-            newVal={pendingForm.pharmacist_full_name}
-          />
-          <DiffRow
-            label="Pharmacist Annual License Expiry"
-            oldVal={currentForm.pharmacist_license_expiry}
-            newVal={pendingForm.pharmacist_license_expiry}
-          />
-          <DiffRow
-            label="Pharmacist Phone"
-            oldVal={currentForm.pharmacist_phone}
-            newVal={pendingForm.pharmacist_phone}
-          />
-          <DiffRow
-            label="Pharmacist Email"
-            oldVal={currentForm.pharmacist_email}
-            newVal={pendingForm.pharmacist_email}
-          />
-          <DiffRow
-            label="Contact Person Name"
-            oldVal={currentForm.contact_person_name}
-            newVal={pendingForm.contact_person_name}
-          />
-          <DiffRow
-            label="Contact Person Phone"
-            oldVal={currentForm.contact_person_phone}
-            newVal={pendingForm.contact_person_phone}
-          />
-          <DiffRow
-            label="Contact Person Email"
-            oldVal={currentForm.contact_person_email}
-            newVal={pendingForm.contact_person_email}
-          />
-        </div>
-      </div>
-
-      {/* Location */}
-      <div className="space-y-1">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-          <MapPin className="w-3.5 h-3.5" /> Physical Location
-        </h4>
-        <div className="space-y-0.5">
-          <DiffRow label="State" oldVal={currentForm.state} newVal={pendingForm.state} />
-          <DiffRow label="City" oldVal={currentForm.city} newVal={pendingForm.city} />
-          <DiffRow label="Street Address" oldVal={currentForm.street} newVal={pendingForm.street} />
-          <DiffRow label="Landmark" oldVal={currentForm.landmark} newVal={pendingForm.landmark} />
-          <DiffRow label="Latitude" oldVal={currentForm.latitude} newVal={pendingForm.latitude} />
-          <DiffRow label="Longitude" oldVal={currentForm.longitude} newVal={pendingForm.longitude} />
-        </div>
-      </div>
-
-      {/* Operations & Schedule */}
-      <div className="space-y-1">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-          <Clock className="w-3.5 h-3.5" /> Operations & Services
-        </h4>
-        <div className="space-y-0.5">
-          <DiffRow
-            label="24-Hour Operation"
-            oldVal={currentForm.is_24_hours ? 'Yes' : 'No'}
-            newVal={pendingForm.is_24_hours ? 'Yes' : 'No'}
-          />
-          <DiffRow
-            label="Offers Delivery"
-            oldVal={currentForm.offers_delivery ? 'Yes' : 'No'}
-            newVal={pendingForm.offers_delivery ? 'Yes' : 'No'}
-          />
-          <DiffRow
-            label="Delivery Radius (km)"
-            oldVal={currentForm.delivery_radius_km}
-            newVal={pendingForm.delivery_radius_km}
-          />
-          <DiffRow
-            label="Delivery Fee (NGN)"
-            oldVal={currentForm.delivery_fee}
-            newVal={pendingForm.delivery_fee}
-          />
-          <DiffRow
-            label="Offers Pickup"
-            oldVal={currentForm.offers_pickup ? 'Yes' : 'No'}
-            newVal={pendingForm.offers_pickup ? 'Yes' : 'No'}
-          />
-          <DiffRow
-            label="Handles Cold-Chain"
-            oldVal={currentForm.handles_cold_chain ? 'Yes' : 'No'}
-            newVal={pendingForm.handles_cold_chain ? 'Yes' : 'No'}
-          />
-          <DiffRow
-            label="Handles Controlled Drugs"
-            oldVal={currentForm.handles_controlled_drugs ? 'Yes' : 'No'}
-            newVal={pendingForm.handles_controlled_drugs ? 'Yes' : 'No'}
-          />
-          <DiffRow
-            label="Accepts HMO"
-            oldVal={currentForm.accepts_hmo ? 'Yes' : 'No'}
-            newVal={pendingForm.accepts_hmo ? 'Yes' : 'No'}
-          />
-          <DiffRow
-            label="HMO Partners"
-            oldVal={currentForm.hmo_partners}
-            newVal={pendingForm.hmo_partners}
-          />
-        </div>
-      </div>
-
-      {/* Payout Details */}
-      <div className="space-y-1">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-          <Wallet className="w-3.5 h-3.5" /> Settlement & Payout Account
-        </h4>
-        <div className="space-y-0.5">
-          <DiffRow
-            label="Bank Name"
-            oldVal={currentForm.payout_bank_name}
-            newVal={pendingForm.payout_bank_name}
-          />
-          <DiffRow
-            label="Account Number"
-            oldVal={currentForm.payout_account_number}
-            newVal={pendingForm.payout_account_number}
-          />
-          <DiffRow
-            label="Account Name"
-            oldVal={currentForm.payout_account_name}
-            newVal={pendingForm.payout_account_name}
-          />
-        </div>
-      </div>
+      <DiffHeader />
+      {anyChanged ? groups.map((g) => <DiffGroup key={g.title} {...g} />) : <NoDifferences />}
     </div>
   );
 }
-

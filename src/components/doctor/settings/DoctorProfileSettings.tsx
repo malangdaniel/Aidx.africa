@@ -22,6 +22,7 @@ import { DoctorCredentials } from "./DoctorCredentials";
 import { DoctorExpertise } from "./DoctorExpertise";
 import { DoctorAvailability } from "./DoctorAvailability";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { diffObject, hasKeys, isSameValue } from "@/lib/profileChanges";
 
 interface DoctorProfileSettingsProps {
   onSaved?: () => void;
@@ -73,20 +74,21 @@ export interface DoctorAvailabilityData {
 }
 
 export interface PendingDoctorChangesPayload {
+  /** Only the fields the doctor actually edited (diff against live data). */
   pendingChanges: {
-    firstName: string;
-    lastName: string;
-    basicInfo: DoctorBasicInfoData;
-    credentials: DoctorCredentialsData;
-    expertise: DoctorExpertiseData;
-    availability: DoctorAvailabilityData;
+    firstName?: string;
+    lastName?: string;
+    basicInfo?: Partial<DoctorBasicInfoData>;
+    credentials?: Partial<DoctorCredentialsData>;
+    expertise?: Partial<DoctorExpertiseData>;
+    availability?: Partial<DoctorAvailabilityData>;
   };
   pendingChangesStatus: "pending" | "approved" | "rejected";
   pendingChangesSubmittedAt: string;
   pendingChangesRejectionReason: string | null;
 }
 
-const getDefaultBasicInfo = (): DoctorBasicInfoData => ({
+export const getDefaultBasicInfo = (): DoctorBasicInfoData => ({
   professionalTitle: "",
   about: "",
   profilePhoto: "",
@@ -99,7 +101,7 @@ const getDefaultBasicInfo = (): DoctorBasicInfoData => ({
   yearOfGraduation: "",
 });
 
-const getDefaultCredentials = (): DoctorCredentialsData => ({
+export const getDefaultCredentials = (): DoctorCredentialsData => ({
   primaryDegree: "",
   postgraduateQualifications: [],
   specialty: "",
@@ -111,14 +113,14 @@ const getDefaultCredentials = (): DoctorCredentialsData => ({
   fellowships: [],
 });
 
-const getDefaultExpertise = (): DoctorExpertiseData => ({
+export const getDefaultExpertise = (): DoctorExpertiseData => ({
   conditionsTreated: [],
   clinicalInterests: [],
   ageGroups: [],
   consultationScopes: [],
 });
 
-const getDefaultAvailability = (): DoctorAvailabilityData => ({
+export const getDefaultAvailability = (): DoctorAvailabilityData => ({
   consultationModes: ["chat", "audio", "video"],
   availableDays: ["monday", "tuesday", "wednesday", "thursday", "friday"],
   workingHoursStart: "09:00",
@@ -144,6 +146,16 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
   const [credentials, setCredentials] = useState<DoctorCredentialsData>(getDefaultCredentials());
   const [expertise, setExpertise] = useState<DoctorExpertiseData>(getDefaultExpertise());
   const [availability, setAvailability] = useState<DoctorAvailabilityData>(getDefaultAvailability());
+
+  // Current LIVE data, used as the baseline so we only submit fields that were edited
+  const [liveSnapshot, setLiveSnapshot] = useState<{
+    firstName: string;
+    lastName: string;
+    basicInfo: DoctorBasicInfoData;
+    credentials: DoctorCredentialsData;
+    expertise: DoctorExpertiseData;
+    availability: DoctorAvailabilityData;
+  } | null>(null);
 
   // Pending changes review state
   const [pendingStatus, setPendingStatus] = useState<"pending" | "approved" | "rejected" | null>(null);
@@ -198,6 +210,16 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
           about: liveBasic.about || doctorData.bio || "",
         };
       }
+
+      // Remember the live baseline so submissions can be diffed against it
+      setLiveSnapshot({
+        firstName: liveFirstName,
+        lastName: liveLastName,
+        basicInfo: liveBasic,
+        credentials: liveCred,
+        expertise: liveExp,
+        availability: liveAvail,
+      });
 
       // 3. Inspect pending_doctor_changes in profile.metadata
       const meta = (profile?.metadata as Record<string, any>) || {};
@@ -268,20 +290,36 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
   };
 
   const handleSave = async () => {
-    if (!user || !profile) return;
+    if (!user || !profile || !liveSnapshot) return;
+
+    // Build a diff: only fields that differ from the live data are submitted
+    const changes: PendingDoctorChangesPayload["pendingChanges"] = {};
+    if (!isSameValue(firstName, liveSnapshot.firstName)) changes.firstName = firstName;
+    if (!isSameValue(lastName, liveSnapshot.lastName)) changes.lastName = lastName;
+    const basicDiff = diffObject(liveSnapshot.basicInfo, basicInfo);
+    const credDiff = diffObject(liveSnapshot.credentials, credentials);
+    const expDiff = diffObject(liveSnapshot.expertise, expertise);
+    const availDiff = diffObject(liveSnapshot.availability, availability);
+    if (hasKeys(basicDiff)) changes.basicInfo = basicDiff;
+    if (hasKeys(credDiff)) changes.credentials = credDiff;
+    if (hasKeys(expDiff)) changes.expertise = expDiff;
+    if (hasKeys(availDiff)) changes.availability = availDiff;
+
+    if (!hasKeys(changes)) {
+      toast.info(
+        pendingStatus === "pending"
+          ? "Nothing differs from your live profile. Use Cancel Request to withdraw the pending request."
+          : "You haven't changed anything yet."
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
       const now = new Date().toISOString();
       const pendingChangesPayload: PendingDoctorChangesPayload = {
-        pendingChanges: {
-          firstName,
-          lastName,
-          basicInfo,
-          credentials,
-          expertise,
-          availability,
-        },
+        pendingChanges: changes,
         pendingChangesStatus: "pending",
         pendingChangesSubmittedAt: now,
         pendingChangesRejectionReason: null,

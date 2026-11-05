@@ -37,6 +37,7 @@ import {
   type PharmacyForm,
   type Section,
 } from './pharmacyForm';
+import { diffObject, hasKeys } from '@/lib/profileChanges';
 import {
   BusinessSection,
   ContactsSection,
@@ -48,7 +49,10 @@ import DocumentUploader from './DocumentUploader';
 import { ReviewTimeline } from './PharmacyStatusScreens';
 
 export interface PendingPharmacyChangesPayload {
-  form: PharmacyForm;
+  /** Only the form fields the pharmacy actually edited (diff against live data). */
+  changes?: Partial<PharmacyForm>;
+  /** @deprecated Legacy requests stored the whole form; new requests use `changes`. */
+  form?: PharmacyForm;
   status: 'pending' | 'approved' | 'rejected';
   submitted_at: string;
   rejection_reason: string | null;
@@ -96,6 +100,8 @@ export default function PharmacyProfileSettings({ inModal = false, onClose }: Ph
   const [cancelling, setCancelling] = useState(false);
   const [pharmacy, setPharmacy] = useState<PharmacyRow | null>(null);
   const [form, setForm] = useState<PharmacyForm | null>(null);
+  // Current LIVE data, used as the baseline so only edited fields are submitted
+  const [liveForm, setLiveForm] = useState<PharmacyForm | null>(null);
   const [docs, setDocs] = useState<PharmacyDocumentRow[]>([]);
 
   // Pending changes state
@@ -112,8 +118,9 @@ export default function PharmacyProfileSettings({ inModal = false, onClose }: Ph
       setPharmacy(ph);
 
       // Current live data from pharmacy & verification rows
-      const liveForm = formFromRows(ph, v);
-      setForm(liveForm);
+      const live = formFromRows(ph, v);
+      setLiveForm(live);
+      setForm(live);
 
       const dList = await PharmacyOnboardingService.listDocuments(ph.id);
       setDocs(dList);
@@ -126,6 +133,9 @@ export default function PharmacyProfileSettings({ inModal = false, onClose }: Ph
         setPendingStatus('pending');
         setSubmittedAt(pendingBlob.submitted_at || null);
         setRejectionReason(null);
+        // Show the queued edits on top of live data so they aren't lost on the next submit
+        if (pendingBlob.changes) setForm({ ...live, ...pendingBlob.changes });
+        else if (pendingBlob.form) setForm({ ...live, ...pendingBlob.form });
       } else if (pendingBlob && pendingBlob.status === 'rejected') {
         setPendingStatus('rejected');
         setSubmittedAt(pendingBlob.submitted_at || null);
@@ -155,7 +165,18 @@ export default function PharmacyProfileSettings({ inModal = false, onClose }: Ph
   }, []);
 
   const save = async () => {
-    if (!pharmacy || !form) return;
+    if (!pharmacy || !form || !liveForm) return;
+
+    // Only the fields that differ from the live data are submitted
+    const changes = diffObject(liveForm, form);
+    if (!hasKeys(changes)) {
+      toast.info(
+        pendingStatus === 'pending'
+          ? 'Nothing differs from your live profile. Use Cancel Request to withdraw the pending request.'
+          : "You haven't changed anything yet."
+      );
+      return;
+    }
 
     // Validate format across all sections before submitting
     const sections: Section[] = ['business', 'contacts', 'location', 'operations', 'payout'];
@@ -171,7 +192,7 @@ export default function PharmacyProfileSettings({ inModal = false, onClose }: Ph
     try {
       const now = new Date().toISOString();
       const pendingChangesPayload: PendingPharmacyChangesPayload = {
-        form,
+        changes,
         status: 'pending',
         submitted_at: now,
         rejection_reason: null,
