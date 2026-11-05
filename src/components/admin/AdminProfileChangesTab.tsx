@@ -139,10 +139,13 @@ function buildLiveDoctor(item: DoctorChangeItem): DoctorSnapshot {
 
 /** Live data with only the edited fields from the request applied (also handles legacy full snapshots). */
 function buildProposedDoctor(live: DoctorSnapshot, p: PendingDoctorChangesPayload['pendingChanges']): DoctorSnapshot {
+  // The license / registration number is locked once set, so any proposed change to it is ignored.
+  const basicInfo = { ...live.basicInfo, ...(p.basicInfo || {}) };
+  if (live.basicInfo.registrationNumber?.trim()) basicInfo.registrationNumber = live.basicInfo.registrationNumber;
   return {
     firstName: p.firstName ?? live.firstName,
     lastName: p.lastName ?? live.lastName,
-    basicInfo: { ...live.basicInfo, ...(p.basicInfo || {}) },
+    basicInfo,
     credentials: { ...live.credentials, ...(p.credentials || {}) },
     expertise: { ...live.expertise, ...(p.expertise || {}) },
     availability: { ...live.availability, ...(p.availability || {}) },
@@ -442,9 +445,6 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
 
         // doctors table: only touch the columns whose source field was edited
         const doctorPatch: Record<string, any> = {};
-        if (has(changes.basicInfo, 'registrationNumber')) {
-          doctorPatch.license_number = prop.basicInfo.registrationNumber?.trim() || null;
-        }
         if (has(changes.credentials, 'specialty')) {
           doctorPatch.specialties = prop.credentials.specialty ? [prop.credentials.specialty] : [];
         }

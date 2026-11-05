@@ -297,6 +297,8 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
     if (!isSameValue(firstName, liveSnapshot.firstName)) changes.firstName = firstName;
     if (!isSameValue(lastName, liveSnapshot.lastName)) changes.lastName = lastName;
     const basicDiff = diffObject(liveSnapshot.basicInfo, basicInfo);
+    // The registration / license number can't be changed once it has been set
+    if (liveSnapshot.basicInfo.registrationNumber?.trim()) delete basicDiff.registrationNumber;
     const credDiff = diffObject(liveSnapshot.credentials, credentials);
     const expDiff = diffObject(liveSnapshot.expertise, expertise);
     const availDiff = diffObject(liveSnapshot.availability, availability);
@@ -493,6 +495,7 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
                 onFirstNameChange={setFirstName}
                 onLastNameChange={setLastName}
                 onChange={handleBasicInfoChange}
+                registrationLocked={!!liveSnapshot?.basicInfo.registrationNumber?.trim()}
               />
             </TabsContent>
 

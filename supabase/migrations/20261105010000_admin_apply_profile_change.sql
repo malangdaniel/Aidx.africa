@@ -25,7 +25,8 @@ declare
   v_rows int;
   v_result jsonb := '{}'::jsonb;
   c_profile_cols text[] := array['first_name','last_name','metadata'];
-  c_doctor_cols text[] := array['license_number','specialties','consult_price','bio'];
+  -- license_number is deliberately NOT updatable here: it can only be set when the doctors row is first created
+  c_doctor_cols text[] := array['specialties','consult_price','bio'];
   c_pharmacy_cols text[] := array[
     'business_name','trading_name','email','phone','whatsapp_number','year_established',
     'state','city','street','landmark','latitude','longitude','address','opening_hours',
@@ -61,23 +62,25 @@ begin
       v_result := v_result || jsonb_build_object('profile_rows', v_rows);
     end if;
 
-    -- doctors row (license, specialty, price, bio)
-    select string_agg(format('%I = r.%I', k, k), ', ') into v_set
-      from jsonb_object_keys(p_doctor) k where k = any (c_doctor_cols);
-    if v_set is not null then
-      if exists (select 1 from public.doctors where user_id = p_user_id) then
+    -- doctors row (specialty, price, bio). license_number is never changed on an existing row.
+    if exists (select 1 from public.doctors where user_id = p_user_id) then
+      select string_agg(format('%I = r.%I', k, k), ', ') into v_set
+        from jsonb_object_keys(p_doctor) k where k = any (c_doctor_cols);
+      if v_set is not null then
         execute format(
           'update public.doctors t set %s, updated_at = now()
              from jsonb_populate_record(null::public.doctors, $1) r
             where t.user_id = $2', v_set)
           using p_doctor, p_user_id;
         get diagnostics v_rows = row_count;
-      else
-        insert into public.doctors (user_id, license_number, specialties, consult_price, bio)
-        select p_user_id, r.license_number, coalesce(r.specialties, '{}'), coalesce(r.consult_price, 0), r.bio
-          from jsonb_populate_record(null::public.doctors, p_doctor) r;
-        get diagnostics v_rows = row_count;
+        v_result := v_result || jsonb_build_object('doctor_rows', v_rows);
       end if;
+    elsif p_doctor <> '{}'::jsonb then
+      -- first-time creation of the doctors row may set the license number
+      insert into public.doctors (user_id, license_number, specialties, consult_price, bio)
+      select p_user_id, r.license_number, coalesce(r.specialties, '{}'), coalesce(r.consult_price, 0), r.bio
+        from jsonb_populate_record(null::public.doctors, p_doctor) r;
+      get diagnostics v_rows = row_count;
       v_result := v_result || jsonb_build_object('doctor_rows', v_rows);
     end if;
 

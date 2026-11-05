@@ -25,6 +25,8 @@ interface DoctorBasicInfoProps {
   onFirstNameChange: (value: string) => void;
   onLastNameChange: (value: string) => void;
   onChange: (field: string, value: any) => void;
+  /** When true the medical registration number can't be edited (it can't change once set). */
+  registrationLocked?: boolean;
 }
 
 const PROFESSIONAL_TITLES = ["Dr.", "Prof.", "Consultant", "Specialist", "Resident"];
@@ -38,7 +40,7 @@ const LICENSING_AUTHORITIES = [
   "Other"
 ];
 
-export function DoctorBasicInfo({ data, firstName, lastName, onFirstNameChange, onLastNameChange, onChange }: DoctorBasicInfoProps) {
+export function DoctorBasicInfo({ data, firstName, lastName, onFirstNameChange, onLastNameChange, onChange, registrationLocked = false }: DoctorBasicInfoProps) {
   const { user } = useAuth();
   
   const addLanguage = (lang: string) => {
@@ -189,7 +191,13 @@ export function DoctorBasicInfo({ data, firstName, lastName, onFirstNameChange, 
             placeholder="MDCN/R/12345"
             value={data.registrationNumber}
             onChange={(e) => onChange("registrationNumber", e.target.value)}
+            disabled={registrationLocked}
           />
+          {registrationLocked && (
+            <p className="text-[11px] text-muted-foreground">
+              The registration number can't be changed once set. Contact support if it needs correcting.
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="licensingAuthority">Licensing Authority</Label>
