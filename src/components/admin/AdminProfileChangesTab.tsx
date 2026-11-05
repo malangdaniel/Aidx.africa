@@ -160,8 +160,6 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
         const doctorEmail =
           userEmailMap[p.user_id] ||
           meta.email ||
-          meta.doctorProfile?.basicInfo?.email ||
-          pending.pendingChanges?.basicInfo?.email ||
           p.phone ||
           null;
 
