@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import MedicalHistoryView from './medical-history/MedicalHistoryView';
+import RecordAccessLog from './RecordAccessLog';
 import { Settings, User, Bell, Shield, Wallet, LogOut, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -70,6 +71,21 @@ export default function PatientProfile() {
                         </CardHeader>
                         <CardContent>
                             <MedicalHistoryView />
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="space-y-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Privacy</h3>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Who viewed your record</CardTitle>
+                            <p className="text-xs text-muted-foreground">
+                                Doctors you have consulted can open your record. You are notified each time, and every access is listed here.
+                            </p>
+                        </CardHeader>
+                        <CardContent>
+                            <RecordAccessLog />
                         </CardContent>
                     </Card>
                 </div>

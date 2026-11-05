@@ -168,7 +168,8 @@ export default function DoctorSearch({ initialSpecialty, onBookingSuccess }: Doc
                 user.id,
                 scheduledAt,
                 details.doctor.price,
-                `Initial consultation booking (${details.consultType})`
+                `Initial consultation booking (${details.consultType})`,
+                !!details.shareHealthData
             );
 
             setIsBookingOpen(false);

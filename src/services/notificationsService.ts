@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-export type NotificationSeverity = 'attention' | 'high' | 'critical';
+export type NotificationSeverity = 'info' | 'attention' | 'high' | 'critical';
 
 export interface Notification {
     id: string;

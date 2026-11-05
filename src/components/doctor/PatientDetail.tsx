@@ -1,89 +1,155 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Calendar, FileText, Activity, Loader2 } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { ArrowLeft, Calendar, FileText, Activity, Loader2, Pill, FlaskConical, Brain, ShieldAlert, Eye } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-import { vitalsService, VitalRecord } from '@/services/vitals';
-
 interface PatientDetailProps {
-    patientId: string; // This is the auth user id (profile user_id)
+    patientId: string; // auth user id of the patient
     onBack: () => void;
 }
 
-interface Consult {
-    id: string;
-    doctor_id: string;
-    created_at: string;
-    notes: string | null;
-    diagnosis: string | null;
+interface PatientRecord {
+    consent: boolean;
+    patient: {
+        patient_id: string;
+        first_name: string | null;
+        last_name: string | null;
+        gender: string | null;
+        blood_group: string | null;
+        age_years: number | null;
+    } | null;
+    health_history: {
+        allergies: string[];
+        chronic_conditions: string[];
+        current_medications: { name?: string; dosage?: string; frequency?: string }[];
+        past_surgeries: { condition?: string; details?: string; year?: string }[];
+        family_history: string[];
+    } | null;
+    consultations: {
+        id: string;
+        status: string;
+        visit_at: string;
+        chief_complaint: string | null;
+        physical_exam: string | null;
+        differential_diagnosis: string | null;
+        diagnosis: string | null;
+        notes: string | null;
+        clinical_summary: string | null;
+        follow_up_plan: string | null;
+        referral: string | null;
+    }[];
+    prescriptions: { id: string; consultation_id: string; prescription_data: any; notes: string | null; created_at: string }[];
+    lab_orders: { id: string; test_name: string; urgency: string | null; reason: string | null; status: string | null; results: string | null; created_at: string }[];
+    vitals: {
+        id: string; systolic: number | null; diastolic: number | null; heart_rate: number | null;
+        weight: number | null; temperature: number | null; oxygen_saturation: number | null; recorded_at: string;
+    }[] | null;
+    ai_diagnoses: {
+        id: string; condition: string | null; severity: string | null; confidence_percentage: number | null;
+        rationale: string | null; flagged: boolean; created_at: string;
+    }[] | null;
+}
+
+const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
+
+const fmtDate = (d: string) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+
+function NotShared({ what }: { what: string }) {
+    return (
+        <div className="flex items-start gap-3 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+            <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>The patient has not shared their {what} with you. You can ask them during the consultation.</span>
+        </div>
+    );
 }
 
 export default function PatientDetail({ patientId, onBack }: PatientDetailProps) {
-    const [patient, setPatient] = useState<any>(null);
-    const [consultations, setConsultations] = useState<Consult[]>([]);
-    const [vitals, setVitals] = useState<VitalRecord[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [confirmOpen, setConfirmOpen] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [record, setRecord] = useState<PatientRecord | null>(null);
 
-    useEffect(() => {
-        if (patientId) {
-            fetchPatientData();
-        }
-    }, [patientId]);
-
-    const fetchPatientData = async () => {
+    const openRecord = async () => {
+        setConfirmOpen(false);
         setLoading(true);
         try {
-            // Fetch Profile
-            const [profileRes, consultsRes, vitalsRes] = await Promise.all([
-                supabase.from('profiles').select('*').eq('user_id', patientId).single(),
-                supabase.from('consultations').select('id, doctor_id, created_at, notes, diagnosis').eq('patient_id', patientId).order('created_at', { ascending: false }),
-                vitalsService.getPatientVitals(patientId)
-            ]);
-
-            if (profileRes.error) throw profileRes.error;
-            if (consultsRes.error) throw consultsRes.error;
-
-            setPatient(profileRes.data);
-            setConsultations(consultsRes.data || []);
-            setVitals(vitalsRes || []);
-
-        } catch (error) {
-            console.error("Error fetching patient details:", error);
-            toast.error("Could not load patient details");
+            const { data, error } = await (supabase.rpc as any)('open_patient_record', {
+                p_patient_id: patientId,
+                p_acknowledged: true,
+            });
+            if (error) throw error;
+            setRecord(data as PatientRecord);
+        } catch (error: any) {
+            console.error('Error opening patient record:', error);
+            toast.error(error?.message || 'Could not open this patient record');
+            onBack();
         } finally {
             setLoading(false);
         }
     };
 
-    if (loading) {
+    if (!record) {
         return (
-            <div className="flex justify-center items-center h-96">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
+            <>
+                <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!o && !loading && !record) onBack(); }}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle className="flex items-center gap-2">
+                                <Eye className="w-5 h-5 text-primary" />
+                                Open this patient's record?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription className="space-y-2">
+                                <span className="block">
+                                    The patient will be notified that you opened their record, and the access is saved
+                                    in their privacy log and the platform audit trail.
+                                </span>
+                                <span className="block">
+                                    Only open records you need for the patient's care.
+                                </span>
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={onBack}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={openRecord}>I understand, open record</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                {loading && (
+                    <div className="flex justify-center items-center h-96">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    </div>
+                )}
+            </>
         );
     }
 
-    if (!patient) return <div>Patient not found</div>;
+    const p = record.patient;
+    const name = `${p?.first_name || 'Unknown'} ${p?.last_name || ''}`.trim();
+    const initials = `${p?.first_name?.[0] || ''}${p?.last_name?.[0] || ''}`;
+    const hh = record.health_history;
+    const vitals = record.vitals || [];
 
-    // Helper to get initials
-    const initials = `${patient.first_name?.[0] || ''}${patient.last_name?.[0] || ''}`;
-    const name = `${patient.first_name || 'Unknown'} ${patient.last_name || ''}`;
-    const age = patient.metadata?.age || 'N/A';
-    const sex = patient.metadata?.sex || 'N/A';
-    const address = patient.metadata?.address || 'N/A';
-
-    // Format vitals for chart
-    const chartData = [...vitals].reverse().map(v => ({
+    const chartData = [...vitals].reverse().map((v) => ({
         date: new Date(v.recorded_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
         systolic: v.systolic,
         diastolic: v.diastolic,
         heartRate: v.heart_rate,
         temperature: v.temperature,
-        oxygenSaturation: v.oxygen_saturation
+        oxygenSaturation: v.oxygen_saturation,
     }));
 
     return (
@@ -93,142 +159,265 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <div>
-                    <h2 className="text-2xl font-bold">Patient Details</h2>
-                    <p className="text-muted-foreground text-sm">ID: {patientId.slice(0, 8)}...</p>
+                    <h2 className="text-2xl font-bold">Patient Record</h2>
+                    <p className="text-muted-foreground text-sm">This access was logged and the patient was notified.</p>
                 </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-3">
-                {/* Profile Card */}
                 <Card className="md:col-span-1">
                     <CardHeader>
-                        <CardTitle>Profile</CardTitle>
+                        <CardTitle>Patient</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-col items-center mb-6">
+                    <CardContent className="space-y-6">
+                        <div className="flex flex-col items-center">
                             <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary mb-4">
                                 {initials}
                             </div>
-                            <h3 className="text-xl font-bold">{name}</h3>
-                            <p className="text-muted-foreground">{age} years • {sex}</p>
+                            <h3 className="text-xl font-bold text-center">{name}</h3>
+                            <p className="text-muted-foreground">
+                                {[p?.age_years != null ? `${p.age_years} years` : null, p?.gender].filter(Boolean).join(' • ') || '—'}
+                            </p>
+                            {p?.blood_group && <Badge variant="outline" className="mt-2">Blood group {p.blood_group}</Badge>}
                         </div>
 
-                        <div className="space-y-4">
-                            <div>
-                                <span className="text-sm text-muted-foreground block">Phone</span>
-                                <span className="font-medium">{patient.phone || 'N/A'}</span>
+                        {hh ? (
+                            <div className="space-y-4 text-sm">
+                                <div>
+                                    <span className="text-muted-foreground block mb-1">Allergies</span>
+                                    {asList(hh.allergies).length ? (
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {asList(hh.allergies).map((a) => <Badge key={a} variant="destructive">{a}</Badge>)}
+                                        </div>
+                                    ) : <span className="font-medium">None reported</span>}
+                                </div>
+                                <div>
+                                    <span className="text-muted-foreground block mb-1">Chronic conditions</span>
+                                    {asList(hh.chronic_conditions).length ? (
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {asList(hh.chronic_conditions).map((c) => <Badge key={c} variant="secondary">{c}</Badge>)}
+                                        </div>
+                                    ) : <span className="font-medium">None reported</span>}
+                                </div>
+                                <div>
+                                    <span className="text-muted-foreground block mb-1">Current medications</span>
+                                    {(hh.current_medications || []).length ? (
+                                        <ul className="space-y-1">
+                                            {hh.current_medications.map((m, i) => (
+                                                <li key={i} className="font-medium">
+                                                    {m.name}
+                                                    <span className="text-muted-foreground font-normal">
+                                                        {[m.dosage, m.frequency].filter(Boolean).length ? ` — ${[m.dosage, m.frequency].filter(Boolean).join(', ')}` : ''}
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : <span className="font-medium">None reported</span>}
+                                </div>
+                                {(hh.past_surgeries || []).length > 0 && (
+                                    <div>
+                                        <span className="text-muted-foreground block mb-1">Past surgeries / conditions</span>
+                                        <ul className="space-y-1">
+                                            {hh.past_surgeries.map((s, i) => (
+                                                <li key={i} className="font-medium">
+                                                    {s.condition}
+                                                    <span className="text-muted-foreground font-normal">{s.year ? ` (${s.year})` : ''}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                                {asList(hh.family_history).length > 0 && (
+                                    <div>
+                                        <span className="text-muted-foreground block mb-1">Family history</span>
+                                        <span className="font-medium">{asList(hh.family_history).join(', ')}</span>
+                                    </div>
+                                )}
                             </div>
-                            <div>
-                                <span className="text-sm text-muted-foreground block">Address</span>
-                                <span className="font-medium">{address}</span>
-                            </div>
-                            <div>
-                                <span className="text-sm text-muted-foreground block">Verification</span>
-                                <span className="font-medium capitalize">{patient.verification_status}</span>
-                            </div>
-                        </div>
+                        ) : (
+                            <NotShared what="health history" />
+                        )}
                     </CardContent>
                 </Card>
 
-                {/* Content Area */}
                 <div className="md:col-span-2">
-                    <Tabs defaultValue="overview">
-                        <TabsList className="w-full justify-start">
-                            <TabsTrigger value="overview">Overview</TabsTrigger>
-                            <TabsTrigger value="history">Medical History</TabsTrigger>
-                            <TabsTrigger value="notes">Clinical Notes</TabsTrigger>
+                    <Tabs defaultValue="visits">
+                        <TabsList className="w-full justify-start flex-wrap h-auto">
+                            <TabsTrigger value="visits">My Visits</TabsTrigger>
+                            <TabsTrigger value="vitals">Vitals</TabsTrigger>
+                            <TabsTrigger value="ai">AI Diagnoses</TabsTrigger>
+                            <TabsTrigger value="rx">Prescriptions & Labs</TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="overview" className="space-y-6 mt-4">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Activity className="w-5 h-5 text-primary" />
-                                        Vitals Trends
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="h-[300px]">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={chartData}>
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="date" />
-                                            <YAxis />
-                                            <Tooltip />
-                                            <Line type="monotone" dataKey="systolic" stroke="#ef4444" name="Systolic BP" strokeWidth={2} connectNulls />
-                                            <Line type="monotone" dataKey="diastolic" stroke="#f97316" name="Diastolic BP" strokeWidth={2} connectNulls />
-                                            <Line type="monotone" dataKey="heartRate" stroke="#3b82f6" name="Heart Rate" strokeWidth={2} connectNulls opacity={0.5} />
-                                            <Line type="monotone" dataKey="temperature" stroke="#fb923c" name="Temp (°C)" strokeWidth={2} connectNulls opacity={0.5} />
-                                            <Line type="monotone" dataKey="oxygenSaturation" stroke="#0ea5e9" name="SpO2 (%)" strokeWidth={2} connectNulls opacity={0.5} />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </CardContent>
-                            </Card>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <Card>
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="text-sm font-medium">Last Visit</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="text-2xl font-bold">
-                                            {consultations.length > 0
-                                                ? new Date(consultations[0].created_at).toLocaleDateString()
-                                                : "None"}
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">
-                                            {consultations.length > 0 ? "General Checkup" : "No visits recorded"}
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="text-sm font-medium">Total Consults</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="text-2xl font-bold">{consultations.length}</div>
-                                        <p className="text-xs text-muted-foreground">Lifetime</p>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="history" className="mt-4">
+                        <TabsContent value="visits" className="mt-4">
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <FileText className="w-5 h-5 text-primary" />
-                                        Clinical History
+                                        Visits with you
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent>
-                                    {/* Placeholder for AI Summary if not stored in DB yet */}
-                                    <div className="text-sm text-muted-foreground">
-                                        No recent clinical summary available for this patient.
-                                    </div>
+                                <CardContent className="p-0">
+                                    {record.consultations.length === 0 ? (
+                                        <div className="p-4 text-sm text-muted-foreground">No consultations found.</div>
+                                    ) : (
+                                        record.consultations.map((c) => (
+                                            <div key={c.id} className="flex items-start gap-4 p-4 border-b last:border-0">
+                                                <div className="mt-1 bg-primary/10 p-2 rounded-full">
+                                                    <Calendar className="w-4 h-4 text-primary" />
+                                                </div>
+                                                <div className="space-y-1 text-sm min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <h4 className="font-semibold">{fmtDate(c.visit_at)}</h4>
+                                                        <Badge variant="outline" className="capitalize">{c.status}</Badge>
+                                                    </div>
+                                                    {c.chief_complaint && <p><span className="text-muted-foreground">Complaint: </span>{c.chief_complaint}</p>}
+                                                    {c.diagnosis && <p className="font-medium">Dx: {c.diagnosis}</p>}
+                                                    {c.differential_diagnosis && <p><span className="text-muted-foreground">Differential: </span>{c.differential_diagnosis}</p>}
+                                                    {c.physical_exam && <p><span className="text-muted-foreground">Exam: </span>{c.physical_exam}</p>}
+                                                    {c.notes && <p className="whitespace-pre-wrap">{c.notes}</p>}
+                                                    {c.clinical_summary && <p className="text-muted-foreground whitespace-pre-wrap">{c.clinical_summary}</p>}
+                                                    {c.follow_up_plan && <p><span className="text-muted-foreground">Follow-up: </span>{c.follow_up_plan}</p>}
+                                                    {c.referral && <p><span className="text-muted-foreground">Referral: </span>{c.referral}</p>}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
                                 </CardContent>
                             </Card>
                         </TabsContent>
 
-                        <TabsContent value="notes" className="mt-4 space-y-6">
+                        <TabsContent value="vitals" className="mt-4">
+                            {record.vitals === null ? (
+                                <NotShared what="vitals" />
+                            ) : (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Activity className="w-5 h-5 text-primary" />
+                                            Vitals Trends
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="h-[300px]">
+                                        {chartData.length === 0 ? (
+                                            <div className="text-sm text-muted-foreground">No vitals recorded.</div>
+                                        ) : (
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <LineChart data={chartData}>
+                                                    <CartesianGrid strokeDasharray="3 3" />
+                                                    <XAxis dataKey="date" />
+                                                    <YAxis />
+                                                    <Tooltip />
+                                                    <Line type="monotone" dataKey="systolic" stroke="#ef4444" name="Systolic BP" strokeWidth={2} connectNulls />
+                                                    <Line type="monotone" dataKey="diastolic" stroke="#f97316" name="Diastolic BP" strokeWidth={2} connectNulls />
+                                                    <Line type="monotone" dataKey="heartRate" stroke="#3b82f6" name="Heart Rate" strokeWidth={2} connectNulls opacity={0.5} />
+                                                    <Line type="monotone" dataKey="temperature" stroke="#fb923c" name="Temp (°C)" strokeWidth={2} connectNulls opacity={0.5} />
+                                                    <Line type="monotone" dataKey="oxygenSaturation" stroke="#0ea5e9" name="SpO2 (%)" strokeWidth={2} connectNulls opacity={0.5} />
+                                                </LineChart>
+                                            </ResponsiveContainer>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </TabsContent>
+
+                        <TabsContent value="ai" className="mt-4">
+                            {record.ai_diagnoses === null ? (
+                                <NotShared what="AI diagnosis history" />
+                            ) : (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Brain className="w-5 h-5 text-primary" />
+                                            AI Diagnoses
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-0">
+                                        {record.ai_diagnoses.length === 0 ? (
+                                            <div className="p-4 text-sm text-muted-foreground">No AI diagnoses yet.</div>
+                                        ) : (
+                                            record.ai_diagnoses.map((d) => (
+                                                <div key={d.id} className="p-4 border-b last:border-0 space-y-1 text-sm">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="font-semibold">{d.condition || 'Unspecified'}</span>
+                                                        {d.severity && <Badge variant={d.severity === 'severe' ? 'destructive' : 'secondary'} className="capitalize">{d.severity}</Badge>}
+                                                        {d.confidence_percentage != null && <span className="text-muted-foreground">{d.confidence_percentage}% confidence</span>}
+                                                        {d.flagged && <Badge variant="destructive">Flagged</Badge>}
+                                                    </div>
+                                                    {d.rationale && <p className="text-muted-foreground">{d.rationale}</p>}
+                                                    <p className="text-xs text-muted-foreground">{fmtDate(d.created_at)}</p>
+                                                </div>
+                                            ))
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </TabsContent>
+
+                        <TabsContent value="rx" className="mt-4 space-y-4">
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Past Consultations</CardTitle>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Pill className="w-5 h-5 text-primary" />
+                                        Prescriptions you issued
+                                    </CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-0">
-                                    {consultations.length === 0 ? (
-                                        <div className="p-4 text-sm text-muted-foreground">No past consultations found.</div>
+                                    {record.prescriptions.length === 0 ? (
+                                        <div className="p-4 text-sm text-muted-foreground">None.</div>
                                     ) : (
-                                        consultations.map((consult) => (
-                                            <div key={consult.id} className="flex items-start gap-4 p-4 border-b last:border-0 hover:bg-muted/50 transition-colors">
-                                                <div className="mt-1 bg-primary/10 p-2 rounded-full">
-                                                    <Calendar className="w-4 h-4 text-primary" />
+                                        record.prescriptions.map((rx) => {
+                                            const items: any[] = Array.isArray(rx.prescription_data)
+                                                ? rx.prescription_data
+                                                : Array.isArray(rx.prescription_data?.medications)
+                                                    ? rx.prescription_data.medications
+                                                    : [];
+                                            return (
+                                                <div key={rx.id} className="p-4 border-b last:border-0 text-sm space-y-1">
+                                                    <p className="text-xs text-muted-foreground">{fmtDate(rx.created_at)}</p>
+                                                    {items.length > 0 ? (
+                                                        <ul className="space-y-0.5">
+                                                            {items.map((m, i) => (
+                                                                <li key={i} className="font-medium">
+                                                                    {m.name || m.drug || 'Medication'}
+                                                                    <span className="text-muted-foreground font-normal">
+                                                                        {[m.dosage, m.frequency, m.duration].filter(Boolean).length ? ` — ${[m.dosage, m.frequency, m.duration].filter(Boolean).join(', ')}` : ''}
+                                                                    </span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    ) : (
+                                                        <p className="text-muted-foreground">Prescription on file.</p>
+                                                    )}
+                                                    {rx.notes && <p>{rx.notes}</p>}
                                                 </div>
-                                                <div>
-                                                    <h4 className="font-semibold">Consultation</h4>
-                                                    <p className="text-sm text-muted-foreground">{new Date(consult.created_at).toLocaleDateString()}</p>
-                                                    {consult.notes && <p className="mt-2 text-sm">{consult.notes}</p>}
-                                                    {consult.diagnosis && <p className="mt-1 text-sm font-medium">Dx: {consult.diagnosis}</p>}
+                                            );
+                                        })
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <FlaskConical className="w-5 h-5 text-primary" />
+                                        Lab orders you placed
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    {record.lab_orders.length === 0 ? (
+                                        <div className="p-4 text-sm text-muted-foreground">None.</div>
+                                    ) : (
+                                        record.lab_orders.map((l) => (
+                                            <div key={l.id} className="p-4 border-b last:border-0 text-sm space-y-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold">{l.test_name}</span>
+                                                    {l.urgency && <Badge variant="outline" className="capitalize">{l.urgency}</Badge>}
+                                                    {l.status && <Badge variant="secondary" className="capitalize">{l.status.replace('_', ' ')}</Badge>}
                                                 </div>
+                                                {l.reason && <p className="text-muted-foreground">{l.reason}</p>}
+                                                {l.results && <p>Result: {l.results}</p>}
+                                                <p className="text-xs text-muted-foreground">{fmtDate(l.created_at)}</p>
                                             </div>
                                         ))
                                     )}
