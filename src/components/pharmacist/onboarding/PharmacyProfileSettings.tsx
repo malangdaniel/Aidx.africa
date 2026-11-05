@@ -178,10 +178,11 @@ export default function PharmacyProfileSettings({ inModal = false, onClose }: Ph
       };
 
       const existingMeta = (pharmacy.metadata as Record<string, any>) || {};
+      // Cast so the payload satisfies the generated Json type for metadata.
       const updatedMeta = {
         ...existingMeta,
         pending_changes: pendingChangesPayload,
-      };
+      } as unknown as Record<string, any>;
 
       const { error } = await supabase
         .from('pharmacies')

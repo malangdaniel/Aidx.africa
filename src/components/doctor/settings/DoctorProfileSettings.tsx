@@ -288,10 +288,11 @@ export function DoctorProfileSettings({ onSaved }: DoctorProfileSettingsProps) {
       };
 
       const existingMeta = (profile.metadata as Record<string, any>) || {};
+      // Cast so the payload satisfies the generated Json type for metadata.
       const updatedMeta = {
         ...existingMeta,
         pending_doctor_changes: pendingChangesPayload,
-      };
+      } as unknown as Record<string, any>;
 
       const { error: profileError } = await supabase
         .from("profiles")

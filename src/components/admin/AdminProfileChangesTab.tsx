@@ -88,6 +88,10 @@ export interface PharmacyChangeItem {
 
 export type ProfileChangeItem = DoctorChangeItem | PharmacyChangeItem;
 
+// Supabase update payloads must match the generated Json type; arbitrary
+// metadata blobs are safe to cast since they are written verbatim.
+const toMeta = (value: unknown): Record<string, any> => value as Record<string, any>;
+
 interface Props {
   onCountChange?: (count: number) => void;
 }
@@ -160,8 +164,6 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
         const doctorEmail =
           userEmailMap[p.user_id] ||
           meta.email ||
-          meta.doctorProfile?.basicInfo?.email ||
-          pending.pendingChanges?.basicInfo?.email ||
           p.phone ||
           null;
 
@@ -353,7 +355,7 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
             first_name: changes.firstName,
             last_name: changes.lastName,
             updated_at: now,
-            metadata: {
+            metadata: toMeta({
               ...curMeta,
               doctorProfile: {
                 basicInfo: changes.basicInfo,
@@ -366,7 +368,7 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
                 pendingChangesStatus: 'approved',
                 approvedAt: now,
               },
-            },
+            }),
           })
           .eq('user_id', selectedItem.userId);
 
@@ -450,7 +452,7 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
         const { error: mErr } = await supabase
           .from('pharmacies')
           .update({
-            metadata: updatedMeta,
+            metadata: toMeta(updatedMeta),
             updated_at: now,
           })
           .eq('id', selectedItem.id);
@@ -489,7 +491,7 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
         const { error } = await supabase
           .from('profiles')
           .update({
-            metadata: {
+            metadata: toMeta({
               ...curMeta,
               pending_doctor_changes: {
                 ...selectedItem.pendingPayload,
@@ -497,7 +499,7 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
                 pendingChangesRejectionReason: reasonText,
                 rejectedAt: now,
               },
-            },
+            }),
             updated_at: now,
           })
           .eq('user_id', selectedItem.userId);
@@ -509,7 +511,7 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
         const { error } = await supabase
           .from('pharmacies')
           .update({
-            metadata: {
+            metadata: toMeta({
               ...existingMeta,
               pending_changes: {
                 ...selectedItem.pendingPayload,
@@ -517,7 +519,7 @@ export default function AdminProfileChangesTab({ onCountChange }: Props) {
                 rejection_reason: reasonText,
                 rejected_at: now,
               },
-            },
+            }),
             updated_at: now,
           })
           .eq('id', selectedItem.id);
