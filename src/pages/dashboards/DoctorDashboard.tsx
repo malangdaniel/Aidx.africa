@@ -505,6 +505,11 @@ export default function DoctorDashboard() {
     return amount.toString();
   };
 
+  const avgReviewRating = reviews.length > 0
+    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    : 0;
+  const ratingCount = reviews.length;
+
   return (
     <DashboardLayout
       title="Doctor Dashboard"
