@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Video, Phone, MessageSquare, CheckCircle2, Loader2, ShieldCheck, RefreshCw, Clock, Wallet, AlertCircle, Plus } from 'lucide-react';
 import { Doctor } from './DoctorCard';
 import { supabase } from '@/integrations/supabase/client';
@@ -44,6 +45,7 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm, isSub
     const [walletBalance, setWalletBalance] = useState<number | null>(null);
     const [loadingWallet, setLoadingWallet] = useState(false);
     const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
+    const [shareHealthData, setShareHealthData] = useState(false);
 
     const availableDays: string[] = doctor?.availableDays?.length ? doctor.availableDays : [];
     const modes = doctor?.consultationModes?.length ? doctor.consultationModes : ['video', 'audio', 'chat'];
@@ -147,10 +149,12 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm, isSub
             date,
             timeSlot: selectedSlot ? formatSlot(selectedSlot) : '',
             scheduledAt: selectedSlot,
-            consultType
+            consultType,
+            shareHealthData
         });
         setStep(1);
         setSelectedSlot(null);
+        setShareHealthData(false);
     };
 
     return (
@@ -333,6 +337,30 @@ export default function BookingModal({ doctor, isOpen, onClose, onConfirm, isSub
                                     </Button>
                                 </div>
                             )}
+
+                            <label
+                                htmlFor="share-health-data"
+                                className="mt-3 flex items-start gap-3 rounded-lg border border-border p-3 text-left text-xs cursor-pointer"
+                            >
+                                <Checkbox
+                                    id="share-health-data"
+                                    checked={shareHealthData}
+                                    onCheckedChange={(v) => setShareHealthData(v === true)}
+                                    className="mt-0.5"
+                                />
+                                <span className="space-y-1">
+                                    <span className="block font-semibold text-foreground">
+                                        Share my health history with this doctor (optional)
+                                    </span>
+                                    <span className="block text-muted-foreground">
+                                        Lets {doctor.name} see your allergies, conditions, medications, vitals and AI
+                                        diagnosis history, plus finalized notes from other doctors who treated you.
+                                        You get a notification whenever the doctor opens your record, and you can
+                                        review every access in your profile. To share with every doctor you book,
+                                        turn it on in Settings.
+                                    </span>
+                                </span>
+                            </label>
 
                             <div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-secondary/40 p-3 text-left text-xs">
                                 <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0 text-primary" />

@@ -64,7 +64,14 @@ export class ConsultationService {
 
     // --- ACTIONS ---
 
-    static async bookConsultation(doctorId: string, _patientId: string, scheduledAt: Date, price: number, notes?: string) {
+    static async bookConsultation(
+        doctorId: string,
+        _patientId: string,
+        scheduledAt: Date,
+        price: number,
+        notes?: string,
+        shareHealthData = false
+    ) {
         const { data, error } = await (supabase.rpc as any)('charge_wallet_consultation', {
             p_doctor_id: doctorId,
             p_scheduled_at: scheduledAt.toISOString(),
@@ -74,6 +81,18 @@ export class ConsultationService {
 
         if (error) {
             throw new Error(error.message || 'Failed to book consultation');
+        }
+
+        // Patient consent to share health history, vitals and AI diagnoses with this doctor.
+        // Only the patient can change this flag (enforced by a database trigger).
+        const consultationId: string | undefined = data?.consultation_id ?? data?.id;
+        if (shareHealthData && consultationId) {
+            const { error: consentError } = await (supabase.from('consultations') as any)
+                .update({ data_sharing_consent: true, data_sharing_consent_at: new Date().toISOString() })
+                .eq('id', consultationId);
+            if (consentError) {
+                console.error('Could not record data sharing consent:', consentError);
+            }
         }
 
         return data;

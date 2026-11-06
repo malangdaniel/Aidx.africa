@@ -14,7 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, LogOut, User, Stethoscope, HeartPulse, Building2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, LogOut, User, Stethoscope, HeartPulse, Building2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { DoctorProfileSettings } from '@/components/doctor/settings/DoctorProfileSettings';
 import PharmacyProfileSettings from '@/components/pharmacist/onboarding/PharmacyProfileSettings';
@@ -39,6 +40,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     const [genotype, setGenotype] = useState('');
     const [address, setAddress] = useState('');
     const [avatarUrl, setAvatarUrl] = useState('');
+    const [shareRecords, setShareRecords] = useState(false);
 
     const isDoctor = profile?.role === 'doctor';
     const isPharmacist = profile?.role === 'pharmacist';
@@ -53,6 +55,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             setGenotype(meta.genotype || '');
             setAddress(meta.address || '');
             setAvatarUrl(meta.avatar_url || '');
+            setShareRecords(!!profile.records_sharing_consent);
         }
     }, [profile, open]);
 
@@ -61,7 +64,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         setLoading(true);
 
         try {
-            const updates = {
+            const updates: Record<string, any> = {
                 first_name: firstName,
                 last_name: lastName,
                 updated_at: new Date().toISOString(),
@@ -75,9 +78,15 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 }
             };
 
+            // Record-sharing consent is a patient-only setting; stamp the time only when it changes.
+            if (profile.role === 'patient' && shareRecords !== !!profile.records_sharing_consent) {
+                updates.records_sharing_consent = shareRecords;
+                updates.records_sharing_consent_at = new Date().toISOString();
+            }
+
             const { error } = await supabase
                 .from('profiles')
-                .update(updates)
+                .update(updates as any)
                 .eq('id', profile.id);
 
             if (error) throw error;
@@ -194,6 +203,33 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     className="h-9"
                 />
             </div>
+
+            {/* Consent to share the full record with doctors (patients only) */}
+            {profile?.role === 'patient' && (
+                <label
+                    htmlFor="share-records"
+                    className="flex items-start gap-3 rounded-lg border-2 border-primary/40 bg-primary/5 p-3 cursor-pointer"
+                >
+                    <Checkbox
+                        id="share-records"
+                        checked={shareRecords}
+                        onCheckedChange={(v) => setShareRecords(v === true)}
+                        className="mt-0.5"
+                    />
+                    <span className="space-y-1 text-xs">
+                        <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                            Share my full health record with doctors I book
+                        </span>
+                        <span className="block text-muted-foreground">
+                            Helps your doctor give safe, continuous care by letting them see your health history,
+                            vitals, AI diagnoses, and the finalized notes, prescriptions and lab orders from other
+                            doctors who treated you. This is optional and off until you tick it. You are notified
+                            every time a doctor opens your record, and you can turn this off at any time.
+                        </span>
+                    </span>
+                </label>
+            )}
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-2 pt-3 border-t">

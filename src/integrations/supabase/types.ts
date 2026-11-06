@@ -1756,6 +1756,8 @@ export type Database = {
           last_name: string | null
           metadata: Json | null
           phone: string | null
+          records_sharing_consent: boolean
+          records_sharing_consent_at: string | null
           rejection_reason: string | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
@@ -1776,6 +1778,8 @@ export type Database = {
           last_name?: string | null
           metadata?: Json | null
           phone?: string | null
+          records_sharing_consent?: boolean
+          records_sharing_consent_at?: string | null
           rejection_reason?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
@@ -1796,6 +1800,8 @@ export type Database = {
           last_name?: string | null
           metadata?: Json | null
           phone?: string | null
+          records_sharing_consent?: boolean
+          records_sharing_consent_at?: string | null
           rejection_reason?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
