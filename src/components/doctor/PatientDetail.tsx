@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -95,8 +95,11 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
     const [confirmOpen, setConfirmOpen] = useState(true);
     const [loading, setLoading] = useState(false);
     const [record, setRecord] = useState<PatientRecord | null>(null);
+    // Set synchronously so the dialog's close handler can tell "confirmed" from "dismissed".
+    const confirmedRef = useRef(false);
 
     const openRecord = async () => {
+        confirmedRef.current = true;
         setConfirmOpen(false);
         setLoading(true);
         try {
@@ -118,7 +121,7 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
     if (!record) {
         return (
             <>
-                <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!o && !loading && !record) onBack(); }}>
+                <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!o && !confirmedRef.current) onBack(); }}>
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle className="flex items-center gap-2">
@@ -136,7 +139,7 @@ export default function PatientDetail({ patientId, onBack }: PatientDetailProps)
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                            <AlertDialogCancel onClick={onBack}>Cancel</AlertDialogCancel>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction onClick={openRecord}>I understand, open record</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
