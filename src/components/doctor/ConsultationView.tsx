@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { ConsultationService, LabOrder as ServiceLabOrder, PastReport } from '@/services/ConsultationService';
 import { PatientRecordService, PatientRecord } from '@/services/PatientRecordService';
+import { ClinicalSummaryService, ClinicalSummaryRow, HpiRow } from '@/services/ClinicalSummaryService';
 
 interface PrescriptionItem {
     name: string;
@@ -132,7 +133,52 @@ export default function ConsultationView({ consultationId, patientName, clinical
     // New Data State
     const [patientProfile, setPatientProfile] = useState<any>(null);
     const [aiClinicalSummary, setAiClinicalSummary] = useState<string>('');
-    const [aiDecisionSupport, setAiDecisionSupport] = useState<any>(null);
+
+    // Patient-level AI clinical summary and doctor-only HPI / decision support
+    const [patientSummary, setPatientSummary] = useState<ClinicalSummaryRow | null>(null);
+    const [summaryLoading, setSummaryLoading] = useState(false);
+    const [summaryError, setSummaryError] = useState<string | null>(null);
+    const [hpiRow, setHpiRow] = useState<HpiRow | null>(null);
+    const [hpiLoading, setHpiLoading] = useState(false);
+
+    const loadPatientSummary = async (pid: string, refresh: 'auto' | 'force') => {
+        setSummaryLoading(true);
+        setSummaryError(null);
+        try {
+            setPatientSummary(await ClinicalSummaryService.getForDoctor(pid, refresh));
+        } catch (err: any) {
+            console.error('Clinical summary error:', err);
+            setSummaryError(err?.message || 'Could not load the clinical summary.');
+        } finally {
+            setSummaryLoading(false);
+        }
+    };
+
+    const handleGenerateHpi = async () => {
+        setHpiLoading(true);
+        try {
+            const row = await ClinicalSummaryService.generateHpi(consultationId, {
+                chiefComplaint,
+                physicalExam,
+                notes: note,
+                diagnosis,
+                differentialDiagnosis,
+                symptomChecklist,
+                prescriptions: prescribedMeds,
+                labOrders,
+            });
+            setHpiRow(row);
+            // The server refreshes the summary first when it is stale, so pick up the latest version
+            if (patientId) {
+                ClinicalSummaryService.getForDoctor(patientId, 'never').then(setPatientSummary).catch(() => { /* keep current */ });
+            }
+        } catch (err: any) {
+            console.error('HPI error:', err);
+            toast.error(err?.message || 'Could not generate the HPI. Please try again.');
+        } finally {
+            setHpiLoading(false);
+        }
+    };
 
     // Initialize: Fetch Patient Data + Join Realtime Channel
     useEffect(() => {
@@ -169,7 +215,10 @@ export default function ConsultationView({ consultationId, patientName, clinical
 
                     // 4. Set AI Data if available
                     if (consult.clinical_summary) setAiClinicalSummary(consult.clinical_summary);
-                    if (consult.decision_support) setAiDecisionSupport(consult.decision_support);
+
+                    // 4b. Doctor-only HPI (if generated before) and the patient's living clinical summary
+                    ClinicalSummaryService.getHpi(consultationId).then(setHpiRow).catch(() => { /* none yet */ });
+                    loadPatientSummary(consult.patient_id, 'auto');
 
                     // 5. Load read-only history from previous consultations
                     setLoadingHistory(true);
@@ -609,54 +658,193 @@ export default function ConsultationView({ consultationId, patientName, clinical
                                     <CardHeader className="py-2.5 bg-primary/5 flex flex-row items-center justify-between">
                                         <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-primary flex items-center gap-2">
                                             <FileText className="w-3.5 h-3.5" />
-                                            AI HPI Summary
+                                            AI Clinical Summary
                                         </CardTitle>
-                                        <Badge variant="outline" className="text-[9px] h-4 border-primary/20 text-primary/70">AUTO-GEN</Badge>
+                                        <div className="flex items-center gap-1.5">
+                                            {patientSummary?.generated_at && patientSummary.is_stale && (
+                                                <Badge variant="outline" className="text-[9px] h-4 border-amber-400 text-amber-700">UPDATE AVAILABLE</Badge>
+                                            )}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-5 w-5"
+                                                title="Refresh summary"
+                                                disabled={summaryLoading || !patientId}
+                                                onClick={() => patientId && loadPatientSummary(patientId, 'force')}
+                                            >
+                                                {summaryLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                                            </Button>
+                                        </div>
                                     </CardHeader>
-                                    <CardContent className="p-3">
-                                        {aiClinicalSummary ? (
-                                            <div className="text-[12px] font-medium leading-relaxed whitespace-pre-wrap bg-primary/5 p-3 rounded-md border border-primary/10 text-primary/90">
-                                                {aiClinicalSummary}
+                                    <CardContent className="p-3 space-y-2">
+                                        {summaryLoading && !patientSummary?.generated_at ? (
+                                            <p className="text-xs text-muted-foreground italic text-center py-4 flex items-center justify-center gap-2">
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Preparing the patient's summary…
+                                            </p>
+                                        ) : patientSummary?.generated_at ? (
+                                            <div className="space-y-2 text-[11px] leading-snug">
+                                                {patientSummary.summary.headline && <p className="font-bold text-[12px]">{patientSummary.summary.headline}</p>}
+                                                {patientSummary.summary.narrative && <p className="whitespace-pre-wrap text-foreground/80">{patientSummary.summary.narrative}</p>}
+                                                {([
+                                                    ['Problem list', patientSummary.summary.problem_list?.map(x => `${x.problem}${x.status ? ` (${x.status})` : ''}${x.detail ? ` — ${x.detail}` : ''}`)],
+                                                    ['Medications', patientSummary.summary.medications?.map(x => `${x.name}${x.dose ? ` — ${x.dose}` : ''}`)],
+                                                    ['Allergies', patientSummary.summary.allergies?.map(x => `${x.allergen}${x.reaction ? ` — ${x.reaction}` : ''}`)],
+                                                    ['Past history', patientSummary.summary.past_history?.map(x => `${x.item}${x.detail ? ` — ${x.detail}` : ''}`)],
+                                                    ['Family / social', [...(patientSummary.summary.family_history ?? []).map(x => `FH: ${x.item}`), ...(patientSummary.summary.social_history ?? []).map(x => `SH: ${x.item}`)]],
+                                                    ['Results', patientSummary.summary.results?.map(x => `${x.test}: ${x.value ?? ''} ${x.unit ?? ''}${x.reference ? ` (ref ${x.reference})` : ''}${x.flag && x.flag !== 'unflagged' ? ` · ${x.flag.toUpperCase()}` : ''}${x.date ? ` · ${x.date}` : ''}`)],
+                                                    ['Imaging', patientSummary.summary.imaging?.map(x => `${x.study}: ${x.finding ?? ''}${x.date ? ` · ${x.date}` : ''}`)],
+                                                    ['Previous consultations', patientSummary.summary.recent_encounters?.map(x => `${x.date ? `${x.date}: ` : ''}${x.summary}`)],
+                                                    ['Patient AI chats', patientSummary.summary.ai_chat_highlights?.map(x => `${x.date ? `${x.date}: ` : ''}${x.summary}`)],
+                                                    ['Data gaps', patientSummary.summary.data_gaps],
+                                                ] as Array<[string, string[] | undefined]>).filter(([, items]) => items && items.length > 0).map(([title, items]) => (
+                                                    <details key={title} className="rounded border border-primary/10 bg-primary/5 px-2 py-1" open={title === 'Allergies' || title === 'Problem list'}>
+                                                        <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-wider text-primary/80">{title} ({items!.length})</summary>
+                                                        <ul className="mt-1 space-y-0.5 list-disc pl-4">
+                                                            {items!.map((t, i) => <li key={i}>{t}</li>)}
+                                                        </ul>
+                                                    </details>
+                                                ))}
+                                                {patientSummary.summary.vitals_trend && <p><span className="font-semibold">Vitals: </span>{patientSummary.summary.vitals_trend}</p>}
+                                                {patientSummary.summary.changes_since_last && patientSummary.version > 1 && (
+                                                    <p className="text-muted-foreground"><span className="font-semibold">Since last version: </span>{patientSummary.summary.changes_since_last}</p>
+                                                )}
+                                                <p className="text-[9px] text-muted-foreground border-t pt-1.5">
+                                                    v{patientSummary.version} · {new Date(patientSummary.generated_at).toLocaleString()} · AI-generated, verify before relying on it.
+                                                </p>
                                             </div>
+                                        ) : summaryError ? (
+                                            <p className="text-xs text-muted-foreground italic text-center py-3">{summaryError}</p>
                                         ) : (
                                             <p className="text-xs text-muted-foreground italic text-center py-4">
-                                                {clinicalSummary || "No AI summary available for this session."}
+                                                {aiClinicalSummary || clinicalSummary || "No AI summary available for this patient yet."}
                                             </p>
                                         )}
                                     </CardContent>
                                 </Card>
 
-                                {/* Decision Support Card */}
+                                {/* HPI / Decision Support Card (doctor-only) */}
                                 <Card className="border-orange-500/20 bg-orange-500/5 shadow-none overflow-hidden">
-                                    <CardHeader className="py-2.5 bg-orange-500/10 flex flex-row items-center gap-2">
-                                        <Activity className="w-3.5 h-3.5 text-orange-600" />
-                                        <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-orange-700">Decision Support</CardTitle>
+                                    <CardHeader className="py-2.5 bg-orange-500/10 flex flex-row items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <Activity className="w-3.5 h-3.5 text-orange-600" />
+                                            <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-orange-700">HPI &amp; Decision Support</CardTitle>
+                                        </div>
+                                        <Badge variant="outline" className="text-[9px] h-4 border-orange-300 text-orange-700">DOCTOR ONLY</Badge>
                                     </CardHeader>
                                     <CardContent className="p-3 space-y-3">
-                                        {aiDecisionSupport ? (
-                                            <>
-                                                <div className="space-y-1.5">
-                                                    <div className="flex items-center justify-between">
-                                                        <Label className="text-[10px] font-bold text-orange-600/70 uppercase">AI Suggestions</Label>
-                                                        <Badge className="bg-orange-600 text-[9px] h-3.5 px-1 font-black">PREMIUM</Badge>
-                                                    </div>
-                                                    <div className="p-2 bg-white/50 border border-orange-200 rounded text-[11px] font-bold text-orange-800 flex items-center gap-2">
-                                                        <AlertCircle className="w-3.5 h-3.5" />
-                                                        {aiDecisionSupport.differential_diagnosis || "Analysis Pending"}
-                                                    </div>
-                                                </div>
-                                                {aiDecisionSupport.red_flags && (
-                                                    <div className="space-y-1">
-                                                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-600">
-                                                            <Siren className="w-3 h-3" /> RED FLAGS DETECTED
-                                                        </div>
-                                                        <p className="text-[10px] text-muted-foreground leading-snug">{aiDecisionSupport.red_flags}</p>
+                                        {hpiRow?.hpi ? (
+                                            <div className="space-y-2.5 text-[11px] leading-snug">
+                                                {hpiRow.hpi.hpi && (
+                                                    <div>
+                                                        <Label className="text-[10px] font-bold text-orange-600/70 uppercase">HPI</Label>
+                                                        <p className="mt-0.5 whitespace-pre-wrap">{hpiRow.hpi.hpi}</p>
                                                     </div>
                                                 )}
-                                            </>
+                                                {hpiRow.hpi.red_flags && hpiRow.hpi.red_flags.filter(Boolean).length > 0 && (
+                                                    <div className="rounded border border-red-200 bg-red-50 p-2 space-y-1">
+                                                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-600"><Siren className="w-3 h-3" /> RED FLAGS</div>
+                                                        <ul className="list-disc pl-4 text-red-800">{hpiRow.hpi.red_flags.filter(Boolean).map((f, i) => <li key={i}>{f}</li>)}</ul>
+                                                    </div>
+                                                )}
+                                                {hpiRow.hpi.working_diagnosis?.name && (
+                                                    <div className="p-2 bg-white/60 border border-orange-200 rounded space-y-0.5">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <span className="font-bold text-orange-800">{hpiRow.hpi.working_diagnosis.name}</span>
+                                                            {hpiRow.hpi.working_diagnosis.confidence && (
+                                                                <Badge className="bg-orange-600 text-[9px] h-3.5 px-1 font-black uppercase">{hpiRow.hpi.working_diagnosis.confidence}</Badge>
+                                                            )}
+                                                        </div>
+                                                        {hpiRow.hpi.working_diagnosis.reasoning && <p className="text-muted-foreground">{hpiRow.hpi.working_diagnosis.reasoning}</p>}
+                                                    </div>
+                                                )}
+                                                {hpiRow.hpi.differentials && hpiRow.hpi.differentials.length > 0 && (
+                                                    <div>
+                                                        <Label className="text-[10px] font-bold text-orange-600/70 uppercase">Differentials</Label>
+                                                        <ul className="mt-0.5 space-y-1">
+                                                            {hpiRow.hpi.differentials.map((d, i) => (
+                                                                <li key={i}>
+                                                                    <span className="font-semibold">{d.name}</span>{d.likelihood ? ` (${d.likelihood})` : ''}
+                                                                    {d.for && <span className="block text-muted-foreground">For: {d.for}</span>}
+                                                                    {d.against && <span className="block text-muted-foreground">Against: {d.against}</span>}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                                {hpiRow.hpi.recommended_investigations && hpiRow.hpi.recommended_investigations.length > 0 && (
+                                                    <div>
+                                                        <Label className="text-[10px] font-bold text-orange-600/70 uppercase">Suggested investigations</Label>
+                                                        <ul className="mt-0.5 space-y-1">
+                                                            {hpiRow.hpi.recommended_investigations.map((inv, i) => {
+                                                                const urgency: LabOrder['urgency'] = inv.urgency === 'stat' || inv.urgency === 'urgent' ? inv.urgency : 'routine';
+                                                                const added = labOrders.some(l => l.testName.toLowerCase() === inv.test.toLowerCase());
+                                                                return (
+                                                                    <li key={i} className="flex items-start justify-between gap-2">
+                                                                        <span>
+                                                                            <span className="font-semibold">{inv.test}</span>{inv.urgency && inv.urgency !== 'routine' ? ` (${inv.urgency})` : ''}
+                                                                            {inv.rationale && <span className="block text-muted-foreground">{inv.rationale}</span>}
+                                                                        </span>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="icon"
+                                                                            className="h-5 w-5 shrink-0"
+                                                                            disabled={added || isFinalized}
+                                                                            title={added ? 'Already in lab orders' : 'Add to lab orders'}
+                                                                            onClick={() => setLabOrders(prev => [...prev, { testName: inv.test, urgency, reason: inv.rationale || 'Suggested by AI decision support' }])}
+                                                                        >
+                                                                            {added ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                                                                        </Button>
+                                                                    </li>
+                                                                );
+                                                            })}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                                {hpiRow.hpi.treatment_considerations && hpiRow.hpi.treatment_considerations.length > 0 && (
+                                                    <div>
+                                                        <Label className="text-[10px] font-bold text-orange-600/70 uppercase">Treatment considerations</Label>
+                                                        <ul className="mt-0.5 list-disc pl-4">
+                                                            {hpiRow.hpi.treatment_considerations.map((t, i) => <li key={i}><span className="font-semibold">{t.item}</span>{t.detail ? ` — ${t.detail}` : ''}</li>)}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                                {(() => {
+                                                    const sc = hpiRow.hpi.safety_checks;
+                                                    const items = [...(sc?.allergy_conflicts ?? []), ...(sc?.interaction_concerns ?? []), ...(sc?.other ?? [])].filter(Boolean);
+                                                    return items.length > 0 ? (
+                                                        <div className="rounded border border-amber-300 bg-amber-50 p-2 space-y-1">
+                                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-700"><AlertTriangle className="w-3 h-3" /> SAFETY CHECKS</div>
+                                                            <ul className="list-disc pl-4 text-amber-900">{items.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                                                        </div>
+                                                    ) : null;
+                                                })()}
+                                                {hpiRow.hpi.missing_information && hpiRow.hpi.missing_information.filter(Boolean).length > 0 && (
+                                                    <div>
+                                                        <Label className="text-[10px] font-bold text-orange-600/70 uppercase">Ask / obtain</Label>
+                                                        <ul className="mt-0.5 list-disc pl-4 text-muted-foreground">{hpiRow.hpi.missing_information.filter(Boolean).map((t, i) => <li key={i}>{t}</li>)}</ul>
+                                                    </div>
+                                                )}
+                                                {hpiRow.hpi.follow_up && <p><span className="font-semibold">Follow-up: </span>{hpiRow.hpi.follow_up}</p>}
+                                                {hpiRow.hpi.based_on?.limited && (
+                                                    <p className="text-[10px] text-amber-700">Based on limited data: {hpiRow.hpi.based_on.limited}.</p>
+                                                )}
+                                                <p className="text-[9px] text-muted-foreground border-t pt-1.5">
+                                                    {new Date(hpiRow.generated_at).toLocaleString()} · {hpiRow.hpi.disclaimer || 'AI-generated decision support. You make the final decision.'}
+                                                </p>
+                                            </div>
                                         ) : (
-                                            <p className="text-xs text-muted-foreground italic text-center">No decision support data.</p>
+                                            <p className="text-xs text-muted-foreground italic text-center">No HPI generated yet. Add the chief complaint and findings, then generate.</p>
                                         )}
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full h-8 gap-2 text-[10px] font-bold uppercase tracking-wider border-orange-300 text-orange-700 hover:bg-orange-100"
+                                            disabled={hpiLoading || isFinalized}
+                                            onClick={handleGenerateHpi}
+                                        >
+                                            {hpiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5" />}
+                                            {hpiLoading ? 'Analysing…' : hpiRow?.hpi ? 'Regenerate with latest notes' : 'Generate HPI & decision support'}
+                                        </Button>
                                     </CardContent>
                                 </Card>
                             </div>

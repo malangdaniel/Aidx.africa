@@ -7,9 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Upload, FileText, Loader2, Save, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Upload, FileText, Loader2, Save, X, RefreshCw, AlertCircle, Trash2 } from 'lucide-react';
 import ListItemManager from './ListItemManager';
-import { generatePatientHealthSummary, GeneratePatientHealthSummaryInput } from '@/services/patientHistoryAi';
+import {
+    ClinicalSummaryService,
+    ClinicalSummaryRow,
+    PatientDocument,
+    ALLOWED_DOC_TYPES,
+    MAX_DOC_BYTES,
+} from '@/services/ClinicalSummaryService';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +34,20 @@ const COMMON_ALLERGIES = [
 const FAMILY_CONDITIONS = [
     "Hypertension", "Diabetes", "Cancer", "Heart Disease", "Stroke"
 ];
+
+// Small render helpers for the structured AI clinical summary
+const sourceTag = (source?: string) =>
+    source ? <span className="ml-1 text-[10px] text-muted-foreground">[{source}]</span> : null;
+
+const renderSection = (title: string, items?: React.ReactNode[]) =>
+    items && items.length > 0 ? (
+        <div key={title} className="space-y-1">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h4>
+            <ul className="list-disc space-y-0.5 pl-4">
+                {items.map((node, i) => <li key={i}>{node}</li>)}
+            </ul>
+        </div>
+    ) : null;
 
 // Type for the patient_records data structure
 interface PatientRecordData {
@@ -64,10 +85,11 @@ export default function MedicalHistoryView() {
     const [drinksAlcohol, setDrinksAlcohol] = useState(false);
     const [alcoholDetails, setAlcoholDetails] = useState('');
 
-    // Symptoms & Files
+    // Symptoms, uploaded documents and the AI clinical summary
     const [currentSymptoms, setCurrentSymptoms] = useState('');
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [documents, setDocuments] = useState<PatientDocument[]>([]);
+    const [uploading, setUploading] = useState(false);
+    const [summaryRow, setSummaryRow] = useState<ClinicalSummaryRow | null>(null);
 
     // Initial Data Fetch
     useEffect(() => {
@@ -101,8 +123,17 @@ export default function MedicalHistoryView() {
                         setDrinksAlcohol(sh.alcohol || false);
                         setAlcoholDetails(sh.alcohol_details || '');
                     }
+                    // Legacy single-paragraph summary, shown only until a structured one exists
                     if (data.clinical_summary) setAiSummary(data.clinical_summary);
                 }
+
+                // Structured AI clinical summary + uploaded documents
+                const [row, docs] = await Promise.all([
+                    ClinicalSummaryService.getMine(user.id).catch(() => null),
+                    ClinicalSummaryService.listDocuments(user.id).catch(() => [] as PatientDocument[]),
+                ]);
+                setSummaryRow(row);
+                setDocuments(docs);
             } catch (err) {
                 console.error("Error fetching medical records:", err);
                 // Silent fail or toast
@@ -114,29 +145,46 @@ export default function MedicalHistoryView() {
         fetchRecords();
     }, [user]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 10 * 1024 * 1024) {
-                toast({
-                    title: "File too large",
-                    description: "Please upload a file smaller than 10MB.",
-                    variant: "destructive"
-                });
-                return;
+    const handleFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files ?? []);
+        e.target.value = '';
+        if (!files.length || !user) return;
+
+        setUploading(true);
+        let uploaded = 0;
+        for (const file of files) {
+            if (!ALLOWED_DOC_TYPES.includes(file.type)) {
+                toast({ title: "Unsupported file", description: `${file.name}: please upload a PDF, JPG, PNG or WebP.`, variant: "destructive" });
+                continue;
             }
-            setSelectedFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreviewUrl(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+            if (file.size > MAX_DOC_BYTES) {
+                toast({ title: "File too large", description: `${file.name} is over 10MB.`, variant: "destructive" });
+                continue;
+            }
+            try {
+                await ClinicalSummaryService.uploadDocument(user.id, file, file.type === 'application/pdf' ? 'lab_report' : 'scan');
+                uploaded++;
+            } catch (err: any) {
+                console.error("Upload error:", err);
+                toast({ title: "Upload failed", description: err?.message || `Could not upload ${file.name}.`, variant: "destructive" });
+            }
         }
+        if (uploaded > 0) {
+            setDocuments(await ClinicalSummaryService.listDocuments(user.id).catch(() => documents));
+            setSummaryRow(await ClinicalSummaryService.getMine(user.id).catch(() => summaryRow));
+            toast({ title: "Uploaded", description: "Generate or update your clinical summary to include the new document." });
+        }
+        setUploading(false);
     };
 
-    const clearFile = () => {
-        setSelectedFile(null);
-        setPreviewUrl(null);
+    const handleDeleteDocument = async (doc: PatientDocument) => {
+        if (!user) return;
+        try {
+            await ClinicalSummaryService.deleteDocument(doc, user.id);
+            setDocuments(prev => prev.filter(d => d.id !== doc.id));
+        } catch (err: any) {
+            toast({ title: "Could not delete", description: err?.message || "Please try again.", variant: "destructive" });
+        }
     };
 
     const handleCheckboxChange = (
@@ -191,54 +239,28 @@ export default function MedicalHistoryView() {
     };
 
     const handleGenerateSummary = async () => {
+        if (!user) return;
         setLoadingAI(true);
-        setAiSummary(null);
 
         try {
-            // Construct Input Object
-            const socialHistoryParts = [];
-            if (isSmoker) socialHistoryParts.push(`Smoker: ${smokingDetails}`);
-            if (drinksAlcohol) socialHistoryParts.push(`Alcohol: ${alcoholDetails}`);
-            if (!isSmoker && !drinksAlcohol) socialHistoryParts.push("No smoking or alcohol reported.");
+            // Make sure the latest edits to the medical history are saved before summarising
+            await saveDataToBackend();
 
-            const input: GeneratePatientHealthSummaryInput = {
-                personalDetails: {
-                    fullName: profile ? `${profile.first_name || ''} ${profile.last_name || ''}` : "Patient",
-                    age: (profile?.metadata as any)?.age || 0,
-                    sex: (profile?.metadata as any)?.sex || "Not specified",
-                    address: (profile?.metadata as any)?.address || "Not specified",
-                    ethnicity: "Not specified",
-                    occupation: "Not specified",
-                    maritalStatus: "Not specified"
-                },
-                medicalHistory: {
-                    currentMedications: medications.map(m => ({ name: m.name, dosage: m.dosage })),
-                    pastChronicDiseases: pastConditions,
-                    otherPastConditifons: customPastConditions.map(c => ({ name: c.condition, details: c.details })),
-                    familyHistory: familyHistory,
-                    allergies: allergies,
-                    socialHistory: socialHistoryParts.join("; ")
-                },
-                symptoms: currentSymptoms || "No acute symptoms reported at this time.",
-                labResultsDataUri: previewUrl || undefined
-            };
-
-            const result = await generatePatientHealthSummary(input);
-            setAiSummary(result.summary);
-
-            // Save to DB immediately
-            await saveDataToBackend(result.summary);
+            const row = await ClinicalSummaryService.generateMine(currentSymptoms.trim() || undefined);
+            setSummaryRow(row);
+            setAiSummary(null);
+            setCurrentSymptoms('');
+            setDocuments(await ClinicalSummaryService.listDocuments(user.id).catch(() => documents));
 
             toast({
-                title: "Summary Generated & Saved",
-                description: "The clinical summary has been updated in your records.",
+                title: row.version > 1 ? "Clinical summary updated" : "Clinical summary generated",
+                description: "Your clinical summary is saved to your profile.",
             });
-
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
             toast({
-                title: "Summary Generation Failed",
-                description: "There was an error generating the clinical summary. Please try again.",
+                title: "Summary generation failed",
+                description: error?.message || "There was an error generating the clinical summary. Please try again.",
                 variant: "destructive"
             });
         } finally {
@@ -479,67 +501,123 @@ export default function MedicalHistoryView() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Lab Results (Optional)</Label>
+                            <Label>Lab Results & Scans (Optional)</Label>
                             <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
-                                {previewUrl ? (
-                                    <div className="relative">
-                                        <img src={previewUrl} alt="Preview of uploaded lab result document" loading="lazy" className="max-h-40 mx-auto rounded" />
-                                        <Button
-                                            variant="destructive"
-                                            size="icon"
-                                            className="absolute top-0 right-0 h-6 w-6"
-                                            onClick={clearFile}
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <label htmlFor="lab-file" className="cursor-pointer block">
+                                <label htmlFor="lab-file" className="cursor-pointer block">
+                                    {uploading ? (
+                                        <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin text-muted-foreground" />
+                                    ) : (
                                         <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                                        <span className="text-sm text-muted-foreground">Click to upload an image</span>
-                                        <input
-                                            id="lab-file"
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={handleFileChange}
-                                        />
-                                    </label>
-                                )}
+                                    )}
+                                    <span className="text-sm text-muted-foreground">
+                                        {uploading ? 'Uploading...' : 'Click to upload images or PDFs (max 10MB each)'}
+                                    </span>
+                                    <input
+                                        id="lab-file"
+                                        type="file"
+                                        multiple
+                                        accept="application/pdf,image/jpeg,image/png,image/webp"
+                                        className="hidden"
+                                        onChange={handleFilesChange}
+                                        disabled={uploading}
+                                    />
+                                </label>
                             </div>
+                            {documents.length > 0 && (
+                                <ul className="space-y-1.5">
+                                    {documents.map((doc) => (
+                                        <li key={doc.id} className="flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs">
+                                            <span className="flex items-center gap-2 min-w-0">
+                                                <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                <span className="truncate">{doc.file_name || doc.title || 'Document'}</span>
+                                            </span>
+                                            <span className="flex items-center gap-1.5 shrink-0">
+                                                <Badge variant={doc.extraction_status === 'failed' ? 'destructive' : 'secondary'} className="text-[10px] h-4 px-1.5">
+                                                    {doc.extraction_status === 'processed' ? 'In summary' : doc.extraction_status === 'failed' ? 'Unreadable' : 'Not yet included'}
+                                                </Badge>
+                                                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleDeleteDocument(doc)} aria-label="Remove document">
+                                                    <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                         </div>
+                        {summaryRow?.generated_at && summaryRow.is_stale && (
+                            <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                                <span>New information has been added since your last summary. Update it to include the changes.</span>
+                            </div>
+                        )}
                     </CardContent>
                     <CardFooter>
-                        <Button onClick={handleGenerateSummary} disabled={loadingAI} className="w-full">
+                        <Button onClick={handleGenerateSummary} disabled={loadingAI || uploading} className="w-full">
                             {loadingAI ? (
                                 <>
                                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    Generating...
+                                    {summaryRow?.generated_at ? 'Updating...' : 'Generating...'}
+                                </>
+                            ) : summaryRow?.generated_at ? (
+                                <>
+                                    <RefreshCw className="w-4 h-4 mr-2" />
+                                    Update Clinical Summary
                                 </>
                             ) : (
                                 <>
                                     <FileText className="w-4 h-4 mr-2" />
-                                    Generate Summary
+                                    Generate Clinical Summary
                                 </>
                             )}
                         </Button>
                     </CardFooter>
                 </Card>
 
-                {/* AI Summary Display */}
-                {aiSummary && (
+                {/* AI Clinical Summary Display */}
+                {(summaryRow?.generated_at || aiSummary) && (
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <FileText className="w-5 h-5 text-primary" />
                                 Clinical Summary
                             </CardTitle>
+                            {summaryRow?.generated_at && (
+                                <CardDescription>
+                                    Version {summaryRow.version} · updated {new Date(summaryRow.generated_at).toLocaleString()}
+                                </CardDescription>
+                            )}
                         </CardHeader>
                         <CardContent>
-                            <ScrollArea className="h-[400px] pr-4">
-                                <pre className="whitespace-pre-wrap text-sm font-mono bg-muted p-4 rounded-lg">
-                                    {aiSummary}
-                                </pre>
+                            <ScrollArea className="h-[480px] pr-4">
+                                {summaryRow?.generated_at ? (
+                                    <div className="space-y-4 text-sm">
+                                        {summaryRow.summary.headline && <p className="font-semibold">{summaryRow.summary.headline}</p>}
+                                        {summaryRow.summary.narrative && <p className="whitespace-pre-wrap leading-relaxed">{summaryRow.summary.narrative}</p>}
+                                        {renderSection('Problem list', summaryRow.summary.problem_list?.map(x => <>{x.problem}{x.status ? ` (${x.status})` : ''}{x.detail ? ` — ${x.detail}` : ''}{sourceTag(x.source)}</>))}
+                                        {renderSection('Medications', summaryRow.summary.medications?.map(x => <>{x.name}{x.dose ? ` — ${x.dose}` : ''}{sourceTag(x.source)}</>))}
+                                        {renderSection('Allergies', summaryRow.summary.allergies?.map(x => <>{x.allergen}{x.reaction ? ` — ${x.reaction}` : ''}{sourceTag(x.source)}</>))}
+                                        {renderSection('Past history', summaryRow.summary.past_history?.map(x => <>{x.item}{x.detail ? ` — ${x.detail}` : ''}{sourceTag(x.source)}</>))}
+                                        {renderSection('Family history', summaryRow.summary.family_history?.map(x => <>{x.item}{sourceTag(x.source)}</>))}
+                                        {renderSection('Social history', summaryRow.summary.social_history?.map(x => <>{x.item}{sourceTag(x.source)}</>))}
+                                        {renderSection('Results', summaryRow.summary.results?.map(x => (
+                                            <>
+                                                {x.test}: <span className={['high', 'low', 'critical'].includes((x.flag || '').toLowerCase()) ? 'font-semibold text-red-600' : ''}>{x.value} {x.unit}</span>
+                                                {x.reference ? ` (ref ${x.reference})` : ''}{x.flag && x.flag !== 'unflagged' ? ` · ${x.flag}` : ''}{x.date ? ` · ${x.date}` : ''}{sourceTag(x.source)}
+                                            </>
+                                        )))}
+                                        {renderSection('Imaging', summaryRow.summary.imaging?.map(x => <>{x.study}: {x.finding}{x.date ? ` · ${x.date}` : ''}{sourceTag(x.source)}</>))}
+                                        {renderSection('Recent consultations', summaryRow.summary.recent_encounters?.map(x => <>{x.date ? `${x.date}: ` : ''}{x.summary}{sourceTag(x.source)}</>))}
+                                        {summaryRow.summary.vitals_trend && <p><span className="font-medium">Vitals: </span>{summaryRow.summary.vitals_trend}</p>}
+                                        {renderSection('Information that would help', summaryRow.summary.data_gaps?.map(x => <>{x}</>))}
+                                        <p className="text-[11px] text-muted-foreground border-t pt-3">
+                                            {summaryRow.summary.disclaimer || 'AI-generated from the data on file. For clinician review only; it does not replace clinical judgement.'}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <pre className="whitespace-pre-wrap text-sm font-mono bg-muted p-4 rounded-lg">
+                                        {aiSummary}
+                                    </pre>
+                                )}
                             </ScrollArea>
                         </CardContent>
                     </Card>
