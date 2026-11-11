@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -15,6 +15,9 @@ import { toast } from 'sonner';
 import { WalletService } from '@/services/WalletService';
 import WithdrawalScreen from '@/components/shared/WithdrawalScreen';
 import DoctorAiReviewTab from '@/components/doctor/DoctorAiReviewTab';
+import { DoctorOnboardingService, type DoctorApplicationStatus } from '@/services/DoctorOnboardingService';
+import DoctorOnboardingWizard from '@/components/doctor/onboarding/DoctorOnboardingWizard';
+import { DoctorUnderReviewScreen, DoctorSuspendedScreen } from '@/components/doctor/onboarding/DoctorStatusScreens';
 import {
   Dialog,
   DialogContent,
@@ -73,6 +76,34 @@ export default function DoctorDashboard() {
   const [cancelReason, setCancelReason] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
 
+  const [appStatus, setAppStatus] = useState<DoctorApplicationStatus | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
+
+  const loadDoctorStatus = useCallback(async () => {
+    if (!user || !profile) return;
+    try {
+      const s = await DoctorOnboardingService.getStatus(user, profile);
+      setAppStatus(s);
+    } catch (error) {
+      console.error('Error loading doctor status:', error);
+      setAppStatus({
+        has_profile: true,
+        verification_status: (profile.verification_status as any) || 'pending',
+        profile_status: 'draft',
+      });
+    } finally {
+      setStatusLoading(false);
+    }
+  }, [user, profile]);
+
+  useEffect(() => {
+    if (user && profile) {
+      loadDoctorStatus();
+    }
+  }, [user, profile, loadDoctorStatus]);
+
+  const approved = profile?.verification_status === 'verified' && !appStatus?.is_suspended;
+
   const handleDoctorCancelConsultation = async () => {
     if (!cancelTarget) return;
     setIsCancelling(true);
@@ -91,11 +122,11 @@ export default function DoctorDashboard() {
   };
 
   useEffect(() => {
-    if (user) fetchDashboardData();
-  }, [user]);
+    if (user && approved) fetchDashboardData();
+  }, [user, approved]);
 
   const fetchDashboardData = async () => {
-    if (!user) return;
+    if (!user || !approved) return;
     setLoading(true);
     try {
       // Fetch consultation counts
@@ -538,6 +569,48 @@ export default function DoctorDashboard() {
     ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
     : 0;
   const ratingCount = reviews.length;
+
+  // ---- Approval gate: unverified doctors must complete onboarding / await approval ----
+  if (statusLoading && !appStatus) {
+    return (
+      <DashboardLayout title="Doctor Dashboard">
+        <div className="flex flex-col justify-center items-center py-28 space-y-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-xs text-muted-foreground">Checking verification status...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!approved) {
+    let gate: JSX.Element;
+    if (appStatus?.verification_status === 'verified' && appStatus.is_suspended) {
+      gate = <DoctorSuspendedScreen status={appStatus} />;
+    } else if (appStatus?.profile_status === 'submitted' && appStatus.verification_status === 'pending') {
+      gate = (
+        <DoctorUnderReviewScreen
+          status={appStatus}
+          onRefresh={loadDoctorStatus}
+          onEditApplication={() =>
+            setAppStatus((prev) => (prev ? { ...prev, profile_status: 'draft' } : prev))
+          }
+        />
+      );
+    } else {
+      gate = (
+        <DoctorOnboardingWizard
+          status={appStatus || { has_profile: true, verification_status: 'pending', profile_status: 'draft' }}
+          onSubmitted={loadDoctorStatus}
+        />
+      );
+    }
+
+    return (
+      <DashboardLayout title="Doctor Dashboard">
+        <div className="pb-8">{gate}</div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout

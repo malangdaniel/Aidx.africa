@@ -333,6 +333,18 @@ export default function AuthPage() {
                     </div>
                   </div>
 
+                  {formData.role === 'doctor' && (
+                    <div className="rounded-xl bg-primary/5 border border-primary/20 p-3.5 space-y-1.5 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                        <Stethoscope className="w-4 h-4 text-primary" />
+                        <span>Doctor Onboarding & Verification</span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed">
+                        After signing up, you will be guided to complete your medical credentials, availability schedule, and upload your practicing license. All doctors are verified before receiving patient appointments.
+                      </p>
+                    </div>
+                  )}
+
                   {formData.role === 'pharmacist' && (
                     <div className="space-y-3">
                       <div className="flex items-start gap-2">
