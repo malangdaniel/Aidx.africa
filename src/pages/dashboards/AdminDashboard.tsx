@@ -18,7 +18,8 @@ import {
     ShieldAlert,
     Home,
     Wallet,
-    Building2
+    Building2,
+    Stethoscope
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -26,6 +27,7 @@ import { Link } from 'react-router-dom';
 import AdminOverviewTab from '@/components/admin/AdminOverviewTab';
 import AdminVerificationTab from '@/components/admin/AdminVerificationTab';
 import AdminPharmaciesTab from '@/components/admin/AdminPharmaciesTab';
+import AdminDoctorsTab from '@/components/admin/AdminDoctorsTab';
 import { supabase } from '@/integrations/supabase/client';
 import AdminUsersTab from '@/components/admin/AdminUsersTab';
 import AdminConsultationsTab from '@/components/admin/AdminConsultationsTab';
@@ -84,6 +86,7 @@ export default function AdminDashboard() {
 
     const tabs = [
         { id: 'overview', label: 'Overview', icon: BarChart3 },
+        { id: 'doctors', label: 'Doctors', icon: Stethoscope },
         { id: 'pharmacies', label: 'Pharmacies', icon: Building2 },
         { id: 'verification', label: 'Verification', icon: ShieldCheck },
         { id: 'users', label: 'Users', icon: Users },
@@ -103,6 +106,8 @@ export default function AdminDashboard() {
                 return <AdminOverviewTab />;
             case 'pharmacies':
                 return <AdminPharmaciesTab />;
+            case 'doctors':
+                return <AdminDoctorsTab />;
             case 'verification':
                 return <AdminVerificationTab />;
             case 'users':

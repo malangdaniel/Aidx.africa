@@ -2,43 +2,22 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from '@/components/ui/dialog';
 import {
     CheckCircle,
-    XCircle,
-    FileText,
-    ExternalLink,
     Loader2,
     RefreshCw,
-    ShieldAlert,
     Building2,
     Stethoscope,
-    User,
     Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AdminRpcService, AdminUserRow } from '@/services/AdminRpcService';
 import { PharmacyDetail } from '@/components/admin/AdminPharmaciesTab';
-import AdminDoctorDetail from '@/components/admin/AdminDoctorDetail';
+import { DoctorApplicationDetail } from '@/components/admin/AdminDoctorsTab';
 
 export default function AdminVerificationTab() {
     const [pendingUsers, setPendingUsers] = useState<AdminUserRow[]>([]);
     const [loading, setLoading] = useState(true);
-    const [actionUser, setActionUser] = useState<AdminUserRow | null>(null);
-    const [actionType, setActionType] = useState<'verify' | 'reject' | null>(null);
-    const [rejectReason, setRejectReason] = useState('');
-    const [submitting, setSubmitting] = useState(false);
-    const [docLoading, setDocLoading] = useState<string | null>(null);
     const [detailUser, setDetailUser] = useState<AdminUserRow | null>(null);
 
     const loadPending = async () => {
@@ -62,58 +41,6 @@ export default function AdminVerificationTab() {
         loadPending();
     }, []);
 
-    const handleViewDocument = async (user: AdminUserRow) => {
-        setDocLoading(user.user_id);
-        try {
-            // Search or retrieve signed URL for user's document in the private 'ids' bucket
-            // Path convention in ids bucket: `<user_id>/id` or `<user_id>/license`
-            const docPath = `${user.user_id}/license`;
-            let url = await AdminRpcService.getPrivateIdSignedUrl(docPath);
-            if (!url) {
-                // Try fallback id path
-                url = await AdminRpcService.getPrivateIdSignedUrl(`${user.user_id}/id`);
-            }
-            if (url) {
-                window.open(url, '_blank', 'noopener,noreferrer');
-            } else {
-                toast.error('No uploaded verification document found for this user in the ids storage bucket.');
-            }
-        } catch (err: any) {
-            console.error('Document view error:', err);
-            toast.error(err.message || 'Could not retrieve document.');
-        } finally {
-            setDocLoading(null);
-        }
-    };
-
-    const handleConfirmAction = async () => {
-        if (!actionUser || !actionType) return;
-        if (actionType === 'reject' && !rejectReason.trim()) {
-            toast.error('Please provide a reason for rejection.');
-            return;
-        }
-
-        setSubmitting(true);
-        try {
-            const newStatus = actionType === 'verify' ? 'verified' : 'rejected';
-            await AdminRpcService.setVerification(
-                actionUser.user_id,
-                newStatus,
-                actionType === 'reject' ? rejectReason.trim() : null
-            );
-            toast.success(`User ${actionUser.full_name || actionUser.email} has been ${newStatus}.`);
-            setActionUser(null);
-            setActionType(null);
-            setRejectReason('');
-            loadPending();
-        } catch (err: any) {
-            console.error('Verification error:', err);
-            toast.error(err.message || 'Failed to update verification status.');
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
     const closeDetail = () => {
         setDetailUser(null);
         loadPending();
@@ -123,7 +50,7 @@ export default function AdminVerificationTab() {
         return detailUser.role === 'pharmacist' ? (
             <PharmacyDetail userId={detailUser.user_id} onBack={closeDetail} backLabel="Back to queue" />
         ) : (
-            <AdminDoctorDetail user={detailUser} onBack={closeDetail} />
+            <DoctorApplicationDetail userId={detailUser.user_id} onBack={closeDetail} backLabel="Back to queue" />
         );
     }
 
@@ -205,105 +132,15 @@ export default function AdminVerificationTab() {
                                             className="text-xs gap-1.5 flex-1"
                                         >
                                             <Eye className="w-3.5 h-3.5" />
-                                            {isDoctor ? 'View profile & details' : 'Review application'}
+                                            Review application
                                         </Button>
 
-                                        {isDoctor && (
-                                            <>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleViewDocument(u)}
-                                                    disabled={docLoading === u.user_id}
-                                                    className="text-xs gap-1.5"
-                                                >
-                                                    {docLoading === u.user_id ? (
-                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                    ) : (
-                                                        <FileText className="w-3.5 h-3.5" />
-                                                    )}
-                                                    Document
-                                                </Button>
-                                                <Button
-                                                    variant="default"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setActionUser(u);
-                                                        setActionType('verify');
-                                                    }}
-                                                    className="text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                                >
-                                                    <CheckCircle className="w-3.5 h-3.5" />
-                                                    Approve
-                                                </Button>
-                                                <Button
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setActionUser(u);
-                                                        setActionType('reject');
-                                                        setRejectReason('');
-                                                    }}
-                                                    className="text-xs gap-1"
-                                                >
-                                                    <XCircle className="w-3.5 h-3.5" />
-                                                    Reject
-                                                </Button>
-                                            </>
-                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
                         );
                     })}
                 </div>
-            )}
-
-            {/* Approval / Rejection Modal */}
-            {actionUser && actionType && (
-                <Dialog open={!!actionUser} onOpenChange={(open) => !open && !submitting && setActionUser(null)}>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>
-                                {actionType === 'verify' ? 'Approve Credential' : 'Reject Credential'}
-                            </DialogTitle>
-                            <DialogDescription>
-                                {actionType === 'verify'
-                                    ? `Are you sure you want to approve ${actionUser.full_name || actionUser.email} as a verified ${actionUser.role}? They will immediately be authorized to receive bookings or orders.`
-                                    : `Reject credential application for ${actionUser.full_name || actionUser.email}. Please provide a clear rationale for the user.`
-                                }
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        {actionType === 'reject' && (
-                            <div className="space-y-2 py-2">
-                                <Label htmlFor="verification-reject-reason">Rejection Reason (Required)</Label>
-                                <Textarea
-                                    id="verification-reject-reason"
-                                    placeholder="e.g. Expired medical license, unreadable document photo, invalid facility registration..."
-                                    value={rejectReason}
-                                    onChange={(e) => setRejectReason(e.target.value)}
-                                    rows={3}
-                                />
-                            </div>
-                        )}
-
-                        <DialogFooter className="gap-2 sm:gap-0">
-                            <Button variant="outline" onClick={() => setActionUser(null)} disabled={submitting}>
-                                Cancel
-                            </Button>
-                            <Button
-                                variant={actionType === 'verify' ? 'default' : 'destructive'}
-                                onClick={handleConfirmAction}
-                                disabled={submitting || (actionType === 'reject' && !rejectReason.trim())}
-                                className={actionType === 'verify' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
-                            >
-                                {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                {actionType === 'verify' ? 'Confirm Approval' : 'Confirm Rejection'}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
             )}
         </div>
     );
