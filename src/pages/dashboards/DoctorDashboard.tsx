@@ -15,6 +15,9 @@ import { toast } from 'sonner';
 import { WalletService } from '@/services/WalletService';
 import WithdrawalScreen from '@/components/shared/WithdrawalScreen';
 import DoctorAiReviewTab from '@/components/doctor/DoctorAiReviewTab';
+import DoctorOnboardingWizard from '@/components/doctor/onboarding/DoctorOnboardingWizard';
+import { DoctorUnderReviewScreen, DoctorSuspendedScreen } from '@/components/doctor/onboarding/DoctorStatusScreens';
+import { DoctorOnboardingService, type DoctorApplicationStatus } from '@/services/DoctorOnboardingService';
 import {
   Dialog,
   DialogContent,
@@ -58,6 +61,24 @@ export default function DoctorDashboard() {
   const { profile, user } = useAuth();
   const doctorName = profile ? `Dr. ${profile.first_name || ''} ${profile.last_name || ''}` : 'Doctor';
 
+  const [appStatus, setAppStatus] = useState<DoctorApplicationStatus | null>(null);
+
+  const loadStatus = async () => {
+    try {
+      setAppStatus(await DoctorOnboardingService.getStatus());
+    } catch (error) {
+      console.error('Error loading doctor application status:', error);
+      // Fail closed: an unknown status sends the doctor to the application form, never straight in.
+      setAppStatus({ has_doctor: true, verification_status: 'pending', profile_status: 'draft' });
+    }
+  };
+
+  useEffect(() => {
+    if (user) loadStatus();
+  }, [user]);
+
+  const approved = appStatus?.verification_status === 'verified' && !appStatus.is_suspended;
+
   const [activeTab, setActiveTab] = useState('consultations');
   const [activeConsultation, setActiveConsultation] = useState<{ id: string, name: string } | null>(null);
   const [activePatient, setActivePatient] = useState<{ id: string } | null>(null);
@@ -91,8 +112,8 @@ export default function DoctorDashboard() {
   };
 
   useEffect(() => {
-    if (user) fetchDashboardData();
-  }, [user]);
+    if (user && approved) fetchDashboardData();
+  }, [user, approved]);
 
   const fetchDashboardData = async () => {
     if (!user) return;
@@ -494,6 +515,31 @@ export default function DoctorDashboard() {
     if (amount >= 1000) return `${(amount / 1000).toFixed(0)}k`;
     return amount.toString();
   };
+
+  // ---- Approval gate: only approved, non-suspended doctors see consultations, patients and earnings ----
+  if (!appStatus) {
+    return (
+      <DashboardLayout title="Doctor Dashboard">
+        <div className="flex justify-center py-24"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+      </DashboardLayout>
+    );
+  }
+
+  if (appStatus.has_doctor && !approved) {
+    let gate: JSX.Element;
+    if (appStatus.verification_status === 'verified' && appStatus.is_suspended) {
+      gate = <DoctorSuspendedScreen status={appStatus} />;
+    } else if (appStatus.profile_status === 'submitted' && appStatus.verification_status === 'pending') {
+      gate = <DoctorUnderReviewScreen status={appStatus} onRefresh={loadStatus} />;
+    } else {
+      gate = <DoctorOnboardingWizard status={appStatus} onSubmitted={loadStatus} />;
+    }
+    return (
+      <DashboardLayout title="Doctor Dashboard">
+        <div className="pb-8">{gate}</div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
