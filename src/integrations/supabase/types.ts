@@ -295,11 +295,57 @@ export type Database = {
           },
         ]
       }
+      consultation_hpi: {
+        Row: {
+          consultation_id: string
+          doctor_feedback: Json
+          doctor_id: string
+          generated_at: string
+          hpi: Json
+          hpi_text: string | null
+          model: string | null
+          patient_id: string
+          summary_version: number | null
+        }
+        Insert: {
+          consultation_id: string
+          doctor_feedback?: Json
+          doctor_id: string
+          generated_at?: string
+          hpi?: Json
+          hpi_text?: string | null
+          model?: string | null
+          patient_id: string
+          summary_version?: number | null
+        }
+        Update: {
+          consultation_id?: string
+          doctor_feedback?: Json
+          doctor_id?: string
+          generated_at?: string
+          hpi?: Json
+          hpi_text?: string | null
+          model?: string | null
+          patient_id?: string
+          summary_version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultation_hpi_consultation_id_fkey"
+            columns: ["consultation_id"]
+            isOneToOne: true
+            referencedRelation: "consultations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultations: {
         Row: {
           chief_complaint: string | null
           clinical_summary: string | null
           created_at: string
+          data_sharing_consent: boolean
+          data_sharing_consent_at: string | null
           decision_support: Json | null
           diagnosis: string | null
           differential_diagnosis: string | null
@@ -328,6 +374,8 @@ export type Database = {
           chief_complaint?: string | null
           clinical_summary?: string | null
           created_at?: string
+          data_sharing_consent?: boolean
+          data_sharing_consent_at?: string | null
           decision_support?: Json | null
           diagnosis?: string | null
           differential_diagnosis?: string | null
@@ -356,6 +404,8 @@ export type Database = {
           chief_complaint?: string | null
           clinical_summary?: string | null
           created_at?: string
+          data_sharing_consent?: boolean
+          data_sharing_consent_at?: string | null
           decision_support?: Json | null
           diagnosis?: string | null
           differential_diagnosis?: string | null
@@ -397,42 +447,237 @@ export type Database = {
           },
         ]
       }
-      doctors: {
+      doctor_documents: {
         Row: {
-          bio: string | null
-          consult_price: number | null
           created_at: string
+          doc_type: string
+          doctor_id: string
+          file_name: string | null
           id: string
-          license_number: string | null
-          rating: number | null
-          specialties: string[] | null
-          total_consultations: number | null
+          mime_type: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          size_bytes: number | null
+          status: string
+          storage_path: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          bio?: string | null
-          consult_price?: number | null
           created_at?: string
+          doc_type: string
+          doctor_id: string
+          file_name?: string | null
           id?: string
-          license_number?: string | null
-          rating?: number | null
-          specialties?: string[] | null
-          total_consultations?: number | null
+          mime_type?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          size_bytes?: number | null
+          status?: string
+          storage_path: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          created_at?: string
+          doc_type?: string
+          doctor_id?: string
+          file_name?: string | null
+          id?: string
+          mime_type?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          size_bytes?: number | null
+          status?: string
+          storage_path?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_documents_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctor_review_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          doctor_id: string
+          id: string
+          message: string | null
+          user_id: string
+          visible_to_doctor: boolean
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          doctor_id: string
+          id?: string
+          message?: string | null
+          user_id: string
+          visible_to_doctor?: boolean
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          message?: string | null
+          user_id?: string
+          visible_to_doctor?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_review_events_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctor_verification: {
+        Row: {
+          alma_mater: string | null
+          contact_phone: string | null
+          created_at: string
+          doctor_id: string
+          graduation_year: number | null
+          id: string
+          license_expiry: string | null
+          marketing_opt_in: boolean
+          mdcn_folio_number: string | null
+          payout_account_name: string | null
+          payout_account_number: string | null
+          payout_bank_name: string | null
+          terms_accepted_at: string | null
+          terms_version: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alma_mater?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          doctor_id: string
+          graduation_year?: number | null
+          id?: string
+          license_expiry?: string | null
+          marketing_opt_in?: boolean
+          mdcn_folio_number?: string | null
+          payout_account_name?: string | null
+          payout_account_number?: string | null
+          payout_bank_name?: string | null
+          terms_accepted_at?: string | null
+          terms_version?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alma_mater?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          doctor_id?: string
+          graduation_year?: number | null
+          id?: string
+          license_expiry?: string | null
+          marketing_opt_in?: boolean
+          mdcn_folio_number?: string | null
+          payout_account_name?: string | null
+          payout_account_number?: string | null
+          payout_bank_name?: string | null
+          terms_accepted_at?: string | null
+          terms_version?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_verification_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: true
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctors: {
+        Row: {
+          bio: string | null
+          city: string | null
+          consult_price: number | null
+          created_at: string
+          hospital_or_clinic: string | null
+          id: string
+          is_suspended: boolean
+          license_number: string | null
+          profile_photo_url: string | null
+          profile_status: string
+          rating: number | null
+          specialties: string[] | null
+          state: string | null
+          submitted_at: string | null
+          suspended_at: string | null
+          suspended_reason: string | null
+          total_consultations: number | null
+          updated_at: string
+          user_id: string
+          years_of_experience: number | null
+        }
+        Insert: {
           bio?: string | null
+          city?: string | null
           consult_price?: number | null
           created_at?: string
+          hospital_or_clinic?: string | null
           id?: string
+          is_suspended?: boolean
           license_number?: string | null
+          profile_photo_url?: string | null
+          profile_status?: string
           rating?: number | null
           specialties?: string[] | null
+          state?: string | null
+          submitted_at?: string | null
+          suspended_at?: string | null
+          suspended_reason?: string | null
+          total_consultations?: number | null
+          updated_at?: string
+          user_id: string
+          years_of_experience?: number | null
+        }
+        Update: {
+          bio?: string | null
+          city?: string | null
+          consult_price?: number | null
+          created_at?: string
+          hospital_or_clinic?: string | null
+          id?: string
+          is_suspended?: boolean
+          license_number?: string | null
+          profile_photo_url?: string | null
+          profile_status?: string
+          rating?: number | null
+          specialties?: string[] | null
+          state?: string | null
+          submitted_at?: string | null
+          suspended_at?: string | null
+          suspended_reason?: string | null
           total_consultations?: number | null
           updated_at?: string
           user_id?: string
+          years_of_experience?: number | null
         }
         Relationships: [
           {
@@ -1073,6 +1318,153 @@ export type Database = {
           },
         ]
       }
+      patient_clinical_summary: {
+        Row: {
+          generated_at: string | null
+          is_stale: boolean
+          model: string | null
+          patient_id: string
+          sources: Json
+          stale_reason: string | null
+          stale_since: string | null
+          summary: Json
+          summary_text: string | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          generated_at?: string | null
+          is_stale?: boolean
+          model?: string | null
+          patient_id: string
+          sources?: Json
+          stale_reason?: string | null
+          stale_since?: string | null
+          summary?: Json
+          summary_text?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          generated_at?: string | null
+          is_stale?: boolean
+          model?: string | null
+          patient_id?: string
+          sources?: Json
+          stale_reason?: string | null
+          stale_since?: string | null
+          summary?: Json
+          summary_text?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      patient_documents: {
+        Row: {
+          created_at: string
+          doc_date: string | null
+          doc_type: string
+          extracted: Json | null
+          extraction_status: string
+          file_name: string | null
+          id: string
+          mime_type: string
+          patient_id: string
+          size_bytes: number | null
+          storage_path: string
+          title: string | null
+        }
+        Insert: {
+          created_at?: string
+          doc_date?: string | null
+          doc_type?: string
+          extracted?: Json | null
+          extraction_status?: string
+          file_name?: string | null
+          id?: string
+          mime_type: string
+          patient_id: string
+          size_bytes?: number | null
+          storage_path: string
+          title?: string | null
+        }
+        Update: {
+          created_at?: string
+          doc_date?: string | null
+          doc_type?: string
+          extracted?: Json | null
+          extraction_status?: string
+          file_name?: string | null
+          id?: string
+          mime_type?: string
+          patient_id?: string
+          size_bytes?: number | null
+          storage_path?: string
+          title?: string | null
+        }
+        Relationships: []
+      }
+      patient_record_access_log: {
+        Row: {
+          accessed_at: string
+          doctor_id: string
+          id: string
+          notified: boolean
+          patient_id: string
+          sections: string[]
+        }
+        Insert: {
+          accessed_at?: string
+          doctor_id: string
+          id?: string
+          notified?: boolean
+          patient_id: string
+          sections?: string[]
+        }
+        Update: {
+          accessed_at?: string
+          doctor_id?: string
+          id?: string
+          notified?: boolean
+          patient_id?: string
+          sections?: string[]
+        }
+        Relationships: []
+      }
+      patient_summary_versions: {
+        Row: {
+          changelog: string | null
+          created_at: string
+          id: string
+          patient_id: string
+          summary: Json
+          summary_text: string | null
+          trigger_reason: string | null
+          version: number
+        }
+        Insert: {
+          changelog?: string | null
+          created_at?: string
+          id?: string
+          patient_id: string
+          summary: Json
+          summary_text?: string | null
+          trigger_reason?: string | null
+          version: number
+        }
+        Update: {
+          changelog?: string | null
+          created_at?: string
+          id?: string
+          patient_id?: string
+          summary?: Json
+          summary_text?: string | null
+          trigger_reason?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       payout_requests: {
         Row: {
           amount: number
@@ -1155,6 +1547,7 @@ export type Database = {
           location: unknown
           logo_url: string | null
           longitude: number | null
+          metadata: Json | null
           offers_delivery: boolean
           offers_pickup: boolean
           opening_hours: Json
@@ -1194,6 +1587,7 @@ export type Database = {
           location?: unknown
           logo_url?: string | null
           longitude?: number | null
+          metadata?: Json | null
           offers_delivery?: boolean
           offers_pickup?: boolean
           opening_hours?: Json
@@ -1233,6 +1627,7 @@ export type Database = {
           location?: unknown
           logo_url?: string | null
           longitude?: number | null
+          metadata?: Json | null
           offers_delivery?: boolean
           offers_pickup?: boolean
           opening_hours?: Json
@@ -1558,6 +1953,8 @@ export type Database = {
           last_name: string | null
           metadata: Json | null
           phone: string | null
+          records_sharing_consent: boolean
+          records_sharing_consent_at: string | null
           rejection_reason: string | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
@@ -1578,6 +1975,8 @@ export type Database = {
           last_name?: string | null
           metadata?: Json | null
           phone?: string | null
+          records_sharing_consent?: boolean
+          records_sharing_consent_at?: string | null
           rejection_reason?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
@@ -1598,6 +1997,8 @@ export type Database = {
           last_name?: string | null
           metadata?: Json | null
           phone?: string | null
+          records_sharing_consent?: boolean
+          records_sharing_consent_at?: string | null
           rejection_reason?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
@@ -2026,6 +2427,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _doctor_missing: { Args: { p_uid: string }; Returns: string[] }
       _ledger: {
         Args: {
           p_amount: number
@@ -2057,6 +2459,21 @@ export type Database = {
         }
       }
       _pharmacy_missing: { Args: { p_uid: string }; Returns: string[] }
+      admin_apply_profile_change: {
+        Args: {
+          p_doctor?: Json
+          p_kind: string
+          p_pharmacy?: Json
+          p_profile?: Json
+          p_user_id: string
+          p_verification?: Json
+        }
+        Returns: Json
+      }
+      admin_get_doctor_application: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       admin_get_pharmacy_application: {
         Args: { p_user_id: string }
         Returns: Json
@@ -2079,6 +2496,31 @@ export type Database = {
           price: number
           scheduled_at: string
           status: string
+        }[]
+      }
+      admin_list_doctor_applications: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          city: string
+          created_at: string
+          docs_approved: number
+          docs_total: number
+          doctor_id: string
+          email: string
+          full_name: string
+          is_suspended: boolean
+          license_expiry: string
+          license_number: string
+          profile_status: string
+          state: string
+          submitted_at: string
+          user_id: string
+          verification_status: string
         }[]
       }
       admin_list_flagged_diagnoses: {
@@ -2191,6 +2633,14 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_review_doctor: {
+        Args: { p_action: string; p_message?: string; p_user_id: string }
+        Returns: Json
+      }
+      admin_review_doctor_document: {
+        Args: { p_document_id: string; p_note?: string; p_status: string }
+        Returns: Json
+      }
       admin_review_pharmacy: {
         Args: { p_action: string; p_message?: string; p_user_id: string }
         Returns: Json
@@ -2238,6 +2688,8 @@ export type Database = {
         }
         Returns: Json
       }
+      doctor_application_status: { Args: never; Returns: Json }
+      doctor_submit_application: { Args: never; Returns: Json }
       get_current_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
@@ -2248,6 +2700,17 @@ export type Database = {
           scheduled_at: string
         }[]
       }
+      get_my_record_access_log: {
+        Args: { p_limit?: number }
+        Returns: {
+          accessed_at: string
+          doctor_id: string
+          doctor_name: string
+          hospital_or_clinic: string
+          id: string
+          sections: string[]
+        }[]
+      }
       get_setting_bool: {
         Args: { p_default: boolean; p_key: string }
         Returns: boolean
@@ -2255,6 +2718,10 @@ export type Database = {
       get_setting_numeric: {
         Args: { p_default: number; p_key: string }
         Returns: number
+      }
+      has_active_session_consent: {
+        Args: { _doctor_id: string; _patient_id: string }
+        Returns: boolean
       }
       has_role: {
         Args: {
@@ -2268,6 +2735,23 @@ export type Database = {
         Args: { _doctor_id: string; _patient_id: string }
         Returns: boolean
       }
+      is_verified_doctor: { Args: { _uid: string }; Returns: boolean }
+      list_my_past_patients: {
+        Args: { p_search?: string }
+        Returns: {
+          age_years: number
+          consent_given: boolean
+          first_name: string
+          gender: string
+          has_upcoming: boolean
+          last_chief_complaint: string
+          last_diagnosis: string
+          last_name: string
+          last_visit_at: string
+          patient_id: string
+          visit_count: number
+        }[]
+      }
       log_audit: {
         Args: {
           p_action: string
@@ -2276,6 +2760,14 @@ export type Database = {
           p_entity_type?: string
         }
         Returns: undefined
+      }
+      mark_clinical_summary_stale: {
+        Args: { p_patient: string; p_reason: string }
+        Returns: undefined
+      }
+      open_patient_record: {
+        Args: { p_acknowledged?: boolean; p_patient_id: string }
+        Returns: Json
       }
       owns_order: { Args: { _order_id: string }; Returns: boolean }
       pharmacy_application_status: { Args: never; Returns: Json }

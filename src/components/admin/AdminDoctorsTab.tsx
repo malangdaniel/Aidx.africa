@@ -21,10 +21,6 @@ import {
 } from '@/services/DoctorOnboardingService';
 import { daysUntil } from '@/services/PharmacyOnboardingService';
 
-// The generated Supabase types predate the doctor onboarding functions.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const rpc = (supabase as any).rpc.bind(supabase) as (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
-
 type ListRow = {
   user_id: string; doctor_id: string; full_name: string; email: string; state: string | null; city: string | null;
   license_number: string | null; verification_status: string; profile_status: string; is_suspended: boolean;
@@ -70,7 +66,7 @@ function DoctorList({ onOpen }: { onOpen: (userId: string) => void }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await rpc('admin_list_doctor_applications', {
+    const { data, error } = await supabase.rpc('admin_list_doctor_applications', {
       p_status: tab === 'all' ? null : tab, p_search: query || null, p_limit: PAGE, p_offset: page * PAGE,
     });
     if (error) toast.error(error.message);
@@ -164,7 +160,7 @@ export function DoctorApplicationDetail({ userId, onBack, backLabel = 'All docto
   const [docNote, setDocNote] = useState('');
 
   const load = useCallback(async () => {
-    const { data, error } = await rpc('admin_get_doctor_application', { p_user_id: userId });
+    const { data, error } = await supabase.rpc('admin_get_doctor_application', { p_user_id: userId });
     if (error) toast.error(error.message);
     setD((data ?? null) as Detail | null);
     setLoading(false);
@@ -174,7 +170,7 @@ export function DoctorApplicationDetail({ userId, onBack, backLabel = 'All docto
   const runAction = async () => {
     if (!action) return;
     setBusy(true);
-    const { error } = await rpc('admin_review_doctor', { p_user_id: userId, p_action: action, p_message: message.trim() || null });
+    const { error } = await supabase.rpc('admin_review_doctor', { p_user_id: userId, p_action: action, p_message: message.trim() || null });
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success('Done');
@@ -182,7 +178,7 @@ export function DoctorApplicationDetail({ userId, onBack, backLabel = 'All docto
   };
 
   const reviewDoc = async (id: string, status: 'approved' | 'rejected' | 'pending', note?: string) => {
-    const { error } = await rpc('admin_review_doctor_document', { p_document_id: id, p_status: status, p_note: note ?? null });
+    const { error } = await supabase.rpc('admin_review_doctor_document', { p_document_id: id, p_status: status, p_note: note ?? null });
     if (error) return toast.error(error.message);
     setDocDialog(null); setDocNote(''); load();
   };

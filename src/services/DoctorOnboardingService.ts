@@ -1,62 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 
-// The generated Supabase types predate the doctor onboarding tables, so the rows are typed here.
-// Calls go through a loosely typed client until `types.ts` is regenerated.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any;
-
-export interface DoctorRow {
-  id: string;
-  user_id: string;
-  license_number: string | null;
-  specialties: string[] | null;
-  consult_price: number | null;
-  bio: string | null;
-  years_of_experience: number | null;
-  hospital_or_clinic: string | null;
-  state: string | null;
-  city: string | null;
-  profile_photo_url: string | null;
-  profile_status: 'draft' | 'submitted' | 'needs_info';
-  is_suspended: boolean;
-}
-
-export interface DoctorVerificationRow {
-  id: string;
-  doctor_id: string;
-  user_id: string;
-  mdcn_folio_number: string | null;
-  license_expiry: string | null;
-  alma_mater: string | null;
-  graduation_year: number | null;
-  contact_phone: string | null;
-  terms_accepted_at: string | null;
-  terms_version: string | null;
-  marketing_opt_in: boolean;
-  payout_bank_name: string | null;
-  payout_account_number: string | null;
-  payout_account_name: string | null;
-}
-
-export interface DoctorDocumentRow {
-  id: string;
-  doctor_id: string;
-  user_id: string;
-  doc_type: string;
-  storage_path: string;
-  file_name: string | null;
-  mime_type: string | null;
-  size_bytes: number | null;
-  status: 'pending' | 'approved' | 'rejected';
-  review_note: string | null;
-}
-
-export interface DoctorEventRow {
-  id: string;
-  action: string;
-  message: string | null;
-  created_at: string;
-}
+type Tables = Database['public']['Tables'];
+export type DoctorRow = Tables['doctors']['Row'];
+export type DoctorVerificationRow = Tables['doctor_verification']['Row'];
+export type DoctorDocumentRow = Tables['doctor_documents']['Row'];
+export type DoctorEventRow = Tables['doctor_review_events']['Row'];
 
 export type DoctorDocType = 'medical_license' | 'government_id' | 'profile_photo' | 'degree_certificate';
 
@@ -127,13 +76,13 @@ const IMG_MIME = ['image/jpeg', 'image/png', 'image/webp'];
 
 export class DoctorOnboardingService {
   static async getStatus(): Promise<DoctorApplicationStatus> {
-    const { data, error } = await db.rpc('doctor_application_status');
+    const { data, error } = await supabase.rpc('doctor_application_status');
     if (error) throw error;
-    return (data ?? { has_doctor: false }) as DoctorApplicationStatus;
+    return (data ?? { has_doctor: false }) as unknown as DoctorApplicationStatus;
   }
 
   static async getDoctor(userId: string): Promise<DoctorRow | null> {
-    const { data, error } = await db.from('doctors').select('*').eq('user_id', userId).maybeSingle();
+    const { data, error } = await supabase.from('doctors').select('*').eq('user_id', userId).maybeSingle();
     if (error) throw error;
     return data as DoctorRow | null;
   }
@@ -143,12 +92,12 @@ export class DoctorOnboardingService {
     doctor: DoctorRow,
     user: { id: string; user_metadata?: Record<string, unknown> },
   ): Promise<DoctorVerificationRow> {
-    const { data: existing, error } = await db.from('doctor_verification').select('*').eq('doctor_id', doctor.id).maybeSingle();
+    const { data: existing, error } = await supabase.from('doctor_verification').select('*').eq('doctor_id', doctor.id).maybeSingle();
     if (error) throw error;
     if (existing) return existing as DoctorVerificationRow;
 
     const meta = user.user_metadata ?? {};
-    const { data: created, error: insErr } = await db
+    const { data: created, error: insErr } = await supabase
       .from('doctor_verification')
       .insert({
         doctor_id: doctor.id,
@@ -162,17 +111,17 @@ export class DoctorOnboardingService {
   }
 
   static async saveDoctor(doctorId: string, patch: Partial<DoctorRow>) {
-    const { error } = await db.from('doctors').update(patch).eq('id', doctorId);
+    const { error } = await supabase.from('doctors').update(patch).eq('id', doctorId);
     if (error) throw error;
   }
 
   static async saveVerification(doctorId: string, patch: Partial<DoctorVerificationRow>) {
-    const { error } = await db.from('doctor_verification').update(patch).eq('doctor_id', doctorId);
+    const { error } = await supabase.from('doctor_verification').update(patch).eq('doctor_id', doctorId);
     if (error) throw error;
   }
 
   static async listDocuments(doctorId: string): Promise<DoctorDocumentRow[]> {
-    const { data, error } = await db.from('doctor_documents').select('*').eq('doctor_id', doctorId);
+    const { data, error } = await supabase.from('doctor_documents').select('*').eq('doctor_id', doctorId);
     if (error) throw error;
     return (data ?? []) as DoctorDocumentRow[];
   }
@@ -198,7 +147,7 @@ export class DoctorOnboardingService {
       upsert: false,
     });
     if (upErr) throw upErr;
-    const { error } = await db.from('doctor_documents').upsert(
+    const { error } = await supabase.from('doctor_documents').upsert(
       {
         doctor_id: doctorId,
         user_id: userId,
@@ -223,20 +172,20 @@ export class DoctorOnboardingService {
   }
 
   static async deleteDocument(doc: DoctorDocumentRow) {
-    const { error } = await db.from('doctor_documents').delete().eq('id', doc.id);
+    const { error } = await supabase.from('doctor_documents').delete().eq('id', doc.id);
     if (error) throw error;
     await supabase.storage.from('doctor-docs').remove([doc.storage_path]);
   }
 
   static async submit(): Promise<{ ok: boolean; missing: string[] }> {
-    const { data, error } = await db.rpc('doctor_submit_application');
+    const { data, error } = await supabase.rpc('doctor_submit_application');
     if (error) throw error;
-    const res = data as { ok: boolean; missing?: string[] };
+    const res = data as unknown as { ok: boolean; missing?: string[] };
     return { ok: !!res.ok, missing: res.missing ?? [] };
   }
 
   static async listEvents(doctorId: string): Promise<DoctorEventRow[]> {
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from('doctor_review_events')
       .select('id, action, message, created_at')
       .eq('doctor_id', doctorId)
