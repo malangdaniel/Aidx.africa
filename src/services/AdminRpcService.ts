@@ -58,6 +58,8 @@ export interface AdminUserRow {
     license_number?: string | null;
     business_name?: string | null;
     created_at: string;
+    metadata?: Record<string, any> | null;
+    is_resubmitted?: boolean;
 }
 
 export interface AdminConsultationRow {

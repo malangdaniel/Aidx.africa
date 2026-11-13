@@ -27,6 +27,7 @@ import {
     Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { AdminRpcService, AdminUserRow } from '@/services/AdminRpcService';
 import { PharmacyDetail } from '@/components/admin/AdminPharmaciesTab';
 import AdminDoctorDetail from '@/components/admin/AdminDoctorDetail';
@@ -45,11 +46,38 @@ export default function AdminVerificationTab() {
         setLoading(true);
         try {
             // Load both doctors and pharmacists with status 'pending'
-            const [doctors, pharmacists] = await Promise.all([
+            const [doctors, pharmacists, rejectedDoctors] = await Promise.all([
                 AdminRpcService.listUsers({ role: 'doctor', status: 'pending', limit: 100 }),
                 AdminRpcService.listUsers({ role: 'pharmacist', status: 'pending', limit: 100 }),
+                AdminRpcService.listUsers({ role: 'doctor', status: 'rejected', limit: 100 }).catch(() => []),
             ]);
-            setPendingUsers([...doctors, ...pharmacists]);
+
+            // Find rejected doctors who have resubmitted their corrections
+            let resubmittedDocs: AdminUserRow[] = [];
+            if (rejectedDoctors && rejectedDoctors.length > 0) {
+                const rejectedIds = rejectedDoctors.map((d) => d.user_id);
+                const { data: rejectedProfiles } = await supabase
+                    .from('profiles')
+                    .select('user_id, metadata')
+                    .in('user_id', rejectedIds);
+
+                if (rejectedProfiles) {
+                    const resubmittedMap = new Set<string>();
+                    for (const p of rejectedProfiles) {
+                        const m = (p.metadata as Record<string, any>) || {};
+                        const ob = m.doctor_onboarding || {};
+                        if (ob.profile_status === 'submitted' && ob.resubmitted_after_rejection) {
+                            resubmittedMap.add(p.user_id);
+                        }
+                    }
+
+                    resubmittedDocs = rejectedDoctors
+                        .filter((d) => resubmittedMap.has(d.user_id))
+                        .map((d) => ({ ...d, is_resubmitted: true }));
+                }
+            }
+
+            setPendingUsers([...doctors, ...resubmittedDocs, ...pharmacists]);
         } catch (err: any) {
             console.error('Error loading pending verifications:', err);
             toast.error(err.message || 'Failed to load verification queue.');
@@ -174,9 +202,16 @@ export default function AdminVerificationTab() {
                                                 <CardDescription className="text-xs">{u.email}</CardDescription>
                                             </div>
                                         </div>
-                                        <Badge variant="outline" className="capitalize">
-                                            {u.role}
-                                        </Badge>
+                                        <div className="flex items-center gap-1.5">
+                                            {u.is_resubmitted && (
+                                                <Badge className="bg-amber-600 hover:bg-amber-700 text-white text-[10px]">
+                                                    Resubmitted
+                                                </Badge>
+                                            )}
+                                            <Badge variant="outline" className="capitalize">
+                                                {u.role}
+                                            </Badge>
+                                        </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="space-y-3">

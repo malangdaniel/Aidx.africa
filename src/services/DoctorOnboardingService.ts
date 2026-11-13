@@ -40,6 +40,8 @@ export interface DoctorApplicationStatus {
   suspended_reason?: string | null;
   rejection_reason?: string | null;
   submitted_at?: string | null;
+  resubmitted_at?: string | null;
+  is_resubmission?: boolean;
   missing?: string[];
 }
 
@@ -97,12 +99,31 @@ export class DoctorOnboardingService {
       };
     }
 
-    // If rejected, allow resubmission
+    // If rejected, check if the doctor has resubmitted their corrections
     if (verificationStatus === 'rejected') {
+      const isResubmitted =
+        onboardingMeta.profile_status === 'submitted' &&
+        (onboardingMeta.resubmitted_after_rejection === true ||
+          (onboardingMeta.resubmitted_at &&
+            new Date(onboardingMeta.resubmitted_at) > new Date(profile.updated_at || profile.created_at)));
+
+      if (isResubmitted) {
+        return {
+          has_profile: true,
+          verification_status: 'pending',
+          profile_status: 'submitted',
+          is_suspended: isSuspended,
+          rejection_reason: rejectionReason,
+          submitted_at: onboardingMeta.resubmitted_at || onboardingMeta.submitted_at || null,
+          resubmitted_at: onboardingMeta.resubmitted_at || null,
+          is_resubmission: true,
+        };
+      }
+
       return {
         has_profile: true,
         verification_status: 'rejected',
-        profile_status: onboardingMeta.profile_status || 'submitted',
+        profile_status: onboardingMeta.profile_status || 'draft',
         is_suspended: isSuspended,
         rejection_reason: rejectionReason,
         submitted_at: onboardingMeta.submitted_at || null,
@@ -365,8 +386,9 @@ export class DoctorOnboardingService {
       return { ok: false, missing };
     }
 
-    const { data: profile } = await supabase.from('profiles').select('metadata').eq('user_id', userId).single();
+    const { data: profile } = await supabase.from('profiles').select('metadata, verification_status').eq('user_id', userId).single();
     const existingMeta = (profile?.metadata as Record<string, any>) || {};
+    const isPriorRejection = profile?.verification_status === 'rejected';
 
     const doctorProfile = {
       basicInfo: data.basicInfo,
@@ -375,31 +397,47 @@ export class DoctorOnboardingService {
       availability: data.availability,
     };
 
-    // 1. Update profiles table
+    const nowIso = new Date().toISOString();
+
+    // 1. Update profiles table safely without violating the trigger
+    // Note: Database trigger 'guard_profiles_update' prohibits non-admin users from changing verification_status
+    // or role directly. We preserve verification_status on the profiles table, and store the submission state
+    // and resubmission timestamps in metadata.doctor_onboarding.
+    const profileUpdatePayload: Record<string, any> = {
+      first_name: data.firstName.trim(),
+      last_name: data.lastName.trim(),
+      phone: data.phone.trim() || null,
+      updated_at: nowIso,
+      metadata: {
+        ...existingMeta,
+        doctorProfile,
+        doctor_documents: data.documents,
+        doctor_onboarding: {
+          profile_status: 'submitted',
+          submitted_at: nowIso,
+          declaration_accepted: true,
+          declaration_accepted_at: nowIso,
+          resubmitted_after_rejection: isPriorRejection,
+          resubmitted_at: isPriorRejection ? nowIso : undefined,
+        },
+      },
+    };
+
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({
-        first_name: data.firstName.trim(),
-        last_name: data.lastName.trim(),
-        phone: data.phone.trim() || null,
-        verification_status: 'pending',
-        rejection_reason: null, // Clear any previous rejection
-        updated_at: new Date().toISOString(),
-        metadata: {
-          ...existingMeta,
-          doctorProfile,
-          doctor_documents: data.documents,
-          doctor_onboarding: {
-            profile_status: 'submitted',
-            submitted_at: new Date().toISOString(),
-            declaration_accepted: true,
-            declaration_accepted_at: new Date().toISOString(),
-          },
-        },
-      })
+      .update(profileUpdatePayload)
       .eq('user_id', userId);
 
     if (profileError) throw profileError;
+
+    // Attempt RPC call to doctor_submit_application if defined in PostgreSQL,
+    // which has security definer rights to reset verification_status if needed.
+    try {
+      await supabase.rpc('doctor_submit_application');
+    } catch (rpcErr) {
+      // Non-fatal if the RPC is unavailable or has strict table prerequisites
+      console.warn('doctor_submit_application RPC notice:', rpcErr);
+    }
 
     // 2. Upsert into doctors table
     const { data: existingDoctor } = await supabase

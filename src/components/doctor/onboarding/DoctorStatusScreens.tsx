@@ -55,13 +55,15 @@ export function DoctorUnderReviewScreen({ status, onRefresh, onEditApplication }
             <Clock className="w-8 h-8 animate-pulse text-amber-600" />
           </div>
           <Badge variant="outline" className="bg-amber-100/70 text-amber-900 border-amber-300 font-semibold mb-2 px-3 py-0.5 text-xs">
-            Awaiting Medical Board Verification
+            {status.is_resubmission ? 'Corrections Resubmitted • Under Review' : 'Awaiting Medical Board Verification'}
           </Badge>
           <CardTitle className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-            Your Medical Credentials Are Under Review
+            {status.is_resubmission ? 'Your Updated Application Is Under Review' : 'Your Medical Credentials Are Under Review'}
           </CardTitle>
           <CardDescription className="text-sm text-muted-foreground max-w-lg mt-2 leading-relaxed">
-            Thank you for registering, <span className="font-semibold text-foreground">{basic.professionalTitle || 'Dr.'} {doctorFullName}</span>. Our clinical governance and credentialing team is actively validating your license with the Medical and Dental Council of Nigeria (MDCN) or your designated statutory board.
+            {status.is_resubmission
+              ? <>Thank you for making the requested adjustments, <span className="font-semibold text-foreground">{basic.professionalTitle || 'Dr.'} {doctorFullName}</span>. Our medical credentialing team is reviewing your updated details and documents.</>
+              : <>Thank you for registering, <span className="font-semibold text-foreground">{basic.professionalTitle || 'Dr.'} {doctorFullName}</span>. Our clinical governance and credentialing team is actively validating your license with the Medical and Dental Council of Nigeria (MDCN) or your designated statutory board.</>}
           </CardDescription>
         </CardHeader>
 
